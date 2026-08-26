@@ -2,9 +2,52 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ââ VARIABLES DE TEMA (default: oscuro) ââ */
 :root {
   --background: #f8fafc;
   --foreground: #0f172a;
+
+  /* Tema oscuro */
+  --bg-page: #0D1117;
+  --bg-card: #161B22;
+  --bg-input: #21262D;
+  --bg-alternate: #1C2128;
+  --border-color: #30363D;
+  --border-subtle: #21262D;
+  --text-primary: #C9D1D9;
+  --text-secondary: #8B949E;
+  --text-muted: #6E7681;
+  --accent-positive: #3FB950;
+  --accent-negative: #FF7B72;
+  --accent-confirm: #238636;
+  --accent-secondary: #58A6FF;
+  --shadow: none;
+  --shadow-hover: 0 2px 4px rgba(0,0,0,0.2);
+  --radius: 12px;
+}
+
+/* ââ TEMA ROSA ââ */
+[data-theme="rosa"] {
+  --bg-page: #FAF6F3;
+  --bg-card: #FFFFFF;
+  --bg-input: #FFF9F6;
+  --bg-alternate: #F5EEEB;
+  --border-color: #E8D8D0;
+  --border-subtle: #F0E6E1;
+  --text-primary: #C85A6D;
+  --text-secondary: #A97480;
+  --text-muted: #C4A39E;
+  --accent-positive: #C97B8F;
+  --accent-negative: #E8847D;
+  --accent-confirm: #D4849C;
+  --accent-secondary: #E6A8B5;
+  --shadow: 0 2px 6px rgba(200,123,143,0.08);
+  --shadow-hover: 0 4px 12px rgba(200,123,143,0.12);
+  --radius: 14px;
+}
+
+html {
+  transition: background-color 300ms, color 300ms;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -30,6 +73,6 @@ input:-webkit-autofill,
 input:-webkit-autofill:hover,
 input:-webkit-autofill:focus {
   -webkit-box-shadow: 0 0 0px 1000px white inset !important;
-  box-shadow: 0 0 0px 1000px white inset !important;
+  box-shadow: 0 0 0 0px 1000px white inset !important;
   -webkit-text-fill-color: #1e293b !important;
 }
