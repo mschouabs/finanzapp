@@ -3,99 +3,260 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 
-interface Meta { id: string; nombre: string; descripcion: string; monto_objetivo: number; monto_actual: number; moneda: string; fecha_objetivo: string | null; emoji: string; completada: boolean }
+function fmt(n: number) {
+  if (Math.abs(n) >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`
+  if (Math.abs(n) >= 1_000) return `$${(n / 1_000).toFixed(0)}K`
+  return `$${n.toLocaleString('es-AR', { maximumFractionDigits: 0 })}`
+}
+
+function ProgressBar({ pct, color }: { pct: number; color: string }) {
+  const clamped = Math.min(Math.max(pct, 0), 100)
+  return (
+    <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+      <div className={`h-full rounded-full transition-all ${color}`} style={{ width: `${clamped}%` }} />
+    </div>
+  )
+}
 
 export default function MetasPage() {
-  const [metas, setMetas] = useState<Meta[]>([])
   const [loading, setLoading] = useState(true)
-  const [showForm, setShowForm] = useState(false)
-  const [showAporte, setShowAporte] = useState<string | null>(null)
-  const [montoAporte, setMontoAporte] = useState('')
-  const [form, setForm] = useState({ nombre: '', descripcion: '', monto_objetivo: '', moneda: 'ARS', fecha_objetivo: '', emoji: '🎯' })
-  const EMOJIS = ['🎯', '🏠', '🚗', '✈️', '💻', '📱', '🎓', '💍', '🏖️', '🎸']
+  const [dolar, setDolar] = useState<number | null>(null)
 
-  useEffect(() => { loadData() }, [])
+  // Financial data
+  const [totalIngresos, setTotalIngresos] = useState(0)
+  const [totalGastosFijos, setTotalGastosFijos] = useState(0)
+  const [totalGastosVar, setTotalGastosVar] = useState(0)
+  const [totalInversiones, setTotalInversiones] = useState(0)
+  const [rendMensual, setRendMensual] = useState(0)
+
+  // Meta configs (editable)
+  const [metaAhorro, setMetaAhorro] = useState(50) // % objetivo
+  const [metaCompraUSD, setMetaCompraUSD] = useState(20000) // USD
+  const [metaCompraLabel, setMetaCompraLabel] = useState('Auto')
+  const [editingAhorro, setEditingAhorro] = useState(false)
+  const [editingCompra, setEditingCompra] = useState(false)
+  const [tempAhorro, setTempAhorro] = useState('50')
+  const [tempCompraUSD, setTempCompraUSD] = useState('20000')
+  const [tempCompraLabel, setTempCompraLabel] = useState('Auto')
+
+  useEffect(() => { loadData(); fetchDolar() }, [])
 
   async function loadData() {
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
-    const { data } = await supabase.from('metas_ahorro').select('*').eq('user_id', user.id).order('created_at', { ascending: false })
-    setMetas(data ?? []); setLoading(false)
+
+    const now = new Date()
+    const primerDia = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
+    const ultimoDia = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0]
+
+    const [{ data: ingresos }, { data: gastosFijos }, { data: gastosVar }, { data: inversiones }] = await Promise.all([
+      supabase.from('ingresos_fijos').select('monto, monto_cobrado').eq('user_id', user.id).eq('activo', true),
+      supabase.from('gastos_fijos').select('monto').eq('user_id', user.id).eq('activo', true),
+      supabase.from('gastos_variables').select('monto').eq('user_id', user.id).gte('fecha', primerDia).lte('fecha', ultimoDia),
+      supabase.from('inversiones').select('monto, moneda, tasa_anual').eq('user_id', user.id),
+    ])
+
+    const tIngresos = ingresos?.reduce((s, i) => s + Number(i.monto_cobrado ?? i.monto), 0) ?? 0
+    const tGFijos = gastosFijos?.reduce((s, i) => s + Number(i.monto), 0) ?? 0
+    const tGVar = gastosVar?.reduce((s, i) => s + Number(i.monto), 0) ?? 0
+
+    setTotalIngresos(tIngresos)
+    setTotalGastosFijos(tGFijos)
+    setTotalGastosVar(tGVar)
+
+    // Inversiones â will recalculate in ARS once dolar loads
+    // Store raw for now
+    const rawInv = inversiones || []
+    const rawTotal = rawInv.reduce((s, i) => s + Number(i.monto), 0)
+    setTotalInversiones(rawTotal)
+
+    // Rendimiento mensual estimado
+    const rend = rawInv.reduce((s, i) => s + (Number(i.monto) * (Number(i.tasa_anual) / 100) / 12), 0)
+    setRendMensual(rend)
+
+    setLoading(false)
   }
 
-  async function handleAddMeta(e: React.FormEvent) {
-    e.preventDefault()
-    const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-    await supabase.from('metas_ahorro').insert({ user_id: user.id, nombre: form.nombre, descripcion: form.descripcion, monto_objetivo: parseFloat(form.monto_objetivo), moneda: form.moneda, fecha_objetivo: form.fecha_objetivo || null, emoji: form.emoji })
-    setForm({ nombre: '', descripcion: '', monto_objetivo: '', moneda: 'ARS', fecha_objetivo: '', emoji: '🎯' }); setShowForm(false); loadData()
+  async function fetchDolar() {
+    try {
+      const res = await fetch('/api/dolar')
+      const json = await res.json()
+      setDolar(json.blue)
+    } catch {}
   }
 
-  async function handleAporte(metaId: string) {
-    if (!montoAporte) return
-    const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-    await supabase.from('aportes_ahorro').insert({ user_id: user.id, meta_id: metaId, monto: parseFloat(montoAporte), fecha: new Date().toISOString().split('T')[0] })
-    setMontoAporte(''); setShowAporte(null); loadData()
-  }
+  const saldoMensual = totalIngresos - totalGastosFijos - totalGastosVar
+  const tasaAhorro = totalIngresos > 0 ? (saldoMensual / totalIngresos) * 100 : 0
 
-  async function eliminarMeta(id: string) { const supabase = createClient(); await supabase.from('metas_ahorro').delete().eq('id', id); loadData() }
+  // Meta compra grande
+  const metaCompraARS = dolar ? metaCompraUSD * dolar : null
+  const pctCompra = metaCompraARS && totalInversiones > 0 ? (totalInversiones / metaCompraARS) * 100 : 0
+  const mesesFaltanAhorro50 = metaCompraARS && totalIngresos > 0
+    ? Math.ceil((metaCompraARS - totalInversiones) / (totalIngresos * 0.5)) : null
+  const mesesFaltanAhorro65 = metaCompraARS && totalIngresos > 0
+    ? Math.ceil((metaCompraARS - totalInversiones) / (totalIngresos * 0.65)) : null
 
-  const fmt = (n: number, m: string) => `${m === 'USD' ? 'USD ' : '$'}${n.toLocaleString('es-AR')}`
+  // Meta rendimientos pasivos
+  const pctGastosCubiertos = totalGastosFijos > 0 ? (rendMensual / totalGastosFijos) * 100 : 0
+
+  if (loading) return (
+    <div className="flex items-center justify-center h-64">
+      <div className="text-slate-400 animate-pulse text-lg">Cargando...</div>
+    </div>
+  )
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
-        <div><h1 className="text-2xl font-bold text-slate-800">Metas de Ahorro</h1><p className="text-slate-500">Tus objetivos financieros</p></div>
-        <button onClick={() => setShowForm(!showForm)} className="bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl px-4 py-2 text-sm transition-colors">+ Nueva meta</button>
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold text-slate-800">Metas</h1>
+        <p className="text-slate-500 text-sm">Seguimiento de objetivos financieros</p>
       </div>
-      {showForm && (
-        <form onSubmit={handleAddMeta} className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 mb-4 space-y-3">
-          <h3 className="font-semibold text-slate-700">Nueva meta de ahorro</h3>
-          <div><p className="text-xs text-slate-500 mb-1">Elegí un emoji</p><div className="flex gap-2 flex-wrap">{EMOJIS.map(e => <button key={e} type="button" onClick={() => setForm({...form, emoji: e})} className={`text-2xl p-1 rounded-lg transition-all ${form.emoji===e?'bg-blue-100 scale-110':'hover:bg-slate-100'}`}>{e}</button>)}</div></div>
-          <input type="text" placeholder="Nombre de la meta" value={form.nombre} onChange={e => setForm({...form, nombre: e.target.value})} required className="w-full border border-slate-200 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-          <input type="text" placeholder="Descripción (opcional)" value={form.descripcion} onChange={e => setForm({...form, descripcion: e.target.value})} className="w-full border border-slate-200 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-          <div className="flex gap-2">
-            <input type="number" placeholder="Monto objetivo" value={form.monto_objetivo} onChange={e => setForm({...form, monto_objetivo: e.target.value})} required min="0" step="0.01" className="flex-1 border border-slate-200 rounded-xl px-4 py-2 text-sm" />
-            <select value={form.moneda} onChange={e => setForm({...form, moneda: e.target.value})} className="border border-slate-200 rounded-xl px-3 py-2 text-sm"><option value="ARS">ARS</option><option value="USD">USD</option></select>
+
+      {/* Meta 1: Tasa de ahorro */}
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+        <div className="flex items-start justify-between mb-4">
+          <div>
+            <h2 className="font-semibold text-slate-800">ð¯ Meta de ahorro mensual</h2>
+            <p className="text-xs text-slate-400 mt-0.5">Objetivo: ahorrar {metaAhorro}% de tus ingresos</p>
           </div>
-          <input type="date" value={form.fecha_objetivo} onChange={e => setForm({...form, fecha_objetivo: e.target.value})} className="w-full border border-slate-200 rounded-xl px-4 py-2 text-sm" />
-          <div className="flex gap-2"><button type="submit" className="bg-blue-600 text-white rounded-xl px-4 py-2 text-sm font-medium hover:bg-blue-700">Crear meta</button><button type="button" onClick={() => setShowForm(false)} className="border border-slate-200 rounded-xl px-4 py-2 text-sm text-slate-600">Cancelar</button></div>
-        </form>
-      )}
-      {loading ? <p className="text-slate-400 text-center py-8">Cargando...</p> : metas.length === 0 ? (
-        <div className="text-center py-12 text-slate-400"><p className="text-5xl mb-3">🎯</p><p className="font-medium">No tenés metas creadas</p><p className="text-sm mt-1">Creá tu primera meta de ahorro</p></div>
-      ) : (
-        <div className="space-y-4">{metas.map(meta => {
-          const pct = Math.min((meta.monto_actual / meta.monto_objetivo) * 100, 100)
-          const falta = Math.max(meta.monto_objetivo - meta.monto_actual, 0)
-          return (
-            <div key={meta.id} className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
-              <div className="flex items-start justify-between mb-3">
-                <div className="flex items-center gap-3"><span className="text-3xl">{meta.emoji}</span><div><h3 className="font-bold text-slate-800">{meta.nombre}</h3>{meta.descripcion&&<p className="text-sm text-slate-400">{meta.descripcion}</p>}{meta.fecha_objetivo&&<p className="text-xs text-slate-400">📅 Objetivo: {meta.fecha_objetivo}</p>}</div></div>
-                <button onClick={() => eliminarMeta(meta.id)} className="text-slate-300 hover:text-red-500 text-sm">🗑</button>
+          <button onClick={() => { setEditingAhorro(!editingAhorro); setTempAhorro(String(metaAhorro)) }}
+            className="text-xs text-blue-600 hover:underline">
+            {editingAhorro ? 'Cancelar' : 'Editar'}
+          </button>
+        </div>
+
+        {editingAhorro && (
+          <div className="flex items-center gap-3 mb-4 p-3 bg-slate-50 rounded-xl">
+            <input type="number" value={tempAhorro} onChange={e => setTempAhorro(e.target.value)}
+              className="border border-slate-200 rounded-lg px-3 py-1.5 text-sm w-24" placeholder="% objetivo" />
+            <span className="text-sm text-slate-500">%</span>
+            <button onClick={() => { setMetaAhorro(Number(tempAhorro)); setEditingAhorro(false) }}
+              className="bg-blue-600 text-white px-3 py-1.5 rounded-lg text-sm">Guardar</button>
+          </div>
+        )}
+
+        <div className="grid grid-cols-3 gap-4 mb-4">
+          <div className="text-center p-3 bg-green-50 rounded-xl">
+            <p className="text-xs text-slate-400 mb-1">Ingresos</p>
+            <p className="font-bold text-green-700">{fmt(totalIngresos)}</p>
+          </div>
+          <div className="text-center p-3 bg-red-50 rounded-xl">
+            <p className="text-xs text-slate-400 mb-1">Gastos</p>
+            <p className="font-bold text-red-600">{fmt(totalGastosFijos + totalGastosVar)}</p>
+          </div>
+          <div className={`text-center p-3 rounded-xl ${saldoMensual >= 0 ? 'bg-blue-50' : 'bg-red-50'}`}>
+            <p className="text-xs text-slate-400 mb-1">Disponible</p>
+            <p className={`font-bold ${saldoMensual >= 0 ? 'text-blue-700' : 'text-red-600'}`}>{fmt(saldoMensual)}</p>
+          </div>
+        </div>
+
+        <ProgressBar pct={tasaAhorro} color={tasaAhorro >= metaAhorro ? 'bg-green-500' : tasaAhorro >= metaAhorro / 2 ? 'bg-yellow-400' : 'bg-red-400'} />
+        <div className="flex justify-between mt-2">
+          <span className="text-xs text-slate-400">0%</span>
+          <span className={`text-sm font-bold ${tasaAhorro >= metaAhorro ? 'text-green-600' : 'text-slate-600'}`}>
+            {tasaAhorro.toFixed(0)}% {tasaAhorro >= metaAhorro ? 'â Meta alcanzada!' : `/ ${metaAhorro}% objetivo`}
+          </span>
+          <span className="text-xs text-slate-400">{metaAhorro}%</span>
+        </div>
+      </div>
+
+      {/* Meta 2: Compra grande */}
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+        <div className="flex items-start justify-between mb-4">
+          <div>
+            <h2 className="font-semibold text-slate-800">ð Meta de compra grande</h2>
+            <p className="text-xs text-slate-400 mt-0.5">{metaCompraLabel} â u$s {metaCompraUSD.toLocaleString()}</p>
+          </div>
+          <button onClick={() => {
+            setEditingCompra(!editingCompra)
+            setTempCompraUSD(String(metaCompraUSD))
+            setTempCompraLabel(metaCompraLabel)
+          }} className="text-xs text-blue-600 hover:underline">
+            {editingCompra ? 'Cancelar' : 'Editar'}
+          </button>
+        </div>
+
+        {editingCompra && (
+          <div className="flex items-center gap-3 mb-4 p-3 bg-slate-50 rounded-xl flex-wrap">
+            <input value={tempCompraLabel} onChange={e => setTempCompraLabel(e.target.value)}
+              className="border border-slate-200 rounded-lg px-3 py-1.5 text-sm" placeholder="Nombre (ej. Auto)" />
+            <input type="number" value={tempCompraUSD} onChange={e => setTempCompraUSD(e.target.value)}
+              className="border border-slate-200 rounded-lg px-3 py-1.5 text-sm w-32" placeholder="USD" />
+            <button onClick={() => { setMetaCompraUSD(Number(tempCompraUSD)); setMetaCompraLabel(tempCompraLabel); setEditingCompra(false) }}
+              className="bg-blue-600 text-white px-3 py-1.5 rounded-lg text-sm">Guardar</button>
+          </div>
+        )}
+
+        {metaCompraARS ? (
+          <>
+            <div className="grid grid-cols-2 gap-4 mb-4">
+              <div className="text-center p-3 bg-blue-50 rounded-xl">
+                <p className="text-xs text-slate-400 mb-1">Objetivo en ARS</p>
+                <p className="font-bold text-blue-700">{fmt(metaCompraARS)}</p>
+                <p className="text-xs text-slate-400">al blue ${dolar?.toFixed(0)}</p>
               </div>
-              <div className="mb-3">
-                <div className="flex justify-between text-sm mb-1"><span className="text-slate-600 font-medium">{fmt(meta.monto_actual,meta.moneda)}</span><span className="text-slate-400">{fmt(meta.monto_objetivo,meta.moneda)}</span></div>
-                <div className="w-full bg-slate-100 rounded-full h-2.5"><div className={`h-2.5 rounded-full transition-all ${pct>=100?'bg-green-500':'bg-blue-600'}`} style={{width:`${pct}%`}} /></div>
-                <div className="flex justify-between mt-1"><span className={`text-xs font-medium ${pct>=100?'text-green-600':'text-blue-600'}`}>{pct.toFixed(0)}% completado</span>{falta>0&&<span className="text-xs text-slate-400">Falta {fmt(falta,meta.moneda)}</span>}</div>
+              <div className="text-center p-3 bg-slate-50 rounded-xl">
+                <p className="text-xs text-slate-400 mb-1">Patrimonio actual</p>
+                <p className="font-bold text-slate-700">{fmt(totalInversiones)}</p>
               </div>
-              {showAporte===meta.id ? (
-                <div className="flex gap-2 mt-2">
-                  <input type="number" placeholder="¿Cuánto aportás?" value={montoAporte} onChange={e => setMontoAporte(e.target.value)} min="0" step="0.01" className="flex-1 border border-slate-200 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                  <button onClick={() => handleAporte(meta.id)} className="bg-green-500 text-white rounded-xl px-4 py-2 text-sm font-medium hover:bg-green-600">✓ Aportar</button>
-                  <button onClick={() => setShowAporte(null)} className="border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-600">✕</button>
-                </div>
-              ) : (
-                <button onClick={() => setShowAporte(meta.id)} className="w-full border border-blue-200 text-blue-600 hover:bg-blue-50 rounded-xl py-2 text-sm font-medium transition-colors">+ Registrar aporte</button>
-              )}
             </div>
-          )
-        })}</div>
-      )}
+
+            <ProgressBar pct={pctCompra} color={pctCompra >= 100 ? 'bg-green-500' : 'bg-blue-500'} />
+            <div className="flex justify-between mt-2 mb-4">
+              <span className="text-xs text-slate-400">0%</span>
+              <span className="text-sm font-bold text-slate-700">{pctCompra.toFixed(1)}% alcanzado</span>
+              <span className="text-xs text-slate-400">100%</span>
+            </div>
+
+            {pctCompra < 100 && totalIngresos > 0 && (
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-slate-50 rounded-xl p-3 text-center">
+                  <p className="text-xs text-slate-400 mb-1">Ahorrando 50% del sueldo</p>
+                  <p className="font-bold text-slate-700">{mesesFaltanAhorro50 ?? 'â'} meses</p>
+                </div>
+                <div className="bg-slate-50 rounded-xl p-3 text-center">
+                  <p className="text-xs text-slate-400 mb-1">Ahorrando 65% del sueldo</p>
+                  <p className="font-bold text-slate-700">{mesesFaltanAhorro65 ?? 'â'} meses</p>
+                </div>
+              </div>
+            )}
+          </>
+        ) : (
+          <p className="text-sm text-slate-400 text-center py-4">Cargando cotizaciÃ³n del dÃ³lar...</p>
+        )}
+      </div>
+
+      {/* Meta 3: Rendimientos pasivos */}
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+        <h2 className="font-semibold text-slate-800 mb-1">ð Rendimientos pasivos</h2>
+        <p className="text-xs text-slate-400 mb-4">CuÃ¡nto generan tus inversiones sin tocar el capital</p>
+
+        <div className="grid grid-cols-2 gap-4 mb-4">
+          <div className="text-center p-3 bg-green-50 rounded-xl">
+            <p className="text-xs text-slate-400 mb-1">Rendimiento mensual est.</p>
+            <p className="font-bold text-green-700">{fmt(rendMensual)}</p>
+            <p className="text-xs text-slate-400">de tus inversiones</p>
+          </div>
+          <div className="text-center p-3 bg-red-50 rounded-xl">
+            <p className="text-xs text-slate-400 mb-1">Gastos fijos</p>
+            <p className="font-bold text-red-600">{fmt(totalGastosFijos)}</p>
+            <p className="text-xs text-slate-400">por mes</p>
+          </div>
+        </div>
+
+        <ProgressBar pct={pctGastosCubiertos} color={pctGastosCubiertos >= 100 ? 'bg-green-500' : pctGastosCubiertos >= 50 ? 'bg-yellow-400' : 'bg-blue-400'} />
+        <p className="text-center mt-2 text-sm font-bold text-slate-700">
+          {pctGastosCubiertos.toFixed(1)}% de tus gastos fijos cubiertos por rendimientos
+        </p>
+
+        {totalGastosFijos === 0 && (
+          <p className="text-xs text-slate-400 text-center mt-2">CargÃ¡ gastos fijos en la secciÃ³n Gastos & CC para ver este cÃ¡lculo</p>
+        )}
+        {rendMensual === 0 && (
+          <p className="text-xs text-slate-400 text-center mt-2">CargÃ¡ inversiones con tasa anual en Portfolio para ver rendimientos</p>
+        )}
+      </div>
     </div>
   )
 }
