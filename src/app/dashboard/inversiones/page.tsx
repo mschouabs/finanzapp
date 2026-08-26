@@ -35,7 +35,7 @@ export default function InversionesPage() {
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState({
     nombre: '', app: 'MercadoPago', tipo: 'fondo', moneda: 'ARS',
-    monto: '', tasa_anual: '', nivel_riesgo: 'conservador' as const,
+    monto: '', tasa_anual: '', nivel_riesgo: 'conservador' as 'conservador' | 'moderado' | 'alto',
   })
 
   useEffect(() => { loadData(); fetchDolar() }, [])
