@@ -3,15 +3,36 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 
-interface Item { id: string; descripcion: string; monto: number; moneda: string; categoria?: string; activo: boolean }
+interface IngresoFijo {
+  id: string
+  nombre: string
+  monto: number
+  monto_cobrado: number | null
+  activo: boolean
+}
 
-export default function IngresosGastosPage() {
-  const [ingresos, setIngresos] = useState<Item[]>([])
-  const [gastos, setGastos] = useState<Item[]>([])
-  const [tab, setTab] = useState<'ingresos' | 'gastos'>('ingresos')
+interface IngresoFreelance {
+  id: string
+  cliente: string
+  descripcion: string
+  monto_total: number
+  monto_cobrado: number
+  fecha: string
+}
+
+function fmt(n: number) {
+  if (Math.abs(n) >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`
+  if (Math.abs(n) >= 1_000) return `$${(n / 1_000).toFixed(0)}K`
+  return `$${n.toLocaleString('es-AR', { maximumFractionDigits: 0 })}`
+}
+
+export default function TrabajosPage() {
+  const [fijos, setFijos] = useState<IngresoFijo[]>([])
+  const [freelance, setFreelance] = useState<IngresoFreelance[]>([])
   const [loading, setLoading] = useState(true)
-  const [showForm, setShowForm] = useState(false)
-  const [form, setForm] = useState({ descripcion: '', monto: '', moneda: 'ARS', categoria: 'Otros' })
+  const [showForm, setShowForm] = useState<'fijo' | 'freelance' | null>(null)
+  const [formFijo, setFormFijo] = useState({ nombre: '', monto: '', monto_cobrado: '' })
+  const [formFreelance, setFormFreelance] = useState({ cliente: '', descripcion: '', monto_total: '', monto_cobrado: '' })
 
   useEffect(() => { loadData() }, [])
 
@@ -19,82 +40,223 @@ export default function IngresosGastosPage() {
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
-    const [{ data: ing }, { data: gas }] = await Promise.all([
-      supabase.from('ingresos_fijos').select('*').eq('user_id', user.id).order('created_at'),
-      supabase.from('gastos_fijos').select('*').eq('user_id', user.id).order('created_at'),
+    const [{ data: fijosData }, { data: freelanceData }] = await Promise.all([
+      supabase.from('ingresos_fijos').select('*').eq('user_id', user.id).eq('activo', true).order('nombre'),
+      supabase.from('ingresos_freelance').select('*').eq('user_id', user.id).order('fecha', { ascending: false }),
     ])
-    setIngresos(ing ?? []); setGastos(gas ?? []); setLoading(false)
+    setFijos(fijosData || [])
+    setFreelance(freelanceData || [])
+    setLoading(false)
   }
 
-  async function handleAdd(e: React.FormEvent) {
-    e.preventDefault()
+  async function addFijo() {
+    if (!formFijo.nombre || !formFijo.monto) return
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
-    const tabla = tab === 'ingresos' ? 'ingresos_fijos' : 'gastos_fijos'
-    await supabase.from(tabla).insert({ user_id: user.id, descripcion: form.descripcion, monto: parseFloat(form.monto), moneda: form.moneda, ...(tab === 'gastos' && { categoria: form.categoria }) })
-    setForm({ descripcion: '', monto: '', moneda: 'ARS', categoria: 'Otros' }); setShowForm(false); loadData()
+    await supabase.from('ingresos_fijos').insert({
+      user_id: user.id, nombre: formFijo.nombre,
+      monto: Number(formFijo.monto),
+      monto_cobrado: formFijo.monto_cobrado ? Number(formFijo.monto_cobrado) : null,
+      activo: true,
+    })
+    setFormFijo({ nombre: '', monto: '', monto_cobrado: '' })
+    setShowForm(null)
+    loadData()
   }
 
-  async function toggleActivo(id: string, tabla: string, activo: boolean) {
-    const supabase = createClient(); await supabase.from(tabla).update({ activo: !activo }).eq('id', id); loadData()
+  async function addFreelance() {
+    if (!formFreelance.cliente || !formFreelance.monto_total) return
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    await supabase.from('ingresos_freelance').insert({
+      user_id: user.id, cliente: formFreelance.cliente,
+      descripcion: formFreelance.descripcion,
+      monto_total: Number(formFreelance.monto_total),
+      monto_cobrado: Number(formFreelance.monto_cobrado || '0'),
+      fecha: new Date().toISOString().split('T')[0],
+    })
+    setFormFreelance({ cliente: '', descripcion: '', monto_total: '', monto_cobrado: '' })
+    setShowForm(null)
+    loadData()
   }
 
-  async function eliminar(id: string, tabla: string) {
-    const supabase = createClient(); await supabase.from(tabla).delete().eq('id', id); loadData()
+  async function deleteFijo(id: string) {
+    const supabase = createClient()
+    await supabase.from('ingresos_fijos').update({ activo: false }).eq('id', id)
+    loadData()
   }
 
-  const fmt = (n: number, m: string) => `${m === 'USD' ? 'USD' : '$'}${n.toLocaleString('es-AR')}`
-  const lista = tab === 'ingresos' ? ingresos : gastos
-  const tabla = tab === 'ingresos' ? 'ingresos_fijos' : 'gastos_fijos'
-  const total = lista.filter(i => i.activo).reduce((s, i) => s + i.monto, 0)
-  const categoriasGastos = ['Alquiler', 'Servicios', 'Suscripciones', 'Cuotas', 'Seguros', 'Otros']
+  async function deleteFreelance(id: string) {
+    const supabase = createClient()
+    await supabase.from('ingresos_freelance').delete().eq('id', id)
+    loadData()
+  }
+
+  const totalFijos = fijos.reduce((s, f) => s + (f.monto_cobrado ?? f.monto), 0)
+  const totalFreelance = freelance.reduce((s, f) => s + f.monto_cobrado, 0)
+
+  if (loading) return (
+    <div className="flex items-center justify-center h-64">
+      <div className="text-slate-400 animate-pulse text-lg">Cargando...</div>
+    </div>
+  )
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
-        <div><h1 className="text-2xl font-bold text-slate-800">Ingresos y Gastos Fijos</h1><p className="text-slate-500">Ingresos y gastos que se repiten cada mes</p></div>
-        <button onClick={() => setShowForm(!showForm)} className="bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl px-4 py-2 text-sm transition-colors">+ Agregar</button>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-800">Trabajos</h1>
+          <p className="text-slate-500 text-sm">Ingresos del mes</p>
+        </div>
+        <div className="bg-green-50 border border-green-100 rounded-xl px-4 py-2 text-right">
+          <p className="text-xs text-green-600 font-medium">Total del mes</p>
+          <p className="text-xl font-bold text-green-700">{fmt(totalFijos + totalFreelance)}</p>
+        </div>
       </div>
-      <div className="flex gap-2 mb-4">
-        <button onClick={() => { setTab('ingresos'); setShowForm(false) }} className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${tab === 'ingresos' ? 'bg-green-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-100'}`}>💚 Ingresos</button>
-        <button onClick={() => { setTab('gastos'); setShowForm(false) }} className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${tab === 'gastos' ? 'bg-red-500 text-white' : 'bg-white text-slate-600 hover:bg-slate-100'}`}>🔴 Gastos</button>
-      </div>
-      <div className={`rounded-2xl p-4 mb-4 ${tab === 'ingresos' ? 'bg-green-50 border border-green-100' : 'bg-red-50 border border-red-100'}`}>
-        <p className="text-sm text-slate-500">Total mensual ({tab})</p>
-        <p className={`text-3xl font-bold ${tab === 'ingresos' ? 'text-green-700' : 'text-red-600'}`}>${total.toLocaleString('es-AR')}</p>
-      </div>
-      {showForm && (
-        <form onSubmit={handleAdd} className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 mb-4 space-y-3">
-          <h3 className="font-semibold text-slate-700">Nuevo {tab === 'ingresos' ? 'ingreso' : 'gasto'} fijo</h3>
-          <input type="text" placeholder="Descripción" value={form.descripcion} onChange={e => setForm({ ...form, descripcion: e.target.value })} required className="w-full border border-slate-200 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-          <div className="flex gap-2">
-            <input type="number" placeholder="Monto" value={form.monto} onChange={e => setForm({ ...form, monto: e.target.value })} required min="0" step="0.01" className="flex-1 border border-slate-200 rounded-xl px-4 py-2 text-sm" />
-            <select value={form.moneda} onChange={e => setForm({ ...form, moneda: e.target.value })} className="border border-slate-200 rounded-xl px-3 py-2 text-sm"><option value="ARS">ARS</option><option value="USD">USD</option></select>
+
+      {/* Sueldos fijos */}
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm">
+        <div className="flex items-center justify-between p-5 border-b border-slate-100">
+          <div>
+            <h2 className="font-semibold text-slate-800">ð¼ Sueldos fijos</h2>
+            <p className="text-xs text-slate-400 mt-0.5">RelaciÃ³n de dependencia / mensuales</p>
           </div>
-          {tab === 'gastos' && <select value={form.categoria} onChange={e => setForm({ ...form, categoria: e.target.value })} className="w-full border border-slate-200 rounded-xl px-4 py-2 text-sm">{categoriasGastos.map(c => <option key={c} value={c}>{c}</option>)}</select>}
-          <div className="flex gap-2">
-            <button type="submit" className="bg-blue-600 text-white rounded-xl px-4 py-2 text-sm font-medium hover:bg-blue-700">Guardar</button>
-            <button type="button" onClick={() => setShowForm(false)} className="border border-slate-200 rounded-xl px-4 py-2 text-sm text-slate-600">Cancelar</button>
-          </div>
-        </form>
-      )}
-      {loading ? <p className="text-slate-400 text-center py-8">Cargando...</p> : lista.length === 0 ? (
-        <div className="text-center py-12 text-slate-400"><p className="text-4xl mb-2">{tab === 'ingresos' ? '💚' : '🔴'}</p><p>No hay {tab} fijos cargados</p></div>
-      ) : (
-        <div className="space-y-2">{lista.map(item => (
-          <div key={item.id} className={`bg-white rounded-xl px-5 py-4 shadow-sm border flex items-center justify-between ${!item.activo ? 'opacity-50' : 'border-slate-100'}`}>
-            <div><p className="font-medium text-slate-800">{item.descripcion}</p>{item.categoria && <p className="text-xs text-slate-400">{item.categoria}</p>}</div>
-            <div className="flex items-center gap-4">
-              <p className={`font-bold ${tab === 'ingresos' ? 'text-green-600' : 'text-red-500'}`}>{fmt(item.monto, item.moneda)}</p>
-              <div className="flex gap-2">
-                <button onClick={() => toggleActivo(item.id, tabla, item.activo)} className="text-xs text-slate-400 hover:text-slate-600">{item.activo ? '⏸' : '▶'}</button>
-                <button onClick={() => eliminar(item.id, tabla)} className="text-xs text-slate-400 hover:text-red-500">🗑</button>
-              </div>
+          <button onClick={() => setShowForm(showForm === 'fijo' ? null : 'fijo')}
+            className="text-sm bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700 transition-colors">
+            + Agregar
+          </button>
+        </div>
+
+        {showForm === 'fijo' && (
+          <div className="p-5 bg-slate-50 border-b border-slate-100">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <input placeholder="Nombre (ej. Trabajo principal)" value={formFijo.nombre}
+                onChange={e => setFormFijo(p => ({ ...p, nombre: e.target.value }))}
+                className="border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+              <input placeholder="Sueldo normal ($)" type="number" value={formFijo.monto}
+                onChange={e => setFormFijo(p => ({ ...p, monto: e.target.value }))}
+                className="border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+              <input placeholder="Cobrado este mes (opcional)" type="number" value={formFijo.monto_cobrado}
+                onChange={e => setFormFijo(p => ({ ...p, monto_cobrado: e.target.value }))}
+                className="border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+            </div>
+            <div className="flex gap-2 mt-3">
+              <button onClick={addFijo} className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-green-700">Guardar</button>
+              <button onClick={() => setShowForm(null)} className="text-slate-500 px-4 py-2 rounded-lg text-sm hover:bg-slate-100">Cancelar</button>
             </div>
           </div>
-        ))}</div>
-      )}
+        )}
+
+        <div className="divide-y divide-slate-50">
+          {fijos.length === 0 && <p className="p-6 text-sm text-slate-400 text-center">Sin sueldos cargados</p>}
+          {fijos.map(f => {
+            const cobrado = f.monto_cobrado ?? f.monto
+            const diff = cobrado - f.monto
+            return (
+              <div key={f.id} className="flex items-center justify-between p-4">
+                <div>
+                  <p className="font-medium text-slate-800 text-sm">{f.nombre}</p>
+                  <p className="text-xs text-slate-400">Sueldo normal: {fmt(f.monto)}</p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="text-right">
+                    <p className="font-bold text-slate-800">{fmt(cobrado)}</p>
+                    {diff !== 0 && (
+                      <p className={`text-xs ${diff > 0 ? 'text-green-600' : 'text-red-500'}`}>
+                        {diff > 0 ? '+' : ''}{fmt(diff)} vs normal
+                      </p>
+                    )}
+                  </div>
+                  <button onClick={() => deleteFijo(f.id)} className="text-slate-300 hover:text-red-400 text-xl leading-none ml-1">Ã</button>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+        {fijos.length > 0 && (
+          <div className="px-4 py-3 border-t border-slate-100 flex justify-between bg-slate-50 rounded-b-2xl">
+            <span className="text-sm text-slate-500">Subtotal fijos</span>
+            <span className="font-bold text-slate-800">{fmt(totalFijos)}</span>
+          </div>
+        )}
+      </div>
+
+      {/* Freelance */}
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm">
+        <div className="flex items-center justify-between p-5 border-b border-slate-100">
+          <div>
+            <h2 className="font-semibold text-slate-800">ð Freelance / Proyectos</h2>
+            <p className="text-xs text-slate-400 mt-0.5">Trabajos puntuales y esporÃ¡dicos</p>
+          </div>
+          <button onClick={() => setShowForm(showForm === 'freelance' ? null : 'freelance')}
+            className="text-sm bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700 transition-colors">
+            + Agregar
+          </button>
+        </div>
+
+        {showForm === 'freelance' && (
+          <div className="p-5 bg-slate-50 border-b border-slate-100">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <input placeholder="Cliente" value={formFreelance.cliente}
+                onChange={e => setFormFreelance(p => ({ ...p, cliente: e.target.value }))}
+                className="border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+              <input placeholder="DescripciÃ³n del proyecto" value={formFreelance.descripcion}
+                onChange={e => setFormFreelance(p => ({ ...p, descripcion: e.target.value }))}
+                className="border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+              <input placeholder="Monto total del proyecto ($)" type="number" value={formFreelance.monto_total}
+                onChange={e => setFormFreelance(p => ({ ...p, monto_total: e.target.value }))}
+                className="border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+              <input placeholder="Ya cobrÃ© ($)" type="number" value={formFreelance.monto_cobrado}
+                onChange={e => setFormFreelance(p => ({ ...p, monto_cobrado: e.target.value }))}
+                className="border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+            </div>
+            <div className="flex gap-2 mt-3">
+              <button onClick={addFreelance} className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-green-700">Guardar</button>
+              <button onClick={() => setShowForm(null)} className="text-slate-500 px-4 py-2 rounded-lg text-sm hover:bg-slate-100">Cancelar</button>
+            </div>
+          </div>
+        )}
+
+        <div className="divide-y divide-slate-50">
+          {freelance.length === 0 && <p className="p-6 text-sm text-slate-400 text-center">Sin proyectos cargados</p>}
+          {freelance.map(f => {
+            const pct = f.monto_total > 0 ? Math.round((f.monto_cobrado / f.monto_total) * 100) : 0
+            const pendiente = f.monto_total - f.monto_cobrado
+            return (
+              <div key={f.id} className="p-4">
+                <div className="flex items-start justify-between mb-2">
+                  <div>
+                    <p className="font-medium text-slate-800 text-sm">{f.descripcion || f.cliente}</p>
+                    <p className="text-xs text-slate-400">{f.cliente}</p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="text-right">
+                      <p className="font-bold text-green-700">{fmt(f.monto_cobrado)}</p>
+                      <p className="text-xs text-slate-400">de {fmt(f.monto_total)}</p>
+                    </div>
+                    <button onClick={() => deleteFreelance(f.id)} className="text-slate-300 hover:text-red-400 text-xl leading-none">Ã</button>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                    <div className="h-full bg-green-500 rounded-full" style={{ width: `${pct}%` }} />
+                  </div>
+                  <span className="text-xs font-bold text-slate-600 w-8 text-right">{pct}%</span>
+                  {pendiente > 0 && <span className="text-xs text-orange-500 ml-1">Pendiente: {fmt(pendiente)}</span>}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+        {freelance.length > 0 && (
+          <div className="px-4 py-3 border-t border-slate-100 flex justify-between bg-slate-50 rounded-b-2xl">
+            <span className="text-sm text-slate-500">Subtotal freelance cobrado</span>
+            <span className="font-bold text-slate-800">{fmt(totalFreelance)}</span>
+          </div>
+        )}
+      </div>
     </div>
   )
 }
