@@ -1,16 +1,6 @@
 'use client'
 
-import { ReactNode } from 'react'
 import { createClient } from '@/lib/supabase'
-
-type Provider = 'google' | 'apple' | 'facebook'
-
-interface ProviderConfig {
-  id: Provider
-  label: string
-  icon: ReactNode
-  className: string
-}
 
 const GoogleIcon = () => (
   <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
@@ -21,44 +11,11 @@ const GoogleIcon = () => (
   </svg>
 )
 
-const AppleIcon = () => (
-  <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true">
-    <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
-  </svg>
-)
-
-const FacebookIcon = () => (
-  <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true">
-    <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
-  </svg>
-)
-
-const providers: ProviderConfig[] = [
-  {
-    id: 'google',
-    label: 'Google',
-    icon: <GoogleIcon />,
-    className: 'bg-white hover:bg-gray-50 text-slate-700 border border-slate-200',
-  },
-  {
-    id: 'apple',
-    label: 'Apple',
-    icon: <AppleIcon />,
-    className: 'bg-black hover:bg-gray-900 text-white border border-black',
-  },
-  {
-    id: 'facebook',
-    label: 'Facebook',
-    icon: <FacebookIcon />,
-    className: 'bg-[#1877F2] hover:bg-[#1565C0] text-white border border-[#1877F2]',
-  },
-]
-
 export default function OAuthButtons() {
-  async function handleOAuth(provider: Provider) {
+  async function handleGoogle() {
     const supabase = createClient()
     await supabase.auth.signInWithOAuth({
-      provider,
+      provider: 'google',
       options: {
         redirectTo: `${window.location.origin}/auth/callback`,
       },
@@ -78,19 +35,14 @@ export default function OAuthButtons() {
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-3">
-        {providers.map(({ id, label, icon, className }) => (
-          <button
-            key={id}
-            type="button"
-            onClick={() => handleOAuth(id)}
-            className={`flex items-center justify-center gap-2 rounded-xl py-2.5 px-3 text-sm font-medium transition-colors ${className}`}
-          >
-            {icon}
-            <span>{label}</span>
-          </button>
-        ))}
-      </div>
+      <button
+        type="button"
+        onClick={handleGoogle}
+        className="w-full flex items-center justify-center gap-3 bg-white hover:bg-gray-50 text-slate-700 border border-slate-200 rounded-xl py-2.5 px-4 text-sm font-medium transition-colors"
+      >
+        <GoogleIcon />
+        <span>Continuar con Google</span>
+      </button>
     </div>
   )
 }
