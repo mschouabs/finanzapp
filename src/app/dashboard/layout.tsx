@@ -2,6 +2,8 @@ import { redirect } from 'next/navigation'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import TopNav from '@/components/ui/TopNav'
+import { ThemeSelector } from '@/components/ThemeSelector'
+import { LucaWidget } from '@/components/LucaWidget'
 
 export default async function DashboardLayout({
   children,
@@ -22,7 +24,7 @@ export default async function DashboardLayout({
             )
           } catch {}
         },
-      },
+      }
     }
   )
 
@@ -37,9 +39,15 @@ export default async function DashboardLayout({
   return (
     <div className="min-h-screen bg-slate-50">
       <TopNav userName={userName} />
+      {/* Theme selector - fixed top right */}
+      <div style={{ position: 'fixed', top: 14, right: 16, zIndex: 100 }}>
+        <ThemeSelector />
+      </div>
       <main className="max-w-7xl mx-auto px-6 py-6">
         {children}
       </main>
+      {/* Luca - floating AI expense recorder */}
+      <LucaWidget />
     </div>
   )
 }
