@@ -10,6 +10,7 @@ const navItems = [
   { href: '/dashboard/gastos-variables', label: 'Gastos & CC', emoji: '🛒' },
   { href: '/dashboard/inversiones', label: 'Portfolio', emoji: '📈' },
   { href: '/dashboard/metas', label: 'Metas', emoji: '🎯' },
+  { href: '/dashboard/historial', label: 'Historial', emoji: '📋' },
 ]
 
 export default function TopNav({ userName }: { userName?: string }) {
