@@ -1,216 +1,257 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { createClient } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase/client'
+import {
+  PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Legend,
+} from 'recharts'
 
-interface ResumenData {
+/* ── helpers ─────────────────────────────────────── */
+const fmt = (n: number) =>
+  '$' + n.toLocaleString('es-AR', { minimumFractionDigits: 0 })
+
+const COLORS = [
+  '#3FB950', '#58A6FF', '#F78166', '#D2A8FF',
+  '#FFA657', '#79C0FF', '#56D364', '#FF7B72',
+]
+
+/* ── types ───────────────────────────────────────── */
+interface DashboardData {
   totalIngresos: number
-  totalGastosFijos: number
-  totalGastosVariables: number
-  saldoMensual: number
-  gastosHormiga: number
-  dolarBlue: number | null
-  dolarOficial: number | null
-  tasaAhorro: number
+  totalGastos: number
+  neto: number
+  gastosPorCategoria: { name: string; value: number }[]
+  tendenciaMensual: { mes: string; ingresos: number; gastos: number }[]
 }
 
-const meses = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
-
-function fmt(n: number) {
-  if (Math.abs(n) >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`
-  if (Math.abs(n) >= 1_000) return `$${(n / 1_000).toFixed(0)}K`
-  return `$${n.toLocaleString('es-AR', { maximumFractionDigits: 0 })}`
-}
-
-function KpiCard({ label, value, color, bg, border, icon }: {
-  label: string; value: string; color: string; bg: string; border: string; icon: string
-}) {
-  return (
-    <div className={`rounded-2xl p-5 border ${bg} ${border}`}>
-      <div className="flex items-center gap-2 mb-3">
-        <span className="text-lg">{icon}</span>
-        <p className="text-sm font-medium text-slate-600">{label}</p>
-      </div>
-      <p className={`text-2xl font-bold ${color}`}>{value}</p>
-    </div>
-  )
-}
-
-function FlowBar({ label, value, max, color, icon }: { label: string; value: number; max: number; color: string; icon: string }) {
-  const pct = max > 0 ? Math.min((value / max) * 100, 100) : 0
-  return (
-    <div className="flex items-center gap-3">
-      <span className="text-base w-6">{icon}</span>
-      <div className="flex-1">
-        <div className="flex justify-between items-center mb-1">
-          <span className="text-xs font-medium text-slate-600">{label}</span>
-          <span className="text-xs font-bold text-slate-700">{fmt(value)}</span>
-        </div>
-        <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-          <div className={`h-full rounded-full ${color}`} style={{ width: `${pct}%` }} />
-        </div>
-      </div>
-    </div>
-  )
-}
-
-export default function ResumenPage() {
-  const [data, setData] = useState<ResumenData>({
-    totalIngresos: 0, totalGastosFijos: 0, totalGastosVariables: 0,
-    saldoMensual: 0, gastosHormiga: 0, dolarBlue: null, dolarOficial: null, tasaAhorro: 0
-  })
+/* ── main component ──────────────────────────────── */
+export default function DashboardPage() {
+  const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
-  const [mes] = useState(() => {
-    const now = new Date()
-    return { year: now.getFullYear(), month: now.getMonth() + 1 }
-  })
 
-  useEffect(() => { loadData(); fetchDolar() }, [])
+  useEffect(() => {
+    cargar()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
-  async function loadData() {
+  async function cargar() {
+    setLoading(true)
     const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
 
-    const primerDia = `${mes.year}-${String(mes.month).padStart(2, '0')}-01`
-    const ultimoDia = new Date(mes.year, mes.month, 0).toISOString().split('T')[0]
+    const [{ data: gv }, { data: gf }, { data: iff }, { data: inf }] =
+      await Promise.all([
+        supabase.from('gastos_variables').select('*'),
+        supabase.from('gastos_fijos').select('*'),
+        supabase.from('ingresos_fijos').select('*'),
+        supabase.from('ingresos_freelance').select('*'),
+      ])
 
-    const [{ data: ingresos }, { data: gastosFijos }, { data: gastosVar }] = await Promise.all([
-      supabase.from('ingresos_fijos').select('monto').eq('user_id', user.id).eq('activo', true),
-      supabase.from('gastos_fijos').select('monto').eq('user_id', user.id).eq('activo', true),
-      supabase.from('gastos_variables').select('monto, es_gasto_hormiga').eq('user_id', user.id).gte('fecha', primerDia).lte('fecha', ultimoDia),
-    ])
+    /* totales */
+    const totalIngresos =
+      (iff || []).reduce((s: number, r: Record<string, unknown>) => s + (r.monto as number || 0), 0) +
+      (inf || []).reduce((s: number, r: Record<string, unknown>) => s + (r.monto as number || 0), 0)
 
-    const totalIngresos = ingresos?.reduce((s, i) => s + Number(i.monto), 0) ?? 0
-    const totalGastosFijos = gastosFijos?.reduce((s, i) => s + Number(i.monto), 0) ?? 0
-    const totalGastosVariables = gastosVar?.reduce((s, i) => s + Number(i.monto), 0) ?? 0
-    const gastosHormiga = gastosVar?.filter(g => g.es_gasto_hormiga).reduce((s, i) => s + Number(i.monto), 0) ?? 0
-    const saldoMensual = totalIngresos - totalGastosFijos - totalGastosVariables
-    const tasaAhorro = totalIngresos > 0 ? (saldoMensual / totalIngresos) * 100 : 0
+    const totalGastos =
+      (gv || []).reduce((s: number, r: Record<string, unknown>) => s + (r.monto as number || 0), 0) +
+      (gf || []).reduce((s: number, r: Record<string, unknown>) => s + (r.monto as number || 0), 0)
 
-    setData(prev => ({ ...prev, totalIngresos, totalGastosFijos, totalGastosVariables, saldoMensual, gastosHormiga, tasaAhorro }))
+    /* gastos por categoría (donut) */
+    const catMap: Record<string, number> = {}
+    ;(gv || []).forEach((r: Record<string, unknown>) => {
+      const cat = (r.categoria as string) || 'Sin categoría'
+      catMap[cat] = (catMap[cat] || 0) + (r.monto as number || 0)
+    })
+    ;(gf || []).forEach((r: Record<string, unknown>) => {
+      catMap['Fijos'] = (catMap['Fijos'] || 0) + (r.monto as number || 0)
+    })
+    const gastosPorCategoria = Object.entries(catMap)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 8)
+
+    /* tendencia mensual (últimos 6 meses) */
+    const now = new Date()
+    const meses: { key: string; label: string }[] = []
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+      const label = d.toLocaleDateString('es-AR', { month: 'short' })
+      meses.push({ key, label })
+    }
+
+    const tendenciaMensual = meses.map(({ key, label }) => {
+      const ing =
+        (iff || []).filter((r: Record<string, unknown>) => ((r.created_at as string) || '').startsWith(key))
+          .reduce((s: number, r: Record<string, unknown>) => s + (r.monto as number || 0), 0) +
+        (inf || []).filter((r: Record<string, unknown>) => ((r.fecha as string) || '').startsWith(key))
+          .reduce((s: number, r: Record<string, unknown>) => s + (r.monto as number || 0), 0)
+
+      const gas =
+        (gv || []).filter((r: Record<string, unknown>) => ((r.fecha as string) || '').startsWith(key))
+          .reduce((s: number, r: Record<string, unknown>) => s + (r.monto as number || 0), 0) +
+        (gf || []).filter((r: Record<string, unknown>) => ((r.created_at as string) || '').startsWith(key))
+          .reduce((s: number, r: Record<string, unknown>) => s + (r.monto as number || 0), 0)
+
+      return { mes: label, ingresos: ing, gastos: gas }
+    })
+
+    setData({ totalIngresos, totalGastos, neto: totalIngresos - totalGastos, gastosPorCategoria, tendenciaMensual })
     setLoading(false)
-  }
-
-  async function fetchDolar() {
-    try {
-      const res = await fetch('/api/dolar')
-      const json = await res.json()
-      setData(prev => ({ ...prev, dolarBlue: json.blue, dolarOficial: json.oficial }))
-    } catch {}
   }
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-slate-400 animate-pulse text-lg">Cargando...</div>
+      <div style={{ padding: 48, textAlign: 'center', color: 'var(--text-muted)' }}>
+        Cargando...
       </div>
     )
   }
 
-  const insights: string[] = []
-  if (data.tasaAhorro >= 50) insights.push(`🟢 Tu tasa de ahorro es ${data.tasaAhorro.toFixed(0)}% — superás la meta del 50%.`)
-  else if (data.tasaAhorro > 0) insights.push(`🟡 Tu tasa de ahorro es ${data.tasaAhorro.toFixed(0)}%. La meta es llegar al 50%.`)
-  if (data.gastosHormiga > 0 && data.totalIngresos > 0) {
-    insights.push(`🐜 Los gastos hormiga suman ${fmt(data.gastosHormiga)} (${((data.gastosHormiga / data.totalIngresos) * 100).toFixed(1)}% de tus ingresos).`)
-  }
-  if (data.saldoMensual < 0) insights.push(`🔴 Gastos mayores a ingresos este mes. Diferencia: ${fmt(Math.abs(data.saldoMensual))}.`)
+  const d = data!
+  const ahorro = d.totalIngresos > 0 ? Math.round((d.neto / d.totalIngresos) * 100) : 0
+
+  const kpis = [
+    { label: 'Ingresos', val: fmt(d.totalIngresos), color: 'var(--accent-positive)', emoji: '📈' },
+    { label: 'Gastos', val: fmt(d.totalGastos), color: 'var(--accent-negative)', emoji: '📉' },
+    { label: 'Neto', val: fmt(d.neto), color: d.neto >= 0 ? 'var(--accent-positive)' : 'var(--accent-negative)', emoji: '💰' },
+    { label: 'Tasa de ahorro', val: ahorro + '%', color: 'var(--text-primary)', emoji: '🎯' },
+  ]
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800">Resumen</h1>
-          <p className="text-slate-500 text-sm">{meses[mes.month - 1]} {mes.year}</p>
-        </div>
-        {data.dolarBlue && (
-          <div className="flex gap-4 bg-white border border-slate-200 rounded-xl px-4 py-2">
-            <div className="text-center">
-              <p className="text-xs text-slate-400 font-medium">Oficial</p>
-              <p className="text-sm font-bold text-slate-700">${data.dolarOficial?.toFixed(0)}</p>
-            </div>
-            <div className="w-px bg-slate-200" />
-            <div className="text-center">
-              <p className="text-xs text-slate-400 font-medium">Blue</p>
-              <p className="text-sm font-bold text-blue-600">${data.dolarBlue?.toFixed(0)}</p>
-            </div>
-          </div>
-        )}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+
+      {/* Header */}
+      <div>
+        <h1 style={{ fontSize: 24, fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>
+          📊 Resumen
+        </h1>
+        <p style={{ color: 'var(--text-secondary)', margin: '4px 0 0', fontSize: 14 }}>
+          Tu panorama financiero actual
+        </p>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <KpiCard label="Ingresos del mes" value={fmt(data.totalIngresos)} color="text-green-600" bg="bg-white" border="border-slate-100" icon="💚" />
-        <KpiCard label="Gastos fijos" value={fmt(data.totalGastosFijos)} color="text-red-500" bg="bg-white" border="border-slate-100" icon="🔴" />
-        <KpiCard label="Gastos variables" value={fmt(data.totalGastosVariables)} color="text-orange-500" bg="bg-white" border="border-slate-100" icon="🛒" />
-        <KpiCard
-          label="Disponible"
-          value={fmt(data.saldoMensual)}
-          color={data.saldoMensual >= 0 ? 'text-green-700' : 'text-red-600'}
-          bg={data.saldoMensual >= 0 ? 'bg-green-50' : 'bg-red-50'}
-          border={data.saldoMensual >= 0 ? 'border-green-100' : 'border-red-100'}
-          icon="💰"
-        />
-      </div>
-
-      {data.totalIngresos > 0 && (
-        <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
-          <h2 className="text-sm font-semibold text-slate-700 mb-4">Flujo del mes</h2>
-          <div className="space-y-3">
-            <FlowBar label="Ingresos" value={data.totalIngresos} max={data.totalIngresos} color="bg-green-500" icon="💚" />
-            <FlowBar label="Gastos fijos" value={data.totalGastosFijos} max={data.totalIngresos} color="bg-red-500" icon="📌" />
-            <FlowBar label="Gastos variables" value={data.totalGastosVariables} max={data.totalIngresos} color="bg-orange-400" icon="🛒" />
-            <FlowBar label="Disponible" value={Math.max(data.saldoMensual, 0)} max={data.totalIngresos} color="bg-blue-500" icon="✅" />
-          </div>
-          {data.totalIngresos > 0 && (
-            <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between">
-              <span className="text-xs text-slate-500">Tasa de ahorro</span>
-              <div className="flex items-center gap-2">
-                <div className="w-24 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                  <div
-                    className={`h-full rounded-full ${data.tasaAhorro >= 50 ? 'bg-green-500' : data.tasaAhorro >= 25 ? 'bg-yellow-400' : 'bg-red-400'}`}
-                    style={{ width: `${Math.min(Math.max(data.tasaAhorro, 0), 100)}%` }}
-                  />
-                </div>
-                <span className={`text-sm font-bold ${data.tasaAhorro >= 50 ? 'text-green-600' : data.tasaAhorro >= 25 ? 'text-yellow-600' : 'text-red-500'}`}>
-                  {data.tasaAhorro.toFixed(0)}%
-                </span>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {insights.length > 0 && (
-        <div className="bg-blue-50 border border-blue-100 rounded-2xl p-5">
-          <h2 className="text-sm font-semibold text-blue-800 mb-3">💡 Insights del mes</h2>
-          <ul className="space-y-1.5">
-            {insights.map((ins, i) => (
-              <li key={i} className="text-sm text-blue-700">{ins}</li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {data.gastosHormiga > 0 && (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-2xl p-5">
-          <div className="flex items-start gap-3">
-            <span className="text-2xl">🐜</span>
-            <div>
-              <h3 className="font-semibold text-yellow-800 text-sm">Gastos hormiga</h3>
-              <p className="text-yellow-700 text-sm mt-1">
-                Gastaste <strong>{fmt(data.gastosHormiga)}</strong> en pequeños gastos frecuentes
-                {data.totalIngresos > 0 && <> — <strong>{((data.gastosHormiga / data.totalIngresos) * 100).toFixed(1)}%</strong> de tus ingresos</>}.
+      {/* KPI Cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 14 }}>
+        {kpis.map(k => (
+          <div
+            key={k.label}
+            style={{
+              background: 'var(--bg-card)',
+              border: '0.5px solid var(--border-color)',
+              borderRadius: 'var(--radius)',
+              padding: '18px 20px',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <p style={{ color: 'var(--text-secondary)', fontSize: 12, margin: '0 0 8px', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 600 }}>
+                {k.label}
               </p>
+              <span style={{ fontSize: 18 }}>{k.emoji}</span>
             </div>
+            <p style={{ color: k.color, fontSize: 22, fontWeight: 700, margin: 0, fontFamily: 'Courier New, monospace' }}>
+              {k.val}
+            </p>
+          </div>
+        ))}
+      </div>
+
+      {/* Flow bar */}
+      {d.totalIngresos > 0 && (
+        <div style={{ background: 'var(--bg-card)', border: '0.5px solid var(--border-color)', borderRadius: 'var(--radius)', padding: '16px 20px' }}>
+          <p style={{ color: 'var(--text-secondary)', fontSize: 12, margin: '0 0 10px', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 600 }}>
+            Distribución ingreso / gasto
+          </p>
+          <div style={{ display: 'flex', height: 12, borderRadius: 6, overflow: 'hidden', gap: 2 }}>
+            <div style={{ flex: d.totalIngresos, background: 'var(--accent-positive)', borderRadius: 6 }} />
+            <div style={{ flex: d.totalGastos, background: 'var(--accent-negative)', borderRadius: 6 }} />
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8 }}>
+            <span style={{ fontSize: 12, color: 'var(--accent-positive)' }}>↑ Ingresos {fmt(d.totalIngresos)}</span>
+            <span style={{ fontSize: 12, color: 'var(--accent-negative)' }}>↓ Gastos {fmt(d.totalGastos)}</span>
           </div>
         </div>
       )}
 
-      {data.totalIngresos === 0 && data.totalGastosFijos === 0 && (
-        <div className="bg-white rounded-2xl p-10 border border-dashed border-slate-200 text-center">
-          <p className="text-4xl mb-3">📊</p>
-          <p className="text-slate-600 font-medium">No hay datos cargados todavía</p>
-          <p className="text-slate-400 text-sm mt-1">Agregá ingresos y gastos en la sección <strong>Trabajos</strong> y <strong>Gastos & CC</strong></p>
+      {/* Charts grid */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 16 }}>
+
+        {/* Donut — gastos por categoría */}
+        <div style={{ background: 'var(--bg-card)', border: '0.5px solid var(--border-color)', borderRadius: 'var(--radius)', padding: '16px 20px' }}>
+          <p style={{ color: 'var(--text-secondary)', fontSize: 12, margin: '0 0 16px', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 600 }}>
+            Gastos por categoría
+          </p>
+          {d.gastosPorCategoria.length === 0 ? (
+            <p style={{ color: 'var(--text-muted)', fontSize: 14, textAlign: 'center', padding: '24px 0' }}>Sin datos</p>
+          ) : (
+            <ResponsiveContainer width="100%" height={220}>
+              <PieChart>
+                <Pie
+                  data={d.gastosPorCategoria}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={55}
+                  outerRadius={85}
+                  paddingAngle={3}
+                  dataKey="value"
+                >
+                  {d.gastosPorCategoria.map((_, i) => (
+                    <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip
+                  formatter={(v: number) => fmt(v)}
+                  contentStyle={{ background: 'var(--bg-card)', border: '0.5px solid var(--border-color)', borderRadius: 8, fontSize: 13 }}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+          )}
+          {/* Legend */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 14px', marginTop: 8 }}>
+            {d.gastosPorCategoria.map((cat, i) => (
+              <div key={cat.name} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                <div style={{ width: 8, height: 8, borderRadius: '50%', background: COLORS[i % COLORS.length], flexShrink: 0 }} />
+                <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{cat.name}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Line chart — tendencia mensual */}
+        <div style={{ background: 'var(--bg-card)', border: '0.5px solid var(--border-color)', borderRadius: 'var(--radius)', padding: '16px 20px' }}>
+          <p style={{ color: 'var(--text-secondary)', fontSize: 12, margin: '0 0 16px', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 600 }}>
+            Tendencia mensual (6m)
+          </p>
+          <ResponsiveContainer width="100%" height={220}>
+            <LineChart data={d.tendenciaMensual} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" vertical={false} />
+              <XAxis dataKey="mes" tick={{ fill: 'var(--text-muted)', fontSize: 11 }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fill: 'var(--text-muted)', fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={(v) => '$' + (v / 1000).toFixed(0) + 'k'} width={40} />
+              <Tooltip
+                formatter={(v: number) => fmt(v)}
+                contentStyle={{ background: 'var(--bg-card)', border: '0.5px solid var(--border-color)', borderRadius: 8, fontSize: 13 }}
+              />
+              <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11, color: 'var(--text-secondary)' }} />
+              <Line type="monotone" dataKey="ingresos" name="Ingresos" stroke="var(--accent-positive)" strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
+              <Line type="monotone" dataKey="gastos" name="Gastos" stroke="var(--accent-negative)" strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      {/* Insight rápido */}
+      {d.neto !== 0 && (
+        <div style={{
+          background: d.neto >= 0 ? 'rgba(63,185,80,0.06)' : 'rgba(255,123,114,0.06)',
+          border: `0.5px solid ${d.neto >= 0 ? 'rgba(63,185,80,0.25)' : 'rgba(255,123,114,0.25)'}`,
+          borderRadius: 'var(--radius)',
+          padding: '14px 18px',
+          fontSize: 14,
+          color: 'var(--text-primary)',
+        }}>
+          {d.neto >= 0
+            ? `✅ Cerrás el período con un superávit de ${fmt(d.neto)} — ahorrando el ${ahorro}% de tus ingresos.`
+            : `⚠️ Cerrás el período con un déficit de ${fmt(Math.abs(d.neto))}. Revisá el historial para identificar qué ajustar.`}
         </div>
       )}
     </div>
