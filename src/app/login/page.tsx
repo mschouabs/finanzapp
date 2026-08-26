@@ -1,0 +1,52 @@
+'use client'
+
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import Link from 'next/link'
+import { createClient } from '@/lib/supabase'
+
+export default function LoginPage() {
+  const router = useRouter()
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
+
+  async function handleLogin(e: React.FormEvent) {
+    e.preventDefault()
+    setLoading(true)
+    setError('')
+    const supabase = createClient()
+    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    if (error) { setError('Email o contraseña incorrectos'); setLoading(false) }
+    else { router.push('/dashboard'); router.refresh() }
+  }
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-slate-100 px-4">
+      <div className="w-full max-w-md">
+        <div className="text-center mb-8">
+          <div className="text-4xl mb-2">💰</div>
+          <h1 className="text-3xl font-bold text-slate-800">FinanzApp</h1>
+          <p className="text-slate-500 mt-1">Controlá tus finanzas personales</p>
+        </div>
+        <div className="bg-white rounded-2xl shadow-lg p-8">
+          <h2 className="text-xl font-semibold text-slate-700 mb-6">Iniciar sesión</h2>
+          <form onSubmit={handleLogin} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-600 mb-1">Email</label>
+              <input type="email" value={email} onChange={e => setEmail(e.target.value)} required className="w-full border border-slate-200 rounded-xl px-4 py-3 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="tu@email.com" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-600 mb-1">Contraseña</label>
+              <input type="password" value={password} onChange={e => setPassword(e.target.value)} required className="w-full border border-slate-200 rounded-xl px-4 py-3 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="••••••••" />
+            </div>
+            {error && <div className="bg-red-50 text-red-600 text-sm rounded-xl px-4 py-3">{error}</div>}
+            <button type="submit" disabled={loading} className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-semibold rounded-xl py-3 transition-colors">{loading ? 'Ingresando...' : 'Ingresar'}</button>
+          </form>
+          <p className="text-center text-sm text-slate-500 mt-6">¿No tenés cuenta? <Link href="/register" className="text-blue-600 hover:underline font-medium">Registrate</Link></p>
+        </div>
+      </div>
+    </div>
+  )
+}
