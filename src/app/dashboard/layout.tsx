@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
-import Sidebar from '@/components/ui/Sidebar'
+import TopNav from '@/components/ui/TopNav'
 
 export default async function DashboardLayout({
   children,
@@ -32,10 +32,12 @@ export default async function DashboardLayout({
     redirect('/login')
   }
 
+  const userName = user.user_metadata?.nombre || user.email?.split('@')[0] || ''
+
   return (
-    <div className="flex min-h-screen">
-      <Sidebar />
-      <main className="flex-1 bg-slate-50 p-6 overflow-auto">
+    <div className="min-h-screen bg-slate-50">
+      <TopNav userName={userName} />
+      <main className="max-w-7xl mx-auto px-6 py-6">
         {children}
       </main>
     </div>
