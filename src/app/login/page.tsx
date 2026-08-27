@@ -35,40 +35,40 @@ export default function LoginPage() {
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <div className="text-4xl mb-2">💰</div>
-          <h1 className="text-3xl font-bold text-slate-800">FinanzApp</h1>
-          <p className="text-slate-500 mt-1">Controlá tus finanzas personales</p>
+          <h1 className="text-3xl font-bold text-primary">FinanzApp</h1>
+          <p className="text-secondary mt-1">Controlá tus finanzas personales</p>
         </div>
 
-        <div className="bg-white rounded-2xl shadow-lg p-8">
-          <h2 className="text-xl font-semibold text-slate-700 mb-6">Iniciar sesión</h2>
+        <div className="bg-card rounded-2xl shadow-lg p-8">
+          <h2 className="text-xl font-semibold text-primary mb-6">Iniciar sesión</h2>
 
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-slate-600 mb-1">Email</label>
+              <label className="block text-sm font-medium text-secondary mb-1">Email</label>
               <input
                 type="email"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
                 required
-                className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full bg-card border border-line rounded-xl px-4 py-3 text-primary placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="tu@email.com"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-600 mb-1">Contraseña</label>
+              <label className="block text-sm font-medium text-secondary mb-1">Contraseña</label>
               <input
                 type="password"
                 value={password}
                 onChange={e => setPassword(e.target.value)}
                 required
-                className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full bg-card border border-line rounded-xl px-4 py-3 text-primary placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="••••••••"
               />
             </div>
 
             {error && (
-              <div className="bg-red-50 text-red-600 text-sm rounded-xl px-4 py-3">
+              <div className="bg-alternate text-negative text-sm rounded-xl px-4 py-3">
                 {error}
               </div>
             )}
@@ -76,7 +76,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-semibold rounded-xl py-3 transition-colors"
+              className="w-full bg-confirm hover:bg-confirm-hover disabled:opacity-50 text-white font-semibold rounded-xl py-3 transition-colors"
             >
               {loading ? 'Ingresando...' : 'Ingresar'}
             </button>
@@ -84,9 +84,9 @@ export default function LoginPage() {
 
           <OAuthButtons />
 
-          <p className="text-center text-sm text-slate-500 mt-6">
+          <p className="text-center text-sm text-secondary mt-6">
             ¿No tenés cuenta?{' '}
-            <Link href="/register" className="text-blue-600 hover:underline font-medium">
+            <Link href="/register" className="text-info hover:underline font-medium">
               Registrate
             </Link>
           </p>
