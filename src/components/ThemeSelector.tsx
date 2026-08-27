@@ -1,43 +1,48 @@
 'use client'
 import { useTheme } from './ThemeProvider'
 
+const SIZE = 28
+
 export function ThemeSelector() {
   const { theme, toggleTheme } = useTheme()
 
+  const base: React.CSSProperties = {
+    width: SIZE,
+    height: SIZE,
+    borderRadius: '50%',
+    cursor: 'pointer',
+    padding: 0,
+    outline: 'none',
+    flexShrink: 0,
+    transition: 'border-color 200ms, transform 200ms',
+  }
+
   return (
-    <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
       <button
         onClick={() => theme !== 'dark' && toggleTheme()}
         title="Tema Oscuro"
         aria-label="Cambiar a tema oscuro"
+        aria-pressed={theme === 'dark'}
         style={{
-          width: 18,
-          height: 18,
-          borderRadius: '50%',
+          ...base,
           background: '#0D1117',
-          border: theme === 'dark' ? '2.5px solid #C9D1D9' : '2px solid #444',
+          border: theme === 'dark' ? '2px solid #3FB950' : '2px solid #30363D',
+          transform: theme === 'dark' ? 'scale(1)' : 'scale(0.9)',
           cursor: theme === 'dark' ? 'default' : 'pointer',
-          padding: 0,
-          outline: 'none',
-          transition: 'border 200ms',
-          flexShrink: 0,
         }}
       />
       <button
         onClick={() => theme !== 'rosa' && toggleTheme()}
         title="Tema Rosa"
         aria-label="Cambiar a tema rosa"
+        aria-pressed={theme === 'rosa'}
         style={{
-          width: 18,
-          height: 18,
-          borderRadius: '50%',
-          background: '#FAF6F3',
-          border: theme === 'rosa' ? '2.5px solid #C85A6D' : '2px solid #aaa',
+          ...base,
+          background: '#D4849C',
+          border: theme === 'rosa' ? '2px solid #C85A6D' : '2px solid transparent',
+          transform: theme === 'rosa' ? 'scale(1)' : 'scale(0.9)',
           cursor: theme === 'rosa' ? 'default' : 'pointer',
-          padding: 0,
-          outline: 'none',
-          transition: 'border 200ms',
-          flexShrink: 0,
         }}
       />
     </div>

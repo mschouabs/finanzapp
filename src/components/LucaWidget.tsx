@@ -9,13 +9,21 @@ interface ParsedExpense {
   fecha: string
 }
 
-export function LucaWidget() {
-  const [open, setOpen] = useState(false)
+const FIELDS = [
+  { label: 'Descripción', key: 'nombre' as const, type: 'text' },
+  { label: 'Monto', key: 'monto' as const, type: 'number' },
+  { label: 'Categoría', key: 'categoria' as const, type: 'text' },
+  { label: 'Fecha', key: 'fecha' as const, type: 'date' },
+]
+
+export function LucaWidget({ onSaved }: { onSaved?: () => void }) {
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [parsed, setParsed] = useState<ParsedExpense | null>(null)
+  const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [error, setError] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
 
   const supabase = createBrowserClient(
@@ -23,9 +31,17 @@ export function LucaWidget() {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   )
 
+  const reset = () => {
+    setParsed(null)
+    setInput('')
+    setEditing(false)
+    setError('')
+  }
+
   const parse = async () => {
     if (!input.trim()) return
     setLoading(true)
+    setError('')
     try {
       const res = await fetch('/api/parse-expense', {
         method: 'POST',
@@ -33,9 +49,13 @@ export function LucaWidget() {
         body: JSON.stringify({ text: input }),
       })
       const data = await res.json()
-      if (data.nombre) setParsed(data)
+      if (data?.nombre) {
+        setParsed(data)
+      } else {
+        setError('No pude entender ese gasto. Probá de nuevo con más detalle.')
+      }
     } catch {
-      // silent error
+      setError('No pude conectarme. Revisá tu conexión e intentá otra vez.')
     }
     setLoading(false)
   }
@@ -43,9 +63,10 @@ export function LucaWidget() {
   const confirm = async () => {
     if (!parsed) return
     setSaving(true)
+    setError('')
     try {
       const { data: { user } } = await supabase.auth.getUser()
-      await supabase.from('gastos_variables').insert({
+      const { error: dbError } = await supabase.from('gastos_variables').insert({
         user_id: user?.id,
         nombre: parsed.nombre,
         monto: parsed.monto,
@@ -53,172 +74,126 @@ export function LucaWidget() {
         fecha: parsed.fecha,
         es_gasto_hormiga: false,
       })
+      if (dbError) throw dbError
       setSaved(true)
+      onSaved?.()
       setTimeout(() => {
-        setParsed(null)
-        setInput('')
+        reset()
         setSaved(false)
-        setOpen(false)
-      }, 1500)
+      }, 1800)
     } catch {
-      // silent error
+      setError('No se pudo guardar el gasto.')
     }
     setSaving(false)
   }
 
-  const panelStyle: React.CSSProperties = {
-    position: 'absolute',
-    bottom: 64,
-    right: 0,
-    width: 320,
-    background: 'var(--bg-card, #161B22)',
-    border: '1px solid var(--border-color, #30363D)',
-    borderRadius: 16,
-    padding: 20,
-    boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
-    color: 'var(--text-primary, #C9D1D9)',
-  }
-
-  const inputStyle: React.CSSProperties = {
-    width: '100%',
-    padding: '7px 10px',
-    fontSize: 13,
-    background: 'var(--bg-input, #21262D)',
-    border: '1px solid var(--border-color, #30363D)',
-    borderRadius: 7,
-    color: 'var(--text-primary, #C9D1D9)',
-    boxSizing: 'border-box',
-    outline: 'none',
-  }
-
-  const btnPrimary: React.CSSProperties = {
-    padding: '8px 14px',
-    background: 'var(--accent-confirm, #238636)',
-    color: '#fff',
-    border: 'none',
-    borderRadius: 8,
-    fontSize: 13,
-    cursor: 'pointer',
-    fontWeight: 500,
-  }
-
-  const btnSecondary: React.CSSProperties = {
-    padding: '8px 12px',
-    background: 'transparent',
-    color: 'var(--text-muted, #6E7681)',
-    border: '1px solid var(--border-color, #30363D)',
-    borderRadius: 8,
-    fontSize: 13,
-    cursor: 'pointer',
-  }
-
   return (
-    <div style={{ position: 'fixed', bottom: 24, right: 24, zIndex: 1000 }}>
-      {open && (
-        <div style={panelStyle}>
-          {/* Header */}
-          <div style={{ marginBottom: 14 }}>
-            <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 3 }}>ð° Luca</div>
-            <div style={{ fontSize: 12, color: 'var(--text-muted, #6E7681)' }}>
-              EscribÃ­ naturalmente para registrar un gasto
-            </div>
-          </div>
+    <section className="fa-card p-6">
+      <h2 className="text-sm font-extrabold text-primary mb-1.5">💰 DECILE A LUCA</h2>
+      <p className="text-xs text-secondary mb-5">
+        Tu mascota IA que registra gastos al instante
+      </p>
 
-          {/* Input state */}
-          {!parsed && !saved && (
-            <div style={{ display: 'flex', gap: 8 }}>
-              <input
-                ref={inputRef}
-                value={input}
-                onChange={e => setInput(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && !loading && parse()}
-                placeholder='ej: "gastÃ© $500 en uber"'
-                disabled={loading}
-                style={{ ...inputStyle, flex: 1 }}
-              />
-              <button
-                onClick={parse}
-                disabled={loading || !input.trim()}
-                style={{ ...btnPrimary, opacity: loading || !input.trim() ? 0.5 : 1 }}
+      {/* Entrada */}
+      <div className="flex gap-3 flex-col sm:flex-row">
+        <input
+          ref={inputRef}
+          value={input}
+          onChange={e => setInput(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && !loading && !parsed && parse()}
+          placeholder="Ej: Gasté $87 en supermercado"
+          disabled={loading || !!parsed}
+          className="flex-1 px-3 py-3 text-xs rounded-md border bg-field text-primary disabled:opacity-60"
+        />
+        <div className="flex gap-3">
+          <button
+            onClick={parse}
+            disabled={loading || !input.trim() || !!parsed}
+            className="px-5 py-3 text-xs font-semibold rounded-md text-white bg-confirm hover:bg-confirm-hover disabled:opacity-50 transition-colors"
+          >
+            {loading ? 'Pensando…' : '✓ Enviar'}
+          </button>
+          <button
+            onClick={reset}
+            disabled={!input && !parsed}
+            className="px-5 py-3 text-xs font-semibold rounded-md border text-secondary hover:bg-alternate disabled:opacity-40 transition-colors"
+          >
+            Cancelar
+          </button>
+        </div>
+      </div>
+
+      {error && (
+        <p className="mt-4 text-xs text-negative">{error}</p>
+      )}
+
+      {saved && (
+        <p className="mt-4 text-xs font-semibold text-positive">✓ ¡Guardado!</p>
+      )}
+
+      {/* Resultado interpretado */}
+      {parsed && !saved && (
+        <div className="mt-4 rounded-md border bg-alternate p-4">
+          <p className="text-sm text-primary mb-3">💸 Luca entiende:</p>
+
+          <dl className="text-xs">
+            {FIELDS.map(({ label, key, type }, i) => (
+              <div
+                key={key}
+                className={`flex items-center gap-4 py-2.5 ${
+                  i < FIELDS.length - 1 ? 'border-b' : ''
+                }`}
               >
-                {loading ? '...' : 'â'}
-              </button>
-            </div>
-          )}
-
-          {/* Saved confirmation */}
-          {saved && (
-            <div style={{ textAlign: 'center', color: 'var(--accent-positive, #3FB950)', padding: '12px 0', fontSize: 15 }}>
-              â Â¡Guardado!
-            </div>
-          )}
-
-          {/* Result with editable fields */}
-          {parsed && !saved && (
-            <div>
-              <div style={{ display: 'grid', gap: 8, marginBottom: 14 }}>
-                {[
-                  { label: 'DescripciÃ³n', key: 'nombre' as const },
-                  { label: 'Monto ($)', key: 'monto' as const },
-                  { label: 'CategorÃ­a', key: 'categoria' as const },
-                  { label: 'Fecha', key: 'fecha' as const },
-                ].map(({ label, key }) => (
-                  <div key={key}>
-                    <div style={{ fontSize: 11, color: 'var(--text-muted, #6E7681)', marginBottom: 3 }}>
-                      {label}
-                    </div>
+                <dt className="text-secondary w-24 shrink-0">{label}:</dt>
+                <dd className="flex-1 text-primary">
+                  {editing ? (
                     <input
+                      type={type}
                       value={String(parsed[key])}
                       onChange={e =>
                         setParsed(p =>
-                          p ? { ...p, [key]: key === 'monto' ? Number(e.target.value) : e.target.value } : p
+                          p
+                            ? { ...p, [key]: key === 'monto' ? Number(e.target.value) : e.target.value }
+                            : p
                         )
                       }
-                      type={key === 'monto' ? 'number' : key === 'fecha' ? 'date' : 'text'}
-                      style={inputStyle}
+                      className="w-full px-2 py-1.5 rounded border bg-field text-primary text-xs"
                     />
-                  </div>
-                ))}
+                  ) : key === 'monto' ? (
+                    <span className="fa-amount">
+                      ${Number(parsed.monto).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                    </span>
+                  ) : (
+                    String(parsed[key])
+                  )}
+                </dd>
               </div>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button onClick={confirm} disabled={saving} style={{ ...btnPrimary, flex: 1, opacity: saving ? 0.6 : 1 }}>
-                  {saving ? 'Guardando...' : 'â Confirmar'}
-                </button>
-                <button onClick={() => { setParsed(null); setInput('') }} style={btnSecondary}>
-                  â
-                </button>
-              </div>
-            </div>
-          )}
+            ))}
+          </dl>
+
+          <div className="flex gap-2 mt-4">
+            <button
+              onClick={confirm}
+              disabled={saving}
+              className="px-3 py-2 text-[10px] font-semibold rounded-md text-white bg-confirm hover:bg-confirm-hover disabled:opacity-50 transition-colors"
+            >
+              {saving ? 'Guardando…' : '✓ Confirmar'}
+            </button>
+            <button
+              onClick={() => setEditing(e => !e)}
+              className="px-3 py-2 text-[10px] font-semibold rounded-md border text-secondary hover:bg-card transition-colors"
+            >
+              {editing ? 'Listo' : 'Editar'}
+            </button>
+            <button
+              onClick={reset}
+              className="px-3 py-2 text-[10px] font-semibold rounded-md border text-secondary hover:bg-card transition-colors"
+            >
+              Descartar
+            </button>
+          </div>
         </div>
       )}
-
-      {/* Floating button */}
-      <button
-        onClick={() => {
-          setOpen(o => !o)
-          if (!open) setTimeout(() => inputRef.current?.focus(), 150)
-        }}
-        title="Luca â Registrar gasto"
-        aria-label="Abrir Luca"
-        style={{
-          width: 52,
-          height: 52,
-          borderRadius: '50%',
-          background: open ? 'var(--accent-negative, #FF7B72)' : 'var(--accent-confirm, #238636)',
-          color: '#fff',
-          border: 'none',
-          fontSize: open ? 20 : 24,
-          cursor: 'pointer',
-          boxShadow: '0 4px 16px rgba(0,0,0,0.3)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          transition: 'background 200ms',
-        }}
-      >
-        {open ? 'â' : 'ð°'}
-      </button>
-    </div>
+    </section>
   )
 }
