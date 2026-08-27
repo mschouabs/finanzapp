@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
+import { LucaWidget } from '@/components/LucaWidget'
 import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
   LineChart, Line, XAxis, YAxis, CartesianGrid, Legend,
@@ -155,6 +156,9 @@ export default function DashboardPage() {
           </div>
         ))}
       </div>
+
+      {/* Luca — registro de gastos por lenguaje natural */}
+      <LucaWidget onSaved={cargar} />
 
       {/* Flow bar */}
       {d.totalIngresos > 0 && (
