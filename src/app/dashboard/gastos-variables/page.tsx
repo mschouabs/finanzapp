@@ -22,21 +22,21 @@ interface GastoFijo {
 }
 
 const CATEGORIAS = [
-  { key: 'mercado', label: 'Mercado', emoji: 'ð' },
-  { key: 'comida', label: 'Comida', emoji: 'ð' },
-  { key: 'transporte', label: 'Transporte', emoji: 'ð' },
-  { key: 'farmacia', label: 'Farmacia', emoji: 'ð' },
-  { key: 'ocio', label: 'Ocio', emoji: 'ð¬' },
-  { key: 'ropa', label: 'Ropa', emoji: 'ð' },
-  { key: 'personal', label: 'Personal', emoji: 'âï¸' },
-  { key: 'impuesto', label: 'Impuesto', emoji: 'ð' },
-  { key: 'tecnologia', label: 'TecnologÃ­a', emoji: 'ð»' },
-  { key: 'regalo', label: 'Regalo', emoji: 'ð' },
-  { key: 'varios', label: 'Varios', emoji: 'ð¦' },
+  { key: 'mercado', label: 'Mercado', emoji: '🛒' },
+  { key: 'comida', label: 'Comida', emoji: '🍕' },
+  { key: 'transporte', label: 'Transporte', emoji: '🚗' },
+  { key: 'farmacia', label: 'Farmacia', emoji: '💊' },
+  { key: 'ocio', label: 'Ocio', emoji: '🎬' },
+  { key: 'ropa', label: 'Ropa', emoji: '👕' },
+  { key: 'personal', label: 'Personal', emoji: '✂️' },
+  { key: 'impuesto', label: 'Impuesto', emoji: '📋' },
+  { key: 'tecnologia', label: 'Tecnología', emoji: '💻' },
+  { key: 'regalo', label: 'Regalo', emoji: '🎁' },
+  { key: 'varios', label: 'Varios', emoji: '📦' },
 ]
 
 function getCatEmoji(cat: string) {
-  return CATEGORIAS.find(c => c.key === cat)?.emoji || 'ð¦'
+  return CATEGORIAS.find(c => c.key === cat)?.emoji || '📦'
 }
 
 function fmt(n: number) {
@@ -116,7 +116,7 @@ export default function GastosPage() {
             fecha: json.fecha || new Date().toISOString().split('T')[0],
             es_gasto_hormiga: false,
           })
-          setAiMsg({ text: `${getCatEmoji(json.categoria || 'varios')} "${json.nombre}" â ${fmt(json.monto)} guardado`, ok: true })
+          setAiMsg({ text: `${getCatEmoji(json.categoria || 'varios')} "${json.nombre}" — ${fmt(json.monto)} guardado`, ok: true })
           setAiText('')
           loadData()
         }
@@ -129,7 +129,7 @@ export default function GastosPage() {
     } catch {
       setFormManual(p => ({ ...p, nombre: aiText }))
       setShowManual(true)
-      setAiMsg({ text: 'Error al procesar. CargÃ¡ manualmente.', ok: false })
+      setAiMsg({ text: 'Error al procesar. Cargá manualmente.', ok: false })
     }
     setAiLoading(false)
   }
@@ -219,30 +219,30 @@ export default function GastosPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">Gastos & CC</h1>
-          <p className="text-slate-500 text-sm">Gastos fijos, variables y tarjetas</p>
+          <h1 className="text-2xl font-bold text-primary">Gastos & CC</h1>
+          <p className="text-secondary text-sm">Gastos fijos, variables y tarjetas</p>
         </div>
-        <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-1.5">
-          <button onClick={prevMes} className="text-slate-400 hover:text-slate-600 px-1">â¹</button>
-          <span className="text-sm font-medium text-slate-700 min-w-[120px] text-center">{meses[mes.month - 1]} {mes.year}</span>
-          <button onClick={nextMes} className="text-slate-400 hover:text-slate-600 px-1">âº</button>
+        <div className="flex items-center gap-2 bg-card border border-line rounded-xl px-3 py-1.5">
+          <button onClick={prevMes} className="text-muted hover:text-secondary px-1">‹</button>
+          <span className="text-sm font-medium text-primary min-w-[120px] text-center">{meses[mes.month - 1]} {mes.year}</span>
+          <button onClick={nextMes} className="text-muted hover:text-secondary px-1">›</button>
         </div>
       </div>
 
       {/* AI Input */}
-      <div className="bg-blue-600 rounded-2xl p-5">
-        <p className="text-blue-100 text-xs font-medium mb-2">â¨ CargÃ¡ un gasto en lenguaje natural</p>
+      <div className="bg-confirm rounded-2xl p-5">
+        <p className="text-blue-100 text-xs font-medium mb-2">✨ Cargá un gasto en lenguaje natural</p>
         <div className="flex gap-2">
           <input
             ref={inputRef}
             value={aiText}
             onChange={e => setAiText(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && parseWithAI()}
-            placeholder='Ej: "gastÃ© 3500 en delivery" o "paguÃ© el monotributo"'
-            className="flex-1 rounded-xl px-4 py-2.5 text-sm bg-white/10 text-white placeholder:text-blue-200 border border-white/20 focus:outline-none focus:border-white/50"
+            placeholder='Ej: "gasté 3500 en delivery" o "pagué el monotributo"'
+            className="flex-1 rounded-xl px-4 py-2.5 text-sm bg-card/10 text-white placeholder:text-blue-200 border border-white/20 focus:outline-none focus:border-white/50"
           />
           <button onClick={parseWithAI} disabled={aiLoading}
-            className="bg-white text-blue-600 font-semibold px-4 py-2.5 rounded-xl text-sm hover:bg-blue-50 disabled:opacity-50 transition-colors whitespace-nowrap">
+            className="bg-card text-info font-semibold px-4 py-2.5 rounded-xl text-sm hover:bg-alternate disabled:opacity-50 transition-colors whitespace-nowrap">
             {aiLoading ? '...' : 'Guardar'}
           </button>
         </div>
@@ -257,88 +257,88 @@ export default function GastosPage() {
 
       {/* Manual form */}
       {showManual && (
-        <div className="bg-white rounded-2xl border border-slate-100 p-5">
-          <h3 className="text-sm font-semibold text-slate-700 mb-3">Carga manual de gasto</h3>
+        <div className="bg-card rounded-2xl border border-line p-5">
+          <h3 className="text-sm font-semibold text-primary mb-3">Carga manual de gasto</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <input placeholder="Nombre del gasto" value={formManual.nombre}
               onChange={e => setFormManual(p => ({ ...p, nombre: e.target.value }))}
-              className="border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+              className="border border-line rounded-lg px-3 py-2 text-sm" />
             <input placeholder="Monto ($)" type="number" value={formManual.monto}
               onChange={e => setFormManual(p => ({ ...p, monto: e.target.value }))}
-              className="border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+              className="border border-line rounded-lg px-3 py-2 text-sm" />
             <select value={formManual.categoria} onChange={e => setFormManual(p => ({ ...p, categoria: e.target.value }))}
-              className="border border-slate-200 rounded-lg px-3 py-2 text-sm">
+              className="border border-line rounded-lg px-3 py-2 text-sm">
               {CATEGORIAS.map(c => <option key={c.key} value={c.key}>{c.emoji} {c.label}</option>)}
             </select>
             <input type="date" value={formManual.fecha}
               onChange={e => setFormManual(p => ({ ...p, fecha: e.target.value }))}
-              className="border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+              className="border border-line rounded-lg px-3 py-2 text-sm" />
           </div>
-          <label className="flex items-center gap-2 mt-3 text-sm text-slate-600 cursor-pointer">
+          <label className="flex items-center gap-2 mt-3 text-sm text-secondary cursor-pointer">
             <input type="checkbox" checked={formManual.es_gasto_hormiga}
               onChange={e => setFormManual(p => ({ ...p, es_gasto_hormiga: e.target.checked }))}
               className="rounded" />
-            ð Marcar como gasto hormiga
+            🐜 Marcar como gasto hormiga
           </label>
           <div className="flex gap-2 mt-3">
-            <button onClick={saveManual} className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-green-700">Guardar</button>
-            <button onClick={() => setShowManual(false)} className="text-slate-500 px-4 py-2 rounded-lg text-sm hover:bg-slate-100">Cancelar</button>
+            <button onClick={saveManual} className="bg-confirm text-white px-4 py-2 rounded-lg text-sm hover:bg-confirm-hover">Guardar</button>
+            <button onClick={() => setShowManual(false)} className="text-secondary px-4 py-2 rounded-lg text-sm hover:bg-alternate">Cancelar</button>
           </div>
         </div>
       )}
 
       {/* Gastos fijos */}
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm">
-        <div className="flex items-center justify-between p-5 border-b border-slate-100">
+      <div className="bg-card rounded-2xl border border-line shadow-sm">
+        <div className="flex items-center justify-between p-5 border-b border-line">
           <div>
-            <h2 className="font-semibold text-slate-800">ð Gastos fijos</h2>
-            <p className="text-xs text-slate-400 mt-0.5">Suscripciones y recurrentes â {fmt(totalFijos)}/mes</p>
+            <h2 className="font-semibold text-primary">📌 Gastos fijos</h2>
+            <p className="text-xs text-muted mt-0.5">Suscripciones y recurrentes — {fmt(totalFijos)}/mes</p>
           </div>
           <button onClick={() => setShowFijoForm(!showFijoForm)}
-            className="text-sm bg-slate-700 text-white px-3 py-1.5 rounded-lg hover:bg-slate-800 transition-colors">
+            className="text-sm bg-confirm text-white px-3 py-1.5 rounded-lg hover:bg-confirm-hover transition-colors">
             + Agregar
           </button>
         </div>
 
         {showFijoForm && (
-          <div className="p-5 bg-slate-50 border-b border-slate-100">
+          <div className="p-5 bg-alternate border-b border-line">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <input placeholder="Nombre (ej. Gimnasio)" value={formFijo.nombre}
                 onChange={e => setFormFijo(p => ({ ...p, nombre: e.target.value }))}
-                className="border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+                className="border border-line rounded-lg px-3 py-2 text-sm" />
               <input placeholder="Monto mensual ($)" type="number" value={formFijo.monto}
                 onChange={e => setFormFijo(p => ({ ...p, monto: e.target.value }))}
-                className="border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+                className="border border-line rounded-lg px-3 py-2 text-sm" />
               <select value={formFijo.categoria} onChange={e => setFormFijo(p => ({ ...p, categoria: e.target.value }))}
-                className="border border-slate-200 rounded-lg px-3 py-2 text-sm">
+                className="border border-line rounded-lg px-3 py-2 text-sm">
                 {CATEGORIAS.map(c => <option key={c.key} value={c.key}>{c.emoji} {c.label}</option>)}
               </select>
             </div>
             <div className="flex gap-2 mt-3">
-              <button onClick={saveFijo} className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-green-700">Guardar</button>
-              <button onClick={() => setShowFijoForm(false)} className="text-slate-500 px-4 py-2 rounded-lg text-sm hover:bg-slate-100">Cancelar</button>
+              <button onClick={saveFijo} className="bg-confirm text-white px-4 py-2 rounded-lg text-sm hover:bg-confirm-hover">Guardar</button>
+              <button onClick={() => setShowFijoForm(false)} className="text-secondary px-4 py-2 rounded-lg text-sm hover:bg-alternate">Cancelar</button>
             </div>
           </div>
         )}
 
-        <div className="divide-y divide-slate-50">
-          {gastosFijos.length === 0 && <p className="p-6 text-sm text-slate-400 text-center">Sin gastos fijos cargados</p>}
+        <div className="divide-y divide-line">
+          {gastosFijos.length === 0 && <p className="p-6 text-sm text-muted text-center">Sin gastos fijos cargados</p>}
           {gastosFijos.map(g => (
             <div key={g.id} className="flex items-center justify-between p-4">
               <div className="flex items-center gap-3">
                 <span className="text-lg">{getCatEmoji(g.categoria)}</span>
                 <div>
-                  <p className="font-medium text-slate-800 text-sm">{g.nombre}</p>
-                  <p className="text-xs text-slate-400 capitalize">{g.categoria}</p>
+                  <p className="font-medium text-primary text-sm">{g.nombre}</p>
+                  <p className="text-xs text-muted capitalize">{g.categoria}</p>
                 </div>
               </div>
               <div className="flex items-center gap-3">
-                <span className="font-bold text-slate-700">{fmt(g.monto)}</span>
+                <span className="font-bold text-primary">{fmt(g.monto)}</span>
                 <button onClick={() => toggleDebitado(g.id, g.debitado)}
-                  className={`text-xs px-2 py-1 rounded-full font-medium ${g.debitado ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}`}>
-                  {g.debitado ? 'â Pagado' : 'Pendiente'}
+                  className={`text-xs px-2 py-1 rounded-full font-medium ${g.debitado ? 'bg-green-100 text-positive' : 'bg-alternate text-secondary'}`}>
+                  {g.debitado ? '✓ Pagado' : 'Pendiente'}
                 </button>
-                <button onClick={() => deleteFijo(g.id)} className="text-slate-300 hover:text-red-400 text-xl leading-none">Ã</button>
+                <button onClick={() => deleteFijo(g.id)} className="text-muted hover:text-negative text-xl leading-none">×</button>
               </div>
             </div>
           ))}
@@ -346,39 +346,39 @@ export default function GastosPage() {
       </div>
 
       {/* Gastos variables del mes */}
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm">
-        <div className="p-5 border-b border-slate-100">
-          <h2 className="font-semibold text-slate-800">ð Gastos variables</h2>
-          <p className="text-xs text-slate-400 mt-0.5">{meses[mes.month - 1]} {mes.year} â Total: {fmt(totalVar)}</p>
+      <div className="bg-card rounded-2xl border border-line shadow-sm">
+        <div className="p-5 border-b border-line">
+          <h2 className="font-semibold text-primary">🛒 Gastos variables</h2>
+          <p className="text-xs text-muted mt-0.5">{meses[mes.month - 1]} {mes.year} — Total: {fmt(totalVar)}</p>
         </div>
 
         {loading ? (
-          <p className="p-6 text-sm text-slate-400 text-center animate-pulse">Cargando...</p>
+          <p className="p-6 text-sm text-muted text-center animate-pulse">Cargando...</p>
         ) : Object.keys(grouped).length === 0 ? (
-          <p className="p-6 text-sm text-slate-400 text-center">Sin gastos este mes</p>
+          <p className="p-6 text-sm text-muted text-center">Sin gastos este mes</p>
         ) : (
-          <div className="divide-y divide-slate-50">
+          <div className="divide-y divide-line">
             {Object.entries(grouped).map(([fecha, gastos]) => {
               const total = gastos.reduce((s, g) => s + g.monto, 0)
               const [, mm, dd] = fecha.split('-')
               return (
                 <div key={fecha}>
-                  <div className="flex items-center justify-between px-4 py-2 bg-slate-50">
-                    <span className="text-xs font-semibold text-slate-500">{dd}/{mm}</span>
-                    <span className="text-xs font-bold text-slate-600">{fmt(total)}</span>
+                  <div className="flex items-center justify-between px-4 py-2 bg-alternate">
+                    <span className="text-xs font-semibold text-secondary">{dd}/{mm}</span>
+                    <span className="text-xs font-bold text-secondary">{fmt(total)}</span>
                   </div>
                   {gastos.map(g => (
                     <div key={g.id} className="flex items-center justify-between px-4 py-3">
                       <div className="flex items-center gap-3">
                         <span className="text-base">{getCatEmoji(g.categoria)}</span>
                         <div>
-                          <p className="text-sm text-slate-800">{g.nombre}</p>
-                          {g.es_gasto_hormiga && <span className="text-xs text-orange-500">ð hormiga</span>}
+                          <p className="text-sm text-primary">{g.nombre}</p>
+                          {g.es_gasto_hormiga && <span className="text-xs text-orange-500">🐜 hormiga</span>}
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="font-medium text-slate-700">{fmt(g.monto)}</span>
-                        <button onClick={() => deleteVar(g.id)} className="text-slate-300 hover:text-red-400 text-xl leading-none">Ã</button>
+                        <span className="font-medium text-primary">{fmt(g.monto)}</span>
+                        <button onClick={() => deleteVar(g.id)} className="text-muted hover:text-negative text-xl leading-none">×</button>
                       </div>
                     </div>
                   ))}
@@ -392,7 +392,7 @@ export default function GastosPage() {
       {/* Gastos hormiga */}
       {gastosHormiga.length > 0 && (
         <div className="bg-yellow-50 border border-yellow-200 rounded-2xl p-5">
-          <h3 className="font-semibold text-yellow-800 text-sm mb-2">ð Gastos hormiga del mes</h3>
+          <h3 className="font-semibold text-yellow-800 text-sm mb-2">🐜 Gastos hormiga del mes</h3>
           <p className="text-yellow-700 text-sm">
             {gastosHormiga.length} gastos chicos suman <strong>{fmt(gastosHormiga.reduce((s, g) => s + g.monto, 0))}</strong>
           </p>
