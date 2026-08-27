@@ -26,10 +26,10 @@ export default function OAuthButtons() {
     <div className="space-y-3 mt-6">
       <div className="relative">
         <div className="absolute inset-0 flex items-center">
-          <div className="w-full border-t border-slate-200" />
+          <div className="w-full border-t border-line" />
         </div>
         <div className="relative flex justify-center text-xs">
-          <span className="bg-white px-3 text-slate-400 uppercase tracking-wide">
+          <span className="bg-card px-3 text-muted uppercase tracking-wide">
             o continuá con
           </span>
         </div>
@@ -38,7 +38,7 @@ export default function OAuthButtons() {
       <button
         type="button"
         onClick={handleGoogle}
-        className="w-full flex items-center justify-center gap-3 bg-white hover:bg-gray-50 text-slate-700 border border-slate-200 rounded-xl py-2.5 px-4 text-sm font-medium transition-colors"
+        className="w-full flex items-center justify-center gap-3 bg-card hover:bg-alternate text-primary border border-line rounded-xl py-2.5 px-4 text-sm font-medium transition-colors"
       >
         <GoogleIcon />
         <span>Continuar con Google</span>
