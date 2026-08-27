@@ -1,16 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 
 const SYSTEM_PROMPT = `Sos un asistente financiero argentino. El usuario te va a describir un gasto en lenguaje natural.
-DevolvÃ© SOLO un JSON vÃ¡lido (sin markdown, sin texto extra) con estos campos:
-- nombre: string (descripciÃ³n breve del gasto, mÃ¡x 50 chars)
+Devolvé SOLO un JSON válido (sin markdown, sin texto extra) con estos campos:
+- nombre: string (descripción breve del gasto, máx 50 chars)
 - monto: number (el monto en pesos ARS; null si no se menciona o no se puede determinar)
 - categoria: string (una de: mercado, comida, transporte, farmacia, ocio, ropa, personal, impuesto, tecnologia, regalo, varios)
 - fecha: string (formato YYYY-MM-DD; hoy si no se especifica)
 
 Ejemplos:
-"gastÃ© 3500 en delivery" â {"nombre":"Delivery","monto":3500,"categoria":"comida","fecha":"HOY"}
-"paguÃ© el monotributo" â {"nombre":"Monotributo","monto":null,"categoria":"impuesto","fecha":"HOY"}
-"11000 de multa" â {"nombre":"Multa","monto":11000,"categoria":"varios","fecha":"HOY"}`
+"gasté 3500 en delivery" → {"nombre":"Delivery","monto":3500,"categoria":"comida","fecha":"HOY"}
+"pagué el monotributo" → {"nombre":"Monotributo","monto":null,"categoria":"impuesto","fecha":"HOY"}
+"11000 de multa" → {"nombre":"Multa","monto":11000,"categoria":"varios","fecha":"HOY"}`
 
 export async function POST(req: NextRequest) {
   try {
