@@ -46,7 +46,7 @@ export default function RegisterPage() {
 
   if (success) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-slate-100 px-4">
+      <div className="min-h-screen flex items-center justify-center bg-page px-4">
         <div className="w-full max-w-md text-center">
           <div className="bg-card rounded-2xl shadow-lg p-8">
             <div className="text-5xl mb-4">✉️</div>
@@ -68,7 +68,7 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-slate-100 px-4">
+    <div className="min-h-screen flex items-center justify-center bg-page px-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <div className="text-4xl mb-2">💰</div>
@@ -87,7 +87,7 @@ export default function RegisterPage() {
                 value={nombre}
                 onChange={e => setNombre(e.target.value)}
                 required
-                className="w-full bg-card border border-line rounded-xl px-4 py-3 text-primary placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full bg-card border border-line rounded-xl px-4 py-3 text-primary placeholder-muted focus:outline-none focus:ring-2 focus:ring-confirm"
                 placeholder="Tu nombre"
               />
             </div>
@@ -99,7 +99,7 @@ export default function RegisterPage() {
                 value={email}
                 onChange={e => setEmail(e.target.value)}
                 required
-                className="w-full bg-card border border-line rounded-xl px-4 py-3 text-primary placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full bg-card border border-line rounded-xl px-4 py-3 text-primary placeholder-muted focus:outline-none focus:ring-2 focus:ring-confirm"
                 placeholder="tu@email.com"
               />
             </div>
@@ -111,7 +111,7 @@ export default function RegisterPage() {
                 value={password}
                 onChange={e => setPassword(e.target.value)}
                 required
-                className="w-full bg-card border border-line rounded-xl px-4 py-3 text-primary placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full bg-card border border-line rounded-xl px-4 py-3 text-primary placeholder-muted focus:outline-none focus:ring-2 focus:ring-confirm"
                 placeholder="Mínimo 6 caracteres"
               />
             </div>
