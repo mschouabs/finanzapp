@@ -99,7 +99,7 @@ export default function TrabajosPage() {
 
   if (loading) return (
     <div className="flex items-center justify-center h-64">
-      <div className="text-slate-400 animate-pulse text-lg">Cargando...</div>
+      <div className="text-muted animate-pulse text-lg">Cargando...</div>
     </div>
   )
 
@@ -107,120 +107,120 @@ export default function TrabajosPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">Trabajos</h1>
-          <p className="text-slate-500 text-sm">Ingresos del mes</p>
+          <h1 className="text-2xl font-bold text-primary">Trabajos</h1>
+          <p className="text-secondary text-sm">Ingresos del mes</p>
         </div>
-        <div className="bg-green-50 border border-green-100 rounded-xl px-4 py-2 text-right">
-          <p className="text-xs text-green-600 font-medium">Total del mes</p>
-          <p className="text-xl font-bold text-green-700">{fmt(totalFijos + totalFreelance)}</p>
+        <div className="bg-alternate border border-line rounded-xl px-4 py-2 text-right">
+          <p className="text-xs text-positive font-medium">Total del mes</p>
+          <p className="text-xl font-bold text-positive">{fmt(totalFijos + totalFreelance)}</p>
         </div>
       </div>
 
       {/* Sueldos fijos */}
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm">
-        <div className="flex items-center justify-between p-5 border-b border-slate-100">
+      <div className="bg-card rounded-2xl border border-line shadow-sm">
+        <div className="flex items-center justify-between p-5 border-b border-line">
           <div>
-            <h2 className="font-semibold text-slate-800">ð¼ Sueldos fijos</h2>
-            <p className="text-xs text-slate-400 mt-0.5">RelaciÃ³n de dependencia / mensuales</p>
+            <h2 className="font-semibold text-primary">💼 Sueldos fijos</h2>
+            <p className="text-xs text-muted mt-0.5">Relación de dependencia / mensuales</p>
           </div>
           <button onClick={() => setShowForm(showForm === 'fijo' ? null : 'fijo')}
-            className="text-sm bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700 transition-colors">
+            className="text-sm bg-confirm text-white px-3 py-1.5 rounded-lg hover:bg-confirm-hover transition-colors">
             + Agregar
           </button>
         </div>
 
         {showForm === 'fijo' && (
-          <div className="p-5 bg-slate-50 border-b border-slate-100">
+          <div className="p-5 bg-alternate border-b border-line">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <input placeholder="Nombre (ej. Trabajo principal)" value={formFijo.nombre}
                 onChange={e => setFormFijo(p => ({ ...p, nombre: e.target.value }))}
-                className="border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+                className="border border-line rounded-lg px-3 py-2 text-sm" />
               <input placeholder="Sueldo normal ($)" type="number" value={formFijo.monto}
                 onChange={e => setFormFijo(p => ({ ...p, monto: e.target.value }))}
-                className="border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+                className="border border-line rounded-lg px-3 py-2 text-sm" />
               <input placeholder="Cobrado este mes (opcional)" type="number" value={formFijo.monto_cobrado}
                 onChange={e => setFormFijo(p => ({ ...p, monto_cobrado: e.target.value }))}
-                className="border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+                className="border border-line rounded-lg px-3 py-2 text-sm" />
             </div>
             <div className="flex gap-2 mt-3">
-              <button onClick={addFijo} className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-green-700">Guardar</button>
-              <button onClick={() => setShowForm(null)} className="text-slate-500 px-4 py-2 rounded-lg text-sm hover:bg-slate-100">Cancelar</button>
+              <button onClick={addFijo} className="bg-confirm text-white px-4 py-2 rounded-lg text-sm hover:bg-confirm-hover">Guardar</button>
+              <button onClick={() => setShowForm(null)} className="text-secondary px-4 py-2 rounded-lg text-sm hover:bg-alternate">Cancelar</button>
             </div>
           </div>
         )}
 
-        <div className="divide-y divide-slate-50">
-          {fijos.length === 0 && <p className="p-6 text-sm text-slate-400 text-center">Sin sueldos cargados</p>}
+        <div className="divide-y divide-line">
+          {fijos.length === 0 && <p className="p-6 text-sm text-muted text-center">Sin sueldos cargados</p>}
           {fijos.map(f => {
             const cobrado = f.monto_cobrado ?? f.monto
             const diff = cobrado - f.monto
             return (
               <div key={f.id} className="flex items-center justify-between p-4">
                 <div>
-                  <p className="font-medium text-slate-800 text-sm">{f.nombre}</p>
-                  <p className="text-xs text-slate-400">Sueldo normal: {fmt(f.monto)}</p>
+                  <p className="font-medium text-primary text-sm">{f.nombre}</p>
+                  <p className="text-xs text-muted">Sueldo normal: {fmt(f.monto)}</p>
                 </div>
                 <div className="flex items-center gap-3">
                   <div className="text-right">
-                    <p className="font-bold text-slate-800">{fmt(cobrado)}</p>
+                    <p className="font-bold text-primary">{fmt(cobrado)}</p>
                     {diff !== 0 && (
-                      <p className={`text-xs ${diff > 0 ? 'text-green-600' : 'text-red-500'}`}>
+                      <p className={`text-xs ${diff > 0 ? 'text-positive' : 'text-negative'}`}>
                         {diff > 0 ? '+' : ''}{fmt(diff)} vs normal
                       </p>
                     )}
                   </div>
-                  <button onClick={() => deleteFijo(f.id)} className="text-slate-300 hover:text-red-400 text-xl leading-none ml-1">Ã</button>
+                  <button onClick={() => deleteFijo(f.id)} className="text-muted hover:text-negative text-xl leading-none ml-1">×</button>
                 </div>
               </div>
             )
           })}
         </div>
         {fijos.length > 0 && (
-          <div className="px-4 py-3 border-t border-slate-100 flex justify-between bg-slate-50 rounded-b-2xl">
-            <span className="text-sm text-slate-500">Subtotal fijos</span>
-            <span className="font-bold text-slate-800">{fmt(totalFijos)}</span>
+          <div className="px-4 py-3 border-t border-line flex justify-between bg-alternate rounded-b-2xl">
+            <span className="text-sm text-secondary">Subtotal fijos</span>
+            <span className="font-bold text-primary">{fmt(totalFijos)}</span>
           </div>
         )}
       </div>
 
       {/* Freelance */}
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm">
-        <div className="flex items-center justify-between p-5 border-b border-slate-100">
+      <div className="bg-card rounded-2xl border border-line shadow-sm">
+        <div className="flex items-center justify-between p-5 border-b border-line">
           <div>
-            <h2 className="font-semibold text-slate-800">ð Freelance / Proyectos</h2>
-            <p className="text-xs text-slate-400 mt-0.5">Trabajos puntuales y esporÃ¡dicos</p>
+            <h2 className="font-semibold text-primary">🚀 Freelance / Proyectos</h2>
+            <p className="text-xs text-muted mt-0.5">Trabajos puntuales y esporádicos</p>
           </div>
           <button onClick={() => setShowForm(showForm === 'freelance' ? null : 'freelance')}
-            className="text-sm bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700 transition-colors">
+            className="text-sm bg-confirm text-white px-3 py-1.5 rounded-lg hover:bg-confirm-hover transition-colors">
             + Agregar
           </button>
         </div>
 
         {showForm === 'freelance' && (
-          <div className="p-5 bg-slate-50 border-b border-slate-100">
+          <div className="p-5 bg-alternate border-b border-line">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <input placeholder="Cliente" value={formFreelance.cliente}
                 onChange={e => setFormFreelance(p => ({ ...p, cliente: e.target.value }))}
-                className="border border-slate-200 rounded-lg px-3 py-2 text-sm" />
-              <input placeholder="DescripciÃ³n del proyecto" value={formFreelance.descripcion}
+                className="border border-line rounded-lg px-3 py-2 text-sm" />
+              <input placeholder="Descripción del proyecto" value={formFreelance.descripcion}
                 onChange={e => setFormFreelance(p => ({ ...p, descripcion: e.target.value }))}
-                className="border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+                className="border border-line rounded-lg px-3 py-2 text-sm" />
               <input placeholder="Monto total del proyecto ($)" type="number" value={formFreelance.monto_total}
                 onChange={e => setFormFreelance(p => ({ ...p, monto_total: e.target.value }))}
-                className="border border-slate-200 rounded-lg px-3 py-2 text-sm" />
-              <input placeholder="Ya cobrÃ© ($)" type="number" value={formFreelance.monto_cobrado}
+                className="border border-line rounded-lg px-3 py-2 text-sm" />
+              <input placeholder="Ya cobré ($)" type="number" value={formFreelance.monto_cobrado}
                 onChange={e => setFormFreelance(p => ({ ...p, monto_cobrado: e.target.value }))}
-                className="border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+                className="border border-line rounded-lg px-3 py-2 text-sm" />
             </div>
             <div className="flex gap-2 mt-3">
-              <button onClick={addFreelance} className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-green-700">Guardar</button>
-              <button onClick={() => setShowForm(null)} className="text-slate-500 px-4 py-2 rounded-lg text-sm hover:bg-slate-100">Cancelar</button>
+              <button onClick={addFreelance} className="bg-confirm text-white px-4 py-2 rounded-lg text-sm hover:bg-confirm-hover">Guardar</button>
+              <button onClick={() => setShowForm(null)} className="text-secondary px-4 py-2 rounded-lg text-sm hover:bg-alternate">Cancelar</button>
             </div>
           </div>
         )}
 
-        <div className="divide-y divide-slate-50">
-          {freelance.length === 0 && <p className="p-6 text-sm text-slate-400 text-center">Sin proyectos cargados</p>}
+        <div className="divide-y divide-line">
+          {freelance.length === 0 && <p className="p-6 text-sm text-muted text-center">Sin proyectos cargados</p>}
           {freelance.map(f => {
             const pct = f.monto_total > 0 ? Math.round((f.monto_cobrado / f.monto_total) * 100) : 0
             const pendiente = f.monto_total - f.monto_cobrado
@@ -228,22 +228,22 @@ export default function TrabajosPage() {
               <div key={f.id} className="p-4">
                 <div className="flex items-start justify-between mb-2">
                   <div>
-                    <p className="font-medium text-slate-800 text-sm">{f.descripcion || f.cliente}</p>
-                    <p className="text-xs text-slate-400">{f.cliente}</p>
+                    <p className="font-medium text-primary text-sm">{f.descripcion || f.cliente}</p>
+                    <p className="text-xs text-muted">{f.cliente}</p>
                   </div>
                   <div className="flex items-center gap-3">
                     <div className="text-right">
-                      <p className="font-bold text-green-700">{fmt(f.monto_cobrado)}</p>
-                      <p className="text-xs text-slate-400">de {fmt(f.monto_total)}</p>
+                      <p className="font-bold text-positive">{fmt(f.monto_cobrado)}</p>
+                      <p className="text-xs text-muted">de {fmt(f.monto_total)}</p>
                     </div>
-                    <button onClick={() => deleteFreelance(f.id)} className="text-slate-300 hover:text-red-400 text-xl leading-none">Ã</button>
+                    <button onClick={() => deleteFreelance(f.id)} className="text-muted hover:text-negative text-xl leading-none">×</button>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                    <div className="h-full bg-green-500 rounded-full" style={{ width: `${pct}%` }} />
+                  <div className="flex-1 h-1.5 bg-alternate rounded-full overflow-hidden">
+                    <div className="h-full bg-confirm rounded-full" style={{ width: `${pct}%` }} />
                   </div>
-                  <span className="text-xs font-bold text-slate-600 w-8 text-right">{pct}%</span>
+                  <span className="text-xs font-bold text-secondary w-8 text-right">{pct}%</span>
                   {pendiente > 0 && <span className="text-xs text-orange-500 ml-1">Pendiente: {fmt(pendiente)}</span>}
                 </div>
               </div>
@@ -251,9 +251,9 @@ export default function TrabajosPage() {
           })}
         </div>
         {freelance.length > 0 && (
-          <div className="px-4 py-3 border-t border-slate-100 flex justify-between bg-slate-50 rounded-b-2xl">
-            <span className="text-sm text-slate-500">Subtotal freelance cobrado</span>
-            <span className="font-bold text-slate-800">{fmt(totalFreelance)}</span>
+          <div className="px-4 py-3 border-t border-line flex justify-between bg-alternate rounded-b-2xl">
+            <span className="text-sm text-secondary">Subtotal freelance cobrado</span>
+            <span className="font-bold text-primary">{fmt(totalFreelance)}</span>
           </div>
         )}
       </div>
