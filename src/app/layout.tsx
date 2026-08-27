@@ -5,6 +5,13 @@ import { ThemeProvider } from "@/components/ThemeProvider";
 export const metadata: Metadata = {
   title: "FinanzApp - Tus finanzas personales",
   description: "Controlá tus ingresos, gastos e inversiones",
+  icons: {
+    icon: [
+      { url: "/favicon.png", sizes: "32x32", type: "image/png" },
+      { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: "/apple-icon.png",
+  },
 };
 
 // Aplica el tema guardado antes del primer paint para evitar el flash de color.

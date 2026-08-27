@@ -21,6 +21,14 @@
   --shadow: none;
   --shadow-hover: 0 2px 4px rgba(0, 0, 0, 0.2);
   --radius: 12px;
+
+  /* Niveles de riesgo del portfolio */
+  --riesgo-bajo: #3FB950;
+  --riesgo-medio: #D29922;
+  --riesgo-alto: #FF7B72;
+  --riesgo-bajo-tint: rgba(63, 185, 80, 0.10);
+  --riesgo-medio-tint: rgba(210, 153, 34, 0.10);
+  --riesgo-alto-tint: rgba(255, 123, 114, 0.10);
 }
 
 /* ── TEMA ROSA ── */
@@ -42,6 +50,14 @@
   --shadow: 0 2px 6px rgba(200, 123, 143, 0.08);
   --shadow-hover: 0 4px 12px rgba(200, 123, 143, 0.12);
   --radius: 14px;
+
+  /* Riesgo, en clave rosa: se mantienen distinguibles pero más suaves */
+  --riesgo-bajo: #C97B8F;
+  --riesgo-medio: #D9A05B;
+  --riesgo-alto: #E8847D;
+  --riesgo-bajo-tint: rgba(201, 123, 143, 0.12);
+  --riesgo-medio-tint: rgba(217, 160, 91, 0.14);
+  --riesgo-alto-tint: rgba(232, 132, 125, 0.12);
 }
 
 html {
