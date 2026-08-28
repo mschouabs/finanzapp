@@ -41,8 +41,8 @@ export function LucaWidget({ onSaved }: { onSaved?: () => void }) {
     : loading || saving
     ? 'thinking'
     : parsed
-    ? 'neutral'
-    : 'happy'
+    ? 'idle'
+    : 'idle'
 
   const reset = () => {
     setParsed(null)
@@ -105,7 +105,7 @@ export function LucaWidget({ onSaved }: { onSaved?: () => void }) {
       {/* Avatar Luca */}
       <div className="flex items-center gap-4 mb-5">
         <div className="relative shrink-0">
-          <LucaAvatar estado={lucaEstado} size={72} variant="auto" />
+          <LucaAvatar estado={lucaEstado} size={72} />
           {/* Indicador online */}
           <span className="absolute bottom-1 right-1 flex h-3 w-3">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
