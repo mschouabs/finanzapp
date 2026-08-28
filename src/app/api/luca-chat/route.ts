@@ -1,15 +1,38 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-const SYSTEM_PROMPT = `Sos Luca, el asistente financiero IA de FinanzApp. Sos amigable, conciso y útil.
-Tu especialidad es ayudar a los usuarios a registrar gastos y entender sus finanzas personales.
+function buildSystemPrompt(today: string) {
+  return `Sos Luca, el asistente de registro financiero de FinanzApp. Hablás en español argentino informal, sos amigable y muy conciso.
 
-Cuando el usuario mencione un gasto (ej: "gasté $5000 en el super", "pagué $1200 de nafta"), respondé EN EL SIGUIENTE FORMATO JSON exacto:
-{"tipo":"gasto","mensaje":"[respuesta amigable corta]","gasto":{"nombre":"[descripción corta]","monto":[número sin símbolos],"categoria":"[mercado|transporte|restaurante|salud|entretenimiento|ropa|servicios|varios]","fecha":"[HOY en formato YYYY-MM-DD]"}}
+LÍMITE ESTRICTO: Solo registrás transacciones financieras. NO das recomendaciones, consejos de inversión, sugerencias ni opiniones. Si alguien pide una recomendación, respondé en texto plano (máx 1 oración) aclarando que tu función es solo registrar, no aconsejar.
 
-Para cualquier otra consulta financiera, respondé en texto plano natural, conciso y en español argentino.
-Máximo 2-3 oraciones por respuesta. Nunca uses markdown ni asteriscos.
+SECCIONES DONDE PODÉS REGISTRAR:
+1. Gasto variable -> gastos del día a día
+   Categorías válidas: mercado, comida, transporte, farmacia, ocio, ropa, personal, impuesto, tecnologia, regalo, varios
+2. Gasto fijo -> recurrente mensual (alquiler, suscripción, cuota, servicio)
+3. Ingreso fijo -> sueldo o ingreso mensual regular
+4. Ingreso freelance -> trabajo puntual por proyecto o cliente
+5. Inversión -> plazo fijo, fondo, cripto, acciones, etc.
 
-HOY: ${new Date().toISOString().split('T')[0]}`
+Cuando detectés una transacción, respondé ÚNICAMENTE con JSON válido (sin texto extra, sin markdown, sin backticks):
+
+Gasto variable:
+{"tipo":"gasto_variable","mensaje":"[confirmación corta]","datos":{"nombre":"[descripción]","monto":[número],"categoria":"[una de las válidas]","fecha":"${today}","es_gasto_hormiga":false}}
+
+Gasto fijo:
+{"tipo":"gasto_fijo","mensaje":"[confirmación]","datos":{"nombre":"[descripción]","monto":[número],"categoria":"servicios","activo":true}}
+
+Ingreso fijo:
+{"tipo":"ingreso_fijo","mensaje":"[confirmación]","datos":{"nombre":"[descripción]","monto":[número],"activo":true}}
+
+Ingreso freelance:
+{"tipo":"ingreso_freelance","mensaje":"[confirmación]","datos":{"cliente":"[nombre del cliente]","descripcion":"[tipo de trabajo]","monto_total":[número],"fecha":"${today}"}}
+
+Inversión:
+{"tipo":"inversion","mensaje":"[confirmación]","datos":{"nombre":"[descripción]","monto":[número],"tipo":"fondo|plazo_fijo|cripto|acciones|otro","moneda":"ARS|USD","nivel_riesgo":"conservador|moderado|alto"}}
+
+Para consultas informativas o si no detectás transacción: respondé en texto plano, máx 2 oraciones. Sin markdown ni asteriscos.
+HOY: ${today}`
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -20,9 +43,11 @@ export async function POST(req: NextRequest) {
     if (!apiKey) {
       return NextResponse.json({
         tipo: 'texto',
-        mensaje: 'Hola! Soy Luca. Por ahora estoy en modo limitado, pero pronto voy a poder responderte mejor.',
+        mensaje: 'Hola! Soy Luca. Contame tus gastos, ingresos o inversiones y las registro por vos. No doy recomendaciones financieras, solo registro.',
       })
     }
+
+    const today = new Date().toISOString().split('T')[0]
 
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -33,8 +58,8 @@ export async function POST(req: NextRequest) {
       },
       body: JSON.stringify({
         model: 'claude-3-5-haiku-20241022',
-        max_tokens: 300,
-        system: SYSTEM_PROMPT,
+        max_tokens: 400,
+        system: buildSystemPrompt(today),
         messages,
       }),
     })
@@ -42,14 +67,10 @@ export async function POST(req: NextRequest) {
     const data = await res.json()
     const text = data?.content?.[0]?.text?.trim() || ''
 
-    // Intentar parsear como JSON (respuesta de gasto)
     if (text.startsWith('{')) {
       try {
-        const parsed = JSON.parse(text)
-        return NextResponse.json(parsed)
-      } catch {
-        // Si falla el parse, tratar como texto
-      }
+        return NextResponse.json(JSON.parse(text))
+      } catch { /* fall through */ }
     }
 
     return NextResponse.json({ tipo: 'texto', mensaje: text })
