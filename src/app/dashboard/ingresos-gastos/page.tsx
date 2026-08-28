@@ -97,6 +97,13 @@ export default function TrabajosPage() {
   const totalFijos = fijos.reduce((s, f) => s + (f.monto_cobrado ?? f.monto), 0)
   const totalFreelance = freelance.reduce((s, f) => s + f.monto_cobrado, 0)
 
+  /* el encabezado dice "del mes": los fijos son recurrentes, el freelance
+     sólo cuenta si se cobró en el mes en curso */
+  const mesActual = new Date().toISOString().slice(0, 7)
+  const freelanceDelMes = freelance
+    .filter(f => (f.fecha || '').startsWith(mesActual))
+    .reduce((s, f) => s + f.monto_cobrado, 0)
+
   if (loading) return (
     <div className="flex items-center justify-center h-64">
       <div className="text-muted animate-pulse text-lg">Cargando...</div>
@@ -112,7 +119,7 @@ export default function TrabajosPage() {
         </div>
         <div className="bg-alternate border border-line rounded-xl px-4 py-2 text-right">
           <p className="text-xs text-positive font-medium">Total del mes</p>
-          <p className="text-xl font-bold text-positive">{fmt(totalFijos + totalFreelance)}</p>
+          <p className="text-xl font-bold text-positive">{fmt(totalFijos + freelanceDelMes)}</p>
         </div>
       </div>
 
@@ -252,7 +259,7 @@ export default function TrabajosPage() {
         </div>
         {freelance.length > 0 && (
           <div className="px-4 py-3 border-t border-line flex justify-between bg-alternate rounded-b-2xl">
-            <span className="text-sm text-secondary">Subtotal freelance cobrado</span>
+            <span className="text-sm text-secondary">Subtotal freelance cobrado (histórico)</span>
             <span className="font-bold text-primary">{fmt(totalFreelance)}</span>
           </div>
         )}
