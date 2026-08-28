@@ -13,6 +13,7 @@ const navItems = [
   { href: '/dashboard/metas', label: 'Metas', emoji: '🎯' },
   { href: '/dashboard/historial', label: 'Historial', emoji: '📋' },
   { href: '/dashboard/tarjetas', label: 'Tarjetas', emoji: '💳' },
+  { href: '/dashboard/luca', label: 'Luca IA', emoji: '🤖' },
 ]
 
 export default function TopNav({ userName }: { userName?: string }) {
