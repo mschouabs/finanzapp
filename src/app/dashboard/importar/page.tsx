@@ -79,6 +79,12 @@ export default function ImportarPage() {
     }
   }, [])
 
+  /* para pintar los montos con el color correcto en la vista previa */
+  const destinoEsGasto =
+    destino === 'gastos_variables' ||
+    (destino.startsWith('seccion:') &&
+      secciones.find(x => x.id === destino.slice('seccion:'.length))?.tipo === 'gasto')
+
   const preview: FilaPreview[] = useMemo(
     () => (tabla ? construirPreview(tabla, mapeo, invertir) : []),
     [tabla, mapeo, invertir]
@@ -329,7 +335,7 @@ export default function ImportarPage() {
                         <td className="border-b px-3 py-2.5 text-primary">{f.descripcion}</td>
                         <td className="border-b px-3 py-2.5 text-secondary">{f.categoria}</td>
                         <td className={`fa-amount whitespace-nowrap border-b px-3 py-2.5 text-right ${
-                          (f.monto ?? 0) < 0 ? 'text-negative' : 'text-positive'
+                          destinoEsGasto || (f.monto ?? 0) < 0 ? 'text-negative' : 'text-positive'
                         }`}>
                           {f.monto == null ? '—' : fmtMonto(f.monto)}
                         </td>
