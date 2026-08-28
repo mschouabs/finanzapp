@@ -9,14 +9,30 @@ function fmt(n: number) {
   return `$${n.toLocaleString('es-AR', { maximumFractionDigits: 0 })}`
 }
 
+/* `color` es un valor CSS (típicamente una var de tema), no una clase de
+   Tailwind: así la barra sigue el tema activo en vez de un color fijo. */
 function ProgressBar({ pct, color }: { pct: number; color: string }) {
   const clamped = Math.min(Math.max(pct, 0), 100)
   return (
-    <div className="h-2 bg-alternate rounded-full overflow-hidden">
-      <div className={`h-full rounded-full transition-all ${color}`} style={{ width: `${clamped}%` }} />
+    <div
+      className="h-2 rounded-full overflow-hidden"
+      style={{ background: 'var(--border-color)' }}
+    >
+      <div
+        className="h-full rounded-full transition-all"
+        style={{ width: `${clamped}%`, background: color }}
+      />
     </div>
   )
 }
+
+/* Verde cuando llegaste, ámbar a mitad de camino, rojo si estás lejos. */
+const colorProgreso = (pct: number, objetivo: number) =>
+  pct >= objetivo
+    ? 'var(--accent-positive)'
+    : pct >= objetivo / 2
+      ? 'var(--riesgo-medio)'
+      : 'var(--accent-negative)'
 
 export default function MetasPage() {
   const [loading, setLoading] = useState(true)
@@ -151,7 +167,7 @@ export default function MetasPage() {
           </div>
         </div>
 
-        <ProgressBar pct={tasaAhorro} color={tasaAhorro >= metaAhorro ? 'bg-confirm' : tasaAhorro >= metaAhorro / 2 ? 'bg-yellow-400' : 'bg-red-400'} />
+        <ProgressBar pct={tasaAhorro} color={colorProgreso(tasaAhorro, metaAhorro)} />
         <div className="flex justify-between mt-2">
           <span className="text-xs text-muted">0%</span>
           <span className={`text-sm font-bold ${tasaAhorro >= metaAhorro ? 'text-positive' : 'text-secondary'}`}>
@@ -202,7 +218,7 @@ export default function MetasPage() {
               </div>
             </div>
 
-            <ProgressBar pct={pctCompra} color={pctCompra >= 100 ? 'bg-confirm' : 'bg-confirm'} />
+            <ProgressBar pct={pctCompra} color="var(--accent-confirm)" />
             <div className="flex justify-between mt-2 mb-4">
               <span className="text-xs text-muted">0%</span>
               <span className="text-sm font-bold text-primary">{pctCompra.toFixed(1)}% alcanzado</span>
@@ -245,7 +261,7 @@ export default function MetasPage() {
           </div>
         </div>
 
-        <ProgressBar pct={pctGastosCubiertos} color={pctGastosCubiertos >= 100 ? 'bg-confirm' : pctGastosCubiertos >= 50 ? 'bg-yellow-400' : 'bg-blue-400'} />
+        <ProgressBar pct={pctGastosCubiertos} color={colorProgreso(pctGastosCubiertos, 100)} />
         <p className="text-center mt-2 text-sm font-bold text-primary">
           {pctGastosCubiertos.toFixed(1)}% de tus gastos fijos cubiertos por rendimientos
         </p>
