@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
+import { LucaMensaje } from '@/components/luca/LucaMensaje'
 
 /* ── helpers ─────────────────────────────── */
 const fmt = (n: number) =>
@@ -238,17 +239,15 @@ export default function TarjetasPage() {
 
       {/* Tarjetas */}
       {tarjetas.length === 0 ? (
-        <div style={{
-          background: 'var(--bg-card)',
-          border: '0.5px solid var(--border-color)',
-          borderRadius: 'var(--radius)',
-          padding: 48,
-          textAlign: 'center',
-          color: 'var(--text-muted)',
-          fontSize: 15,
-        }}>
-          <p style={{ fontSize: 40, margin: '0 0 12px' }}>💳</p>
-          <p style={{ margin: 0 }}>No tenés tarjetas configuradas.<br />Agregá una para trackear tus gastos.</p>
+        <div className="fa-card p-8">
+          <LucaMensaje
+            variante="vacio"
+            estado="sad"
+            titulo="Todavía no cargaste ninguna tarjeta"
+            accion={{ label: '+ Agregar tarjeta', onClick: () => setShowForm(true) }}
+          >
+            Agregá tus tarjetas para ver cuánto consumiste con cada una este mes.
+          </LucaMensaje>
         </div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 16 }}>
