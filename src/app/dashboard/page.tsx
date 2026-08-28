@@ -128,11 +128,16 @@ export default function DashboardPage() {
         const cat = nombrePorSeccion.get(r.seccion_id as string) || 'Sección'
         catMap[cat] = (catMap[cat] || 0) + ((r.monto as number) || 0)
       })
-    const gastosPorCategoria = Object.entries(catMap)
+    /* mostramos las 7 más grandes y agrupamos el resto en "Otros",
+       así el total del anillo coincide con los gastos del mes */
+    const catOrdenadas = Object.entries(catMap)
       .map(([name, value]) => ({ name, value }))
       .filter(c => c.value > 0)
       .sort((a, b) => b.value - a.value)
-      .slice(0, 8)
+    const resto = catOrdenadas.slice(7).reduce((s, c) => s + c.value, 0)
+    const gastosPorCategoria = resto > 0
+      ? [...catOrdenadas.slice(0, 7), { name: 'Otros', value: resto }]
+      : catOrdenadas
 
     /* tendencia de los últimos 6 meses */
     const meses: { key: string; label: string }[] = []
