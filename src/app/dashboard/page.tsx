@@ -72,69 +72,86 @@ export default function DashboardPage() {
         .filter(r => (filtro ? filtro(r) : true))
         .reduce((s, r) => s + ((r.monto as number) || 0), 0)
 
-    /* totales */
+    /* ── criterios de monto ──────────────────────────
+       Los fijos son recurrentes: cuentan una vez por mes.
+       Los variables/freelance/secciones cuentan en su mes. */
+    const activos = (rows: Record<string, unknown>[] | null) =>
+      (rows || []).filter(r => r.activo !== false)
+
+    const montoFijo = (r: Record<string, unknown>) =>
+      (r.monto_cobrado as number) ?? (r.monto as number) ?? 0
+    const montoFreelance = (r: Record<string, unknown>) =>
+      (r.monto_cobrado as number) ?? (r.monto_total as number) ?? (r.monto as number) ?? 0
+    const suma = (rows: Record<string, unknown>[], f: (r: Record<string, unknown>) => number) =>
+      rows.reduce((s, r) => s + (f(r) || 0), 0)
+
+    const mesClave = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+    const now = new Date()
+    const mesActual = mesClave(now)
+    const enMesClave = (r: Record<string, unknown>, key: string) =>
+      ((r.fecha as string) || (r.created_at as string) || '').startsWith(key)
+
+    const iffActivos = activos(iff)
+    const gfActivos = activos(gf)
+
+    /* recurrentes: mismo importe todos los meses */
+    const ingresosFijosMes = suma(iffActivos, montoFijo)
+    const gastosFijosMes = suma(gfActivos, r => (r.monto as number) || 0)
+
+    /* totales del mes en curso */
+    const freelanceMes = suma(
+      (inf || []).filter(r => enMesClave(r, mesActual)), montoFreelance
+    )
+    const variablesMes = suma(
+      (gv || []).filter(r => enMesClave(r, mesActual)), r => (r.monto as number) || 0
+    )
+
     const totalIngresos =
-      (iff || []).reduce((s: number, r: Record<string, unknown>) => s + (r.monto as number || 0), 0) +
-      (inf || []).reduce((s: number, r: Record<string, unknown>) => s + (r.monto as number || 0), 0) +
-      sumaSecciones('ingreso')
+      ingresosFijosMes + freelanceMes +
+      sumaSecciones('ingreso', r => enMesClave(r, mesActual))
 
     const totalGastos =
-      (gv || []).reduce((s: number, r: Record<string, unknown>) => s + (r.monto as number || 0), 0) +
-      (gf || []).reduce((s: number, r: Record<string, unknown>) => s + (r.monto as number || 0), 0) +
-      sumaSecciones('gasto')
+      gastosFijosMes + variablesMes +
+      sumaSecciones('gasto', r => enMesClave(r, mesActual))
 
-    /* gastos por categoría */
+    /* gastos por categoría (mes en curso) */
     const catMap: Record<string, number> = {}
-    ;(gv || []).forEach((r: Record<string, unknown>) => {
+    ;(gv || []).filter(r => enMesClave(r, mesActual)).forEach(r => {
       const cat = (r.categoria as string) || 'Sin categoría'
-      catMap[cat] = (catMap[cat] || 0) + (r.monto as number || 0)
+      catMap[cat] = (catMap[cat] || 0) + ((r.monto as number) || 0)
     })
-    ;(gf || []).forEach((r: Record<string, unknown>) => {
-      catMap['Fijos'] = (catMap['Fijos'] || 0) + (r.monto as number || 0)
-    })
+    if (gastosFijosMes > 0) catMap['Fijos'] = (catMap['Fijos'] || 0) + gastosFijosMes
     regsSecciones
       .filter(r => tipoPorSeccion.get(r.seccion_id as string) === 'gasto')
+      .filter(r => enMesClave(r, mesActual))
       .forEach(r => {
         const cat = nombrePorSeccion.get(r.seccion_id as string) || 'Sección'
         catMap[cat] = (catMap[cat] || 0) + ((r.monto as number) || 0)
       })
     const gastosPorCategoria = Object.entries(catMap)
       .map(([name, value]) => ({ name, value }))
+      .filter(c => c.value > 0)
       .sort((a, b) => b.value - a.value)
       .slice(0, 8)
 
     /* tendencia de los últimos 6 meses */
-    const now = new Date()
     const meses: { key: string; label: string }[] = []
     for (let i = 5; i >= 0; i--) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
-      meses.push({
-        key: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`,
-        label: d.toLocaleDateString('es-AR', { month: 'short' }),
-      })
+      meses.push({ key: mesClave(d), label: d.toLocaleDateString('es-AR', { month: 'short' }) })
     }
 
-    const tendenciaMensual = meses.map(({ key, label }) => {
-      const ing =
-        (iff || []).filter((r: Record<string, unknown>) => ((r.created_at as string) || '').startsWith(key))
-          .reduce((s: number, r: Record<string, unknown>) => s + (r.monto as number || 0), 0) +
-        (inf || []).filter((r: Record<string, unknown>) => ((r.fecha as string) || '').startsWith(key))
-          .reduce((s: number, r: Record<string, unknown>) => s + (r.monto as number || 0), 0)
-
-      const gas =
-        (gv || []).filter((r: Record<string, unknown>) => ((r.fecha as string) || '').startsWith(key))
-          .reduce((s: number, r: Record<string, unknown>) => s + (r.monto as number || 0), 0) +
-        (gf || []).filter((r: Record<string, unknown>) => ((r.created_at as string) || '').startsWith(key))
-          .reduce((s: number, r: Record<string, unknown>) => s + (r.monto as number || 0), 0)
-
-      const enMes = (r: Record<string, unknown>) => ((r.fecha as string) || '').startsWith(key)
-
-      return {
-        mes: label,
-        ingresos: ing + sumaSecciones('ingreso', enMes),
-        gastos: gas + sumaSecciones('gasto', enMes),
-      }
-    })
+    const tendenciaMensual = meses.map(({ key, label }) => ({
+      mes: label,
+      ingresos:
+        ingresosFijosMes +
+        suma((inf || []).filter(r => enMesClave(r, key)), montoFreelance) +
+        sumaSecciones('ingreso', r => enMesClave(r, key)),
+      gastos:
+        gastosFijosMes +
+        suma((gv || []).filter(r => enMesClave(r, key)), r => (r.monto as number) || 0) +
+        sumaSecciones('gasto', r => enMesClave(r, key)),
+    }))
 
     setData({ totalIngresos, totalGastos, neto: totalIngresos - totalGastos, gastosPorCategoria, tendenciaMensual })
     setLoading(false)
@@ -145,6 +162,7 @@ export default function DashboardPage() {
   }
 
   const d = data!
+  const totalCategorias = d.gastosPorCategoria.reduce((s, c) => s + c.value, 0)
   const tasaAhorro = d.totalIngresos > 0 ? Math.round((d.neto / d.totalIngresos) * 100) : 0
 
   /* variación del neto contra el mes anterior */
@@ -262,35 +280,61 @@ export default function DashboardPage() {
               Registrá tu primer gasto con Luca y empezá a ver tus categorías.
             </LucaMensaje>
           ) : (
-            <div className="mt-2 h-[240px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={d.gastosPorCategoria}
-                    dataKey="value"
-                    nameKey="name"
-                    innerRadius={54}
-                    outerRadius={82}
-                    paddingAngle={2}
-                    stroke="none"
-                  >
-                    {d.gastosPorCategoria.map((_, i) => (
-                      <Cell key={i} fill={COLORS[i % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    contentStyle={{
-                      background: 'var(--bg-card)',
-                      border: '1px solid var(--border-color)',
-                      borderRadius: 10,
-                      fontSize: 12,
-                      color: 'var(--text-primary)',
-                    }}
-                    formatter={(v: number) => fmt(v)}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
+            <>
+              <div className="relative mt-2 h-[190px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={d.gastosPorCategoria}
+                      dataKey="value"
+                      nameKey="name"
+                      innerRadius={54}
+                      outerRadius={82}
+                      paddingAngle={2}
+                      stroke="none"
+                      isAnimationActive={false}
+                    >
+                      {d.gastosPorCategoria.map((_, i) => (
+                        <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      contentStyle={{
+                        background: 'var(--bg-card)',
+                        border: '1px solid var(--border-color)',
+                        borderRadius: 10,
+                        fontSize: 12,
+                        color: 'var(--text-primary)',
+                      }}
+                      formatter={(v: number) => fmt(v)}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+
+                {/* total en el centro del anillo */}
+                <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+                  <span className="text-[10px] uppercase tracking-wide text-muted">Total</span>
+                  <span className="fa-amount text-base text-primary">{fmt(totalCategorias)}</span>
+                </div>
+              </div>
+
+              {/* referencias: sin esto el anillo no se entiende */}
+              <ul className="mt-3 space-y-1.5">
+                {d.gastosPorCategoria.slice(0, 5).map((c, i) => (
+                  <li key={c.name} className="flex items-center gap-2 text-xs">
+                    <span
+                      className="h-2 w-2 shrink-0 rounded-full"
+                      style={{ background: COLORS[i % COLORS.length] }}
+                    />
+                    <span className="min-w-0 flex-1 truncate capitalize text-secondary">{c.name}</span>
+                    <span className="fa-amount shrink-0 text-primary">{fmt(c.value)}</span>
+                    <span className="w-9 shrink-0 text-right text-muted">
+                      {totalCategorias > 0 ? Math.round((c.value / totalCategorias) * 100) : 0}%
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </>
           )}
         </section>
       </div>
