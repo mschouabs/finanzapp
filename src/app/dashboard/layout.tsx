@@ -2,12 +2,12 @@ import { redirect } from 'next/navigation'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import Sidebar from '@/components/ui/Sidebar'
+import { DEMO, USUARIO_DEMO } from '@/lib/demo'
 
-export default async function DashboardLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
+async function obtenerUsuario() {
+  // En modo demo saltamos la verificación de sesión. Ver src/lib/demo.ts
+  if (DEMO) return USUARIO_DEMO
+
   const cookieStore = await cookies()
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -27,6 +27,15 @@ export default async function DashboardLayout({
   )
 
   const { data: { user } } = await supabase.auth.getUser()
+  return user
+}
+
+export default async function DashboardLayout({
+  children,
+}: {
+  children: React.ReactNode
+}) {
+  const user = await obtenerUsuario()
 
   if (!user) {
     redirect('/login')
