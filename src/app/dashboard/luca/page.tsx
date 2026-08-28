@@ -5,21 +5,41 @@ import { createBrowserClient } from '@supabase/ssr'
 import { LucaAvatar } from '@/components/luca/LucaAvatar'
 import type { LucaEstado } from '@/components/luca/LucaAvatar'
 
+type TipoRegistro = 'gasto_variable' | 'gasto_fijo' | 'ingreso_fijo' | 'ingreso_freelance' | 'inversion'
+
+interface DatosRegistro {
+  nombre?: string
+  monto?: number
+  monto_total?: number
+  categoria?: string
+  fecha?: string
+  es_gasto_hormiga?: boolean
+  activo?: boolean
+  cliente?: string
+  descripcion?: string
+  tipo?: string
+  moneda?: string
+  nivel_riesgo?: string
+}
+
 interface Mensaje {
   id: string
   rol: 'user' | 'luca'
   texto: string
   timestamp: number
-  gasto?: {
-    nombre: string
-    monto: number
-    categoria: string
-    fecha: string
-  }
-  gastoCargado?: boolean
+  tabla?: TipoRegistro
+  datos?: DatosRegistro
+  guardado?: boolean
 }
 
 const STORAGE_KEY = 'luca_chat_historial'
+const TIPO_LABELS: Record<TipoRegistro, string> = {
+  gasto_variable: '💸 Gasto detectado',
+  gasto_fijo: '📋 Gasto fijo detectado',
+  ingreso_fijo: '💰 Ingreso fijo detectado',
+  ingreso_freelance: '🤝 Ingreso freelance detectado',
+  inversion: '📈 Inversión detectada',
+}
 
 function getId() {
   return Math.random().toString(36).slice(2)
@@ -39,34 +59,27 @@ export default function LucaChatPage() {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   )
 
-  // Cargar historial del localStorage
   useEffect(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY)
       if (saved) {
-        const parsed = JSON.parse(saved) as Mensaje[]
-        setMensajes(parsed.slice(-50)) // últimos 50
+        setMensajes(JSON.parse(saved).slice(-50))
       } else {
-        // Mensaje de bienvenida
         setMensajes([{
           id: getId(),
           rol: 'luca',
-          texto: '¡Hola! Soy Luca 👋 Podés contarme tus gastos o preguntarme cualquier cosa sobre tus finanzas.',
+          texto: '¡Hola! Soy Luca 👋 Contame tus gastos, ingresos o inversiones y las registro por vos. Aclaración importante: no doy recomendaciones financieras, solo registro tus movimientos.',
           timestamp: Date.now(),
         }])
       }
     } catch { /* ignore */ }
   }, [])
 
-  // Guardar historial
   useEffect(() => {
-    if (mensajes.length === 0) return
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(mensajes))
-    } catch { /* ignore */ }
+    if (!mensajes.length) return
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(mensajes)) } catch { /* ignore */ }
   }, [mensajes])
 
-  // Scroll al fondo
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [mensajes, loading])
@@ -75,25 +88,15 @@ export default function LucaChatPage() {
     const texto = input.trim()
     if (!texto || loading) return
 
-    const userMsg: Mensaje = {
-      id: getId(),
-      rol: 'user',
-      texto,
-      timestamp: Date.now(),
-    }
-
+    const userMsg: Mensaje = { id: getId(), rol: 'user', texto, timestamp: Date.now() }
     setMensajes(prev => [...prev, userMsg])
     setInput('')
     setLoading(true)
     setLucaEstado('thinking')
 
-    // Construir historial para el API
     const historialAPI = [...mensajes, userMsg]
-      .slice(-10) // últimos 10 mensajes
-      .map(m => ({
-        role: m.rol === 'user' ? 'user' : 'assistant',
-        content: m.texto,
-      }))
+      .slice(-10)
+      .map(m => ({ role: m.rol === 'user' ? 'user' : 'assistant', content: m.texto }))
 
     try {
       const res = await fetch('/api/luca-chat', {
@@ -103,20 +106,23 @@ export default function LucaChatPage() {
       })
       const data = await res.json()
 
+      const TIPOS: TipoRegistro[] = ['gasto_variable', 'gasto_fijo', 'ingreso_fijo', 'ingreso_freelance', 'inversion']
+      const esRegistro = TIPOS.includes(data.tipo)
+
       const lucaMsg: Mensaje = {
         id: getId(),
         rol: 'luca',
         texto: data.mensaje || 'No entendí bien, ¿podés repetirlo?',
         timestamp: Date.now(),
-        gasto: data.tipo === 'gasto' ? data.gasto : undefined,
+        tabla: esRegistro ? data.tipo : undefined,
+        datos: esRegistro ? data.datos : undefined,
       }
 
       setMensajes(prev => [...prev, lucaMsg])
-      setLucaEstado(data.tipo === 'gasto' ? 'celebration' : 'idle')
+      setLucaEstado(esRegistro ? 'celebration' : 'idle')
     } catch {
       setMensajes(prev => [...prev, {
-        id: getId(),
-        rol: 'luca',
+        id: getId(), rol: 'luca',
         texto: 'Ups, algo falló. Intentá de nuevo.',
         timestamp: Date.now(),
       }])
@@ -128,40 +134,67 @@ export default function LucaChatPage() {
     inputRef.current?.focus()
   }
 
-  const guardarGasto = async (msg: Mensaje) => {
-    if (!msg.gasto) return
+  const guardarRegistro = async (msg: Mensaje) => {
+    if (!msg.tabla || !msg.datos) return
     setGuardando(msg.id)
     try {
       const { data: { user } } = await supabase.auth.getUser()
-      const { error } = await supabase.from('gastos_variables').insert({
-        user_id: user?.id,
-        nombre: msg.gasto.nombre,
-        monto: msg.gasto.monto,
-        categoria: msg.gasto.categoria,
-        fecha: msg.gasto.fecha,
-        es_gasto_hormiga: false,
-      })
+      const uid = user?.id
+      let error
+
+      if (msg.tabla === 'gasto_variable') {
+        const { error: e } = await supabase.from('gastos_variables').insert({
+          user_id: uid, nombre: msg.datos.nombre, monto: msg.datos.monto,
+          categoria: msg.datos.categoria, fecha: msg.datos.fecha, es_gasto_hormiga: false,
+        })
+        error = e
+      } else if (msg.tabla === 'gasto_fijo') {
+        const { error: e } = await supabase.from('gastos_fijos').insert({
+          user_id: uid, nombre: msg.datos.nombre, monto: msg.datos.monto,
+          categoria: msg.datos.categoria ?? 'servicios', activo: true,
+        })
+        error = e
+      } else if (msg.tabla === 'ingreso_fijo') {
+        const { error: e } = await supabase.from('ingresos_fijos').insert({
+          user_id: uid, nombre: msg.datos.nombre, monto: msg.datos.monto,
+          monto_cobrado: 0, activo: true,
+        })
+        error = e
+      } else if (msg.tabla === 'ingreso_freelance') {
+        const { error: e } = await supabase.from('ingresos_freelance').insert({
+          user_id: uid, cliente: msg.datos.cliente, descripcion: msg.datos.descripcion,
+          monto_total: msg.datos.monto_total, monto_cobrado: 0, fecha: msg.datos.fecha,
+        })
+        error = e
+      } else if (msg.tabla === 'inversion') {
+        const { error: e } = await supabase.from('inversiones').insert({
+          user_id: uid, nombre: msg.datos.nombre, monto: msg.datos.monto,
+          tipo: msg.datos.tipo ?? 'otro', moneda: msg.datos.moneda ?? 'ARS',
+          nivel_riesgo: msg.datos.nivel_riesgo ?? 'conservador', app: 'Otro',
+        })
+        error = e
+      }
+
       if (error) throw error
-      setMensajes(prev =>
-        prev.map(m => m.id === msg.id ? { ...m, gastoCargado: true } : m)
-      )
+      setMensajes(prev => prev.map(m => m.id === msg.id ? { ...m, guardado: true } : m))
       setLucaEstado('celebration')
       setTimeout(() => setLucaEstado('idle'), 2000)
-    } catch {
-      // silencioso
-    }
+    } catch { /* silencioso */ }
     setGuardando(null)
   }
 
   const limpiarHistorial = () => {
     try { localStorage.removeItem(STORAGE_KEY) } catch { /* ignore */ }
     setMensajes([{
-      id: getId(),
-      rol: 'luca',
-      texto: '¡Historial limpio! ¿En qué te puedo ayudar?',
+      id: getId(), rol: 'luca',
+      texto: '¡Historial limpio! Contame qué querés registrar.',
       timestamp: Date.now(),
     }])
   }
+
+  const monto = (d: DatosRegistro) => d.monto ?? d.monto_total
+  const montoStr = (d: DatosRegistro) =>
+    `$${Number(monto(d)).toLocaleString('es-AR', { minimumFractionDigits: 2 })}`
 
   return (
     <div className="fa-card flex flex-col" style={{ height: 'calc(100vh - 160px)', minHeight: 500 }}>
@@ -176,12 +209,9 @@ export default function LucaChatPage() {
         </div>
         <div className="flex-1">
           <p className="text-sm font-extrabold text-primary leading-tight">Luca</p>
-          <p className="text-xs text-confirm font-semibold">● Online</p>
+          <p className="text-xs text-confirm font-semibold">● Online · Solo registra, no recomienda</p>
         </div>
-        <button
-          onClick={limpiarHistorial}
-          className="text-xs text-secondary hover:text-negative transition-colors"
-        >
+        <button onClick={limpiarHistorial} className="text-xs text-secondary hover:text-negative transition-colors">
           Limpiar
         </button>
       </div>
@@ -197,37 +227,44 @@ export default function LucaChatPage() {
                 </div>
               )}
               <div>
-                <div
-                  className={`px-3 py-2.5 rounded-2xl text-xs leading-relaxed ${
-                    msg.rol === 'user'
-                      ? 'bg-confirm text-white rounded-tr-sm'
-                      : 'bg-alternate text-primary rounded-tl-sm'
-                  }`}
-                >
+                <div className={`px-3 py-2.5 rounded-2xl text-xs leading-relaxed ${
+                  msg.rol === 'user'
+                    ? 'bg-confirm text-white rounded-tr-sm'
+                    : 'bg-alternate text-primary rounded-tl-sm'
+                }`}>
                   {msg.texto}
                 </div>
 
-                {/* Tarjeta de gasto detectado */}
-                {msg.gasto && !msg.gastoCargado && (
+                {/* Tarjeta de registro detectado */}
+                {msg.tabla && msg.datos && !msg.guardado && (
                   <div className="mt-2 rounded-xl border bg-card p-3 text-xs space-y-1.5">
-                    <p className="font-bold text-primary">💸 Gasto detectado</p>
-                    <p className="text-secondary">{msg.gasto.nombre}</p>
-                    <p className="font-semibold text-primary fa-amount text-sm">
-                      ${Number(msg.gasto.monto).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                    <p className="font-bold text-primary">{TIPO_LABELS[msg.tabla]}</p>
+
+                    {msg.datos.nombre && <p className="text-secondary">{msg.datos.nombre}</p>}
+                    {msg.datos.cliente && <p className="text-secondary">Cliente: {msg.datos.cliente}</p>}
+                    {msg.datos.descripcion && <p className="text-secondary">{msg.datos.descripcion}</p>}
+
+                    {monto(msg.datos) != null && (
+                      <p className="font-semibold text-primary fa-amount text-sm">{montoStr(msg.datos)}</p>
+                    )}
+
+                    <p className="text-secondary capitalize">
+                      {[msg.datos.categoria, msg.datos.tipo, msg.datos.moneda, msg.datos.nivel_riesgo, msg.datos.fecha]
+                        .filter(Boolean).join(' · ')}
                     </p>
-                    <p className="text-secondary capitalize">{msg.gasto.categoria} · {msg.gasto.fecha}</p>
+
                     <button
-                      onClick={() => guardarGasto(msg)}
+                      onClick={() => guardarRegistro(msg)}
                       disabled={guardando === msg.id}
                       className="w-full mt-1 py-2 rounded-lg bg-confirm text-white font-semibold text-xs hover:bg-confirm-hover disabled:opacity-50 transition-colors"
                     >
-                      {guardando === msg.id ? 'Guardando…' : '✓ Guardar gasto'}
+                      {guardando === msg.id ? 'Guardando…' : '✓ Guardar'}
                     </button>
                   </div>
                 )}
 
-                {msg.gastoCargado && (
-                  <p className="mt-1 text-[10px] text-confirm font-semibold">✓ Gasto guardado</p>
+                {msg.guardado && (
+                  <p className="mt-1 text-[10px] text-confirm font-semibold">✓ Guardado correctamente</p>
                 )}
               </div>
             </div>
@@ -240,9 +277,9 @@ export default function LucaChatPage() {
               <LucaAvatar estado="thinking" size={28} />
               <div className="bg-alternate rounded-2xl rounded-tl-sm px-4 py-2.5">
                 <span className="flex gap-1">
-                  <span className="w-1.5 h-1.5 bg-secondary rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                  <span className="w-1.5 h-1.5 bg-secondary rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                  <span className="w-1.5 h-1.5 bg-secondary rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                  {[0, 150, 300].map(d => (
+                    <span key={d} className="w-1.5 h-1.5 bg-secondary rounded-full animate-bounce" style={{ animationDelay: `${d}ms` }} />
+                  ))}
                 </span>
               </div>
             </div>
@@ -259,7 +296,7 @@ export default function LucaChatPage() {
           value={input}
           onChange={e => setInput(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && enviar()}
-          placeholder="Escribile a Luca…"
+          placeholder="Ej: gasté $5000 en el super, cobré $80000 de sueldo…"
           disabled={loading}
           className="flex-1 px-3 py-2.5 text-xs rounded-xl border bg-field text-primary disabled:opacity-60 focus:outline-none focus:border-confirm"
         />
