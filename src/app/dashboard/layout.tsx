@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
-import TopNav from '@/components/ui/TopNav'
+import Sidebar from '@/components/ui/Sidebar'
 
 export default async function DashboardLayout({
   children,
@@ -36,10 +36,13 @@ export default async function DashboardLayout({
 
   return (
     <div className="min-h-screen bg-page">
-      <div className="max-w-[1000px] mx-auto px-5 py-5">
-        <TopNav userName={userName} />
-        <main>{children}</main>
-      </div>
+      <Sidebar userName={userName} />
+      {/* el margen deja lugar a la sidebar fija; en mobile no hay sidebar */}
+      <main className="lg:ml-64">
+        <div className="mx-auto max-w-[1200px] px-4 py-6 sm:px-6">
+          {children}
+        </div>
+      </main>
     </div>
   )
 }
