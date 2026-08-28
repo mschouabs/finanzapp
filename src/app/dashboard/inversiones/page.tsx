@@ -20,10 +20,12 @@ function fmt(n: number) {
   return `$${n.toLocaleString('es-AR', { maximumFractionDigits: 0 })}`
 }
 
+/* Cada nivel de riesgo se identifica por su color, tomado de variables de
+   tema para que siga funcionando en oscuro y en rosa. */
 const RIESGO_CONFIG = {
-  conservador: { label: 'Conservador', color: 'bg-green-500', light: 'bg-green-50', border: 'border-green-100', text: 'text-green-700', badge: 'bg-green-100 text-green-700', emoji: 'ð¢' },
-  moderado: { label: 'Moderado', color: 'bg-yellow-400', light: 'bg-yellow-50', border: 'border-yellow-100', text: 'text-yellow-700', badge: 'bg-yellow-100 text-yellow-700', emoji: 'ð¡' },
-  alto: { label: 'Alto riesgo', color: 'bg-red-500', light: 'bg-red-50', border: 'border-red-100', text: 'text-red-700', badge: 'bg-red-100 text-red-700', emoji: 'ð´' },
+  conservador: { label: 'Conservador', tono: 'var(--riesgo-bajo)',  tint: 'var(--riesgo-bajo-tint)',  emoji: '🟢' },
+  moderado:    { label: 'Moderado',    tono: 'var(--riesgo-medio)', tint: 'var(--riesgo-medio-tint)', emoji: '🟡' },
+  alto:        { label: 'Alto riesgo', tono: 'var(--riesgo-alto)',  tint: 'var(--riesgo-alto-tint)',  emoji: '🔴' },
 }
 
 const APPS = ['MercadoPago', 'Naranja X', 'Uala', 'Brubank', 'IOL', 'Binance', 'BingX', 'Lemon', 'Otro']
@@ -98,7 +100,7 @@ export default function InversionesPage() {
 
   if (loading) return (
     <div className="flex items-center justify-center h-64">
-      <div className="text-slate-400 animate-pulse text-lg">Cargando...</div>
+      <div className="text-muted animate-pulse text-lg">Cargando...</div>
     </div>
   )
 
@@ -106,19 +108,19 @@ export default function InversionesPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">Portfolio</h1>
-          <p className="text-slate-500 text-sm">Inversiones y activos</p>
+          <h1 className="text-2xl font-bold text-primary">Portfolio</h1>
+          <p className="text-secondary text-sm">Inversiones y activos</p>
         </div>
         <div className="flex items-center gap-3">
           {dolar && (
-            <div className="text-right bg-white border border-slate-200 rounded-xl px-3 py-2">
-              <p className="text-xs text-slate-400">USD Blue</p>
-              <p className="text-sm font-bold text-blue-600">${dolar.toFixed(0)}</p>
+            <div className="text-right bg-card border border-line rounded-xl px-3 py-2">
+              <p className="text-xs text-muted">USD Blue</p>
+              <p className="text-sm font-bold text-info">${dolar.toFixed(0)}</p>
             </div>
           )}
-          <div className="text-right bg-white border border-slate-200 rounded-xl px-3 py-2">
-            <p className="text-xs text-slate-400">Total ARS</p>
-            <p className="text-sm font-bold text-slate-800">{fmt(totalARS)}</p>
+          <div className="text-right bg-card border border-line rounded-xl px-3 py-2">
+            <p className="text-xs text-muted">Total ARS</p>
+            <p className="text-sm font-bold text-primary">{fmt(totalARS)}</p>
           </div>
         </div>
       </div>
@@ -126,44 +128,44 @@ export default function InversionesPage() {
       {/* Add button */}
       <div className="flex justify-end">
         <button onClick={() => setShowForm(!showForm)}
-          className="bg-blue-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-blue-700 transition-colors">
+          className="bg-confirm text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-confirm-hover transition-colors">
           + Agregar activo
         </button>
       </div>
 
       {/* Add form */}
       {showForm && (
-        <div className="bg-white rounded-2xl border border-slate-100 p-5">
-          <h3 className="text-sm font-semibold text-slate-700 mb-4">Nuevo activo de inversiÃ³n</h3>
+        <div className="bg-card rounded-2xl border border-line p-5">
+          <h3 className="text-sm font-semibold text-primary mb-4">Nuevo activo de inversión</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             <input placeholder="Nombre (ej. PF Naranja X)" value={form.nombre}
               onChange={e => setForm(p => ({ ...p, nombre: e.target.value }))}
-              className="border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+              className="border border-line rounded-lg px-3 py-2 text-sm" />
             <select value={form.app} onChange={e => setForm(p => ({ ...p, app: e.target.value }))}
-              className="border border-slate-200 rounded-lg px-3 py-2 text-sm">
+              className="border border-line rounded-lg px-3 py-2 text-sm">
               {APPS.map(a => <option key={a} value={a}>{a}</option>)}
             </select>
             <select value={form.nivel_riesgo} onChange={e => setForm(p => ({ ...p, nivel_riesgo: e.target.value as 'conservador' | 'moderado' | 'alto' }))}
-              className="border border-slate-200 rounded-lg px-3 py-2 text-sm">
-              <option value="conservador">ð¢ Conservador</option>
-              <option value="moderado">ð¡ Moderado</option>
-              <option value="alto">ð´ Alto riesgo</option>
+              className="border border-line rounded-lg px-3 py-2 text-sm">
+              <option value="conservador">🟢 Conservador</option>
+              <option value="moderado">🟡 Moderado</option>
+              <option value="alto">🔴 Alto riesgo</option>
             </select>
             <input placeholder="Monto" type="number" value={form.monto}
               onChange={e => setForm(p => ({ ...p, monto: e.target.value }))}
-              className="border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+              className="border border-line rounded-lg px-3 py-2 text-sm" />
             <select value={form.moneda} onChange={e => setForm(p => ({ ...p, moneda: e.target.value }))}
-              className="border border-slate-200 rounded-lg px-3 py-2 text-sm">
+              className="border border-line rounded-lg px-3 py-2 text-sm">
               <option value="ARS">ARS $</option>
               <option value="USD">USD u$s</option>
             </select>
             <input placeholder="Tasa anual % (opcional)" type="number" value={form.tasa_anual}
               onChange={e => setForm(p => ({ ...p, tasa_anual: e.target.value }))}
-              className="border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+              className="border border-line rounded-lg px-3 py-2 text-sm" />
           </div>
           <div className="flex gap-2 mt-4">
-            <button onClick={addInversion} className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-green-700">Guardar</button>
-            <button onClick={() => setShowForm(false)} className="text-slate-500 px-4 py-2 rounded-lg text-sm hover:bg-slate-100">Cancelar</button>
+            <button onClick={addInversion} className="bg-confirm text-white px-4 py-2 rounded-lg text-sm hover:bg-confirm-hover">Guardar</button>
+            <button onClick={() => setShowForm(false)} className="text-secondary px-4 py-2 rounded-lg text-sm hover:bg-alternate">Cancelar</button>
           </div>
         </div>
       )}
@@ -179,44 +181,59 @@ export default function InversionesPage() {
         if (items.length === 0 && !showForm) return null
 
         return (
-          <div key={nivel} className={`rounded-2xl border ${cfg.border} ${cfg.light}`}>
+          <div
+            key={nivel}
+            className="rounded-2xl border"
+            style={{ background: cfg.tint, borderColor: cfg.tono }}
+          >
             <div className="p-5">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
                   <span>{cfg.emoji}</span>
-                  <h2 className={`font-semibold ${cfg.text}`}>{cfg.label}</h2>
-                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${cfg.badge}`}>{pct}%</span>
+                  <h2 className="font-semibold" style={{ color: cfg.tono }}>{cfg.label}</h2>
+                  <span
+                    className="text-xs px-2 py-0.5 rounded-full font-semibold"
+                    style={{ background: cfg.tint, color: cfg.tono, border: `1px solid ${cfg.tono}` }}
+                  >
+                    {pct}%
+                  </span>
                 </div>
                 <div className="text-right">
-                  <p className={`font-bold ${cfg.text}`}>{fmt(subtotal)}</p>
+                  <p className="fa-amount" style={{ color: cfg.tono }}>{fmt(subtotal)}</p>
                   {rendMensual > 0 && (
-                    <p className="text-xs text-slate-400">~{fmt(rendMensual)}/mes estimado</p>
+                    <p className="text-xs text-muted">~{fmt(rendMensual)}/mes estimado</p>
                   )}
                 </div>
               </div>
-              <div className="h-1.5 bg-white/60 rounded-full overflow-hidden">
-                <div className={`h-full rounded-full ${cfg.color}`} style={{ width: `${pct}%` }} />
+              <div
+                className="h-1.5 rounded-full overflow-hidden"
+                style={{ background: 'var(--border-color)' }}
+              >
+                <div
+                  className="h-full rounded-full"
+                  style={{ width: `${pct}%`, background: cfg.tono }}
+                />
               </div>
             </div>
 
             {items.length > 0 && (
-              <div className="border-t border-white/50 divide-y divide-white/30">
+              <div className="border-t border-line divide-y divide-line">
                 {items.map(inv => {
                   const arsVal = toARS(inv)
                   const rendM = inv.tasa_anual > 0 ? arsVal * (inv.tasa_anual / 100) / 12 : 0
                   return (
                     <div key={inv.id} className="flex items-center justify-between px-5 py-3">
                       <div>
-                        <p className="text-sm font-medium text-slate-800">{inv.nombre}</p>
-                        <p className="text-xs text-slate-400">{inv.app} Â· {inv.moneda}</p>
+                        <p className="text-sm font-medium text-primary">{inv.nombre}</p>
+                        <p className="text-xs text-muted">{inv.app} · {inv.moneda}</p>
                       </div>
                       <div className="flex items-center gap-3">
                         <div className="text-right">
-                          <p className="font-bold text-slate-700">{inv.moneda === 'USD' ? `u$s ${inv.monto.toLocaleString()}` : fmt(inv.monto)}</p>
-                          {inv.moneda === 'USD' && dolar && <p className="text-xs text-slate-400">â {fmt(arsVal)}</p>}
-                          {rendM > 0 && <p className="text-xs text-green-600">{inv.tasa_anual}% TNA</p>}
+                          <p className="font-bold text-primary">{inv.moneda === 'USD' ? `u$s ${inv.monto.toLocaleString()}` : fmt(inv.monto)}</p>
+                          {inv.moneda === 'USD' && dolar && <p className="text-xs text-muted">≈ {fmt(arsVal)}</p>}
+                          {rendM > 0 && <p className="text-xs text-positive">{inv.tasa_anual}% TNA</p>}
                         </div>
-                        <button onClick={() => deleteInversion(inv.id)} className="text-slate-300 hover:text-red-400 text-xl leading-none">Ã</button>
+                        <button onClick={() => deleteInversion(inv.id)} className="text-muted hover:text-negative text-xl leading-none">×</button>
                       </div>
                     </div>
                   )
@@ -228,10 +245,10 @@ export default function InversionesPage() {
       })}
 
       {inversiones.length === 0 && !showForm && (
-        <div className="bg-white rounded-2xl p-10 border border-dashed border-slate-200 text-center">
-          <p className="text-4xl mb-3">ð</p>
-          <p className="text-slate-600 font-medium">No hay inversiones cargadas</p>
-          <p className="text-slate-400 text-sm mt-1">HacÃ© click en "+ Agregar activo" para empezar</p>
+        <div className="bg-card rounded-2xl p-10 border border-dashed border-line text-center">
+          <p className="text-4xl mb-3">📈</p>
+          <p className="text-secondary font-medium">No hay inversiones cargadas</p>
+          <p className="text-muted text-sm mt-1">Hacé click en "+ Agregar activo" para empezar</p>
         </div>
       )}
     </div>
