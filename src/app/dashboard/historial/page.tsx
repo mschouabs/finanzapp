@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase'
 
 interface Movimiento {
   id: string
-  tipo: 'ingreso-fijo' | 'ingreso-freelance' | 'gasto-fijo' | 'gasto-variable'
+  tipo: 'ingreso-fijo' | 'ingreso-freelance' | 'gasto-fijo' | 'gasto-variable' | 'ingreso-seccion' | 'gasto-seccion'
   descripcion: string
   monto: number
   fecha: string
@@ -17,6 +17,8 @@ const tipoLabel: Record<string, string> = {
   'ingreso-freelance': 'Freelance',
   'gasto-fijo': 'Gasto fijo',
   'gasto-variable': 'Gasto variable',
+  'ingreso-seccion': 'Ingreso de sección',
+  'gasto-seccion': 'Gasto de sección',
 }
 
 const fmt = (n: number) =>
@@ -48,13 +50,34 @@ export default function HistorialPage() {
     setLoading(true)
     const supabase = createClient()
 
-    const [{ data: gv }, { data: gf }, { data: iff }, { data: inf }] =
+    const [{ data: gv }, { data: gf }, { data: iff }, { data: inf }, { data: secs }] =
       await Promise.all([
         supabase.from('gastos_variables').select('*'),
         supabase.from('gastos_fijos').select('*'),
         supabase.from('ingresos_fijos').select('*'),
         supabase.from('ingresos_freelance').select('*'),
+        supabase.from('secciones').select('id, nombre, tipo'),
       ])
+
+    /* registros de las secciones que suman o restan (las neutras no) */
+    const secsContables = (secs || []).filter(
+      (x: Record<string, unknown>) => x.tipo === 'ingreso' || x.tipo === 'gasto'
+    )
+    const infoSeccion = new Map<string, { nombre: string; tipo: string }>(
+      secsContables.map((x: Record<string, unknown>) => [
+        x.id as string,
+        { nombre: x.nombre as string, tipo: x.tipo as string },
+      ])
+    )
+
+    let regs: Record<string, unknown>[] = []
+    if (secsContables.length > 0) {
+      const { data } = await supabase
+        .from('seccion_registros')
+        .select('id, seccion_id, monto, fecha, datos')
+        .in('seccion_id', Array.from(infoSeccion.keys()))
+      regs = data || []
+    }
 
     const todos: Movimiento[] = [
       ...(gv || []).map((r: Record<string, unknown>) => ({
@@ -89,6 +112,22 @@ export default function HistorialPage() {
         fecha: (r.fecha as string) || ((r.created_at as string) ?? '').split('T')[0],
         categoria: 'Freelance',
       })),
+      ...regs.map((r: Record<string, unknown>) => {
+        const info = infoSeccion.get(r.seccion_id as string)
+        const campos = (r.datos as Record<string, unknown>) || {}
+        const primerTexto = Object.values(campos).find(
+          v => typeof v === 'string' && v.trim() !== ''
+        ) as string | undefined
+        return {
+          id: 'sr-' + r.id,
+          tipo: (info?.tipo === 'ingreso' ? 'ingreso-seccion' : 'gasto-seccion') as
+            'ingreso-seccion' | 'gasto-seccion',
+          descripcion: primerTexto || info?.nombre || 'Registro',
+          monto: (r.monto as number) || 0,
+          fecha: (r.fecha as string) || ((r.created_at as string) ?? '').split('T')[0],
+          categoria: info?.nombre,
+        }
+      }),
     ]
 
     todos.sort((a, b) => b.fecha.localeCompare(a.fecha))
