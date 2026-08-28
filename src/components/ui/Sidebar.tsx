@@ -144,7 +144,7 @@ export default function Sidebar({ userName }: { userName?: string }) {
           Estoy para ayudarte con tus finanzas.
         </p>
         <Link
-          href="/dashboard"
+          href="/dashboard/luca"
           className="mt-3 block rounded-lg border px-3 py-2 text-xs font-semibold transition-colors hover:bg-alternate"
           style={{ borderColor: 'var(--accent-confirm)', color: 'var(--accent-confirm)' }}
         >
@@ -170,7 +170,7 @@ export default function Sidebar({ userName }: { userName?: string }) {
         </div>
 
         <Link
-          href="/dashboard"
+          href="/dashboard/configuracion"
           className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-secondary transition-colors hover:bg-alternate hover:text-primary"
         >
           <Settings size={17} strokeWidth={2} />
