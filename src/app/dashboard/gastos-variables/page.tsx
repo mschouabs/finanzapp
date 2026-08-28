@@ -229,28 +229,30 @@ export default function GastosPage() {
         </div>
       </div>
 
-      {/* AI Input */}
-      <div className="bg-confirm rounded-2xl p-5">
-        <p className="text-blue-100 text-xs font-medium mb-2">✨ Cargá un gasto en lenguaje natural</p>
-        <div className="flex gap-2">
+      {/* Carga por lenguaje natural */}
+      <div className="fa-card p-5">
+        <p className="text-xs font-semibold text-primary mb-3">
+          ✨ Cargá un gasto en lenguaje natural
+        </p>
+        <div className="flex flex-col gap-2 sm:flex-row">
           <input
             ref={inputRef}
             value={aiText}
             onChange={e => setAiText(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && parseWithAI()}
             placeholder='Ej: "gasté 3500 en delivery" o "pagué el monotributo"'
-            className="flex-1 rounded-xl px-4 py-2.5 text-sm bg-card/10 text-white placeholder:text-blue-200 border border-white/20 focus:outline-none focus:border-white/50"
+            className="flex-1 rounded-xl border bg-field px-4 py-2.5 text-sm text-primary"
           />
           <button onClick={parseWithAI} disabled={aiLoading}
-            className="bg-card text-info font-semibold px-4 py-2.5 rounded-xl text-sm hover:bg-alternate disabled:opacity-50 transition-colors whitespace-nowrap">
-            {aiLoading ? '...' : 'Guardar'}
+            className="whitespace-nowrap rounded-xl bg-confirm px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-confirm-hover disabled:opacity-50">
+            {aiLoading ? 'Pensando…' : 'Guardar'}
           </button>
         </div>
         {aiMsg && (
-          <p className={`text-xs mt-2 ${aiMsg.ok ? 'text-blue-100' : 'text-yellow-200'}`}>{aiMsg.text}</p>
+          <p className={`mt-2 text-xs ${aiMsg.ok ? 'text-positive' : 'text-negative'}`}>{aiMsg.text}</p>
         )}
         <button onClick={() => setShowManual(!showManual)}
-          className="text-xs text-blue-200 hover:text-white mt-2 underline underline-offset-2">
+          className="mt-2 text-xs text-secondary underline underline-offset-2 hover:text-primary">
           Carga manual
         </button>
       </div>
@@ -335,7 +337,8 @@ export default function GastosPage() {
               <div className="flex items-center gap-3">
                 <span className="font-bold text-primary">{fmt(g.monto)}</span>
                 <button onClick={() => toggleDebitado(g.id, g.debitado)}
-                  className={`text-xs px-2 py-1 rounded-full font-medium ${g.debitado ? 'bg-green-100 text-positive' : 'bg-alternate text-secondary'}`}>
+                  className={`text-xs px-2 py-1 rounded-full font-medium border ${g.debitado ? 'bg-alternate text-positive' : 'bg-alternate text-secondary'}`}
+                  style={g.debitado ? { borderColor: 'var(--accent-positive)' } : undefined}>
                   {g.debitado ? '✓ Pagado' : 'Pendiente'}
                 </button>
                 <button onClick={() => deleteFijo(g.id)} className="text-muted hover:text-negative text-xl leading-none">×</button>
@@ -391,9 +394,14 @@ export default function GastosPage() {
 
       {/* Gastos hormiga */}
       {gastosHormiga.length > 0 && (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-2xl p-5">
-          <h3 className="font-semibold text-yellow-800 text-sm mb-2">🐜 Gastos hormiga del mes</h3>
-          <p className="text-yellow-700 text-sm">
+        <div
+          className="rounded-2xl border p-5"
+          style={{ background: 'var(--riesgo-medio-tint)', borderColor: 'var(--riesgo-medio)' }}
+        >
+          <h3 className="mb-2 text-sm font-semibold" style={{ color: 'var(--riesgo-medio)' }}>
+            🐜 Gastos hormiga del mes
+          </h3>
+          <p className="text-sm text-primary">
             {gastosHormiga.length} gastos chicos suman <strong>{fmt(gastosHormiga.reduce((s, g) => s + g.monto, 0))}</strong>
           </p>
         </div>
