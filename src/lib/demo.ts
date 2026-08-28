@@ -26,44 +26,44 @@ export const USUARIO_DEMO = {
 /* ── Datos de ejemplo ───────────────────────────────────────────── */
 const datos: Record<string, Record<string, unknown>[]> = {
   ingresos_fijos: [
-    { id: 'if1', nombre: 'Sueldo', monto: 850000, created_at: mesAtras(0) },
-    { id: 'if2', nombre: 'Sueldo', monto: 850000, created_at: mesAtras(1) },
-    { id: 'if3', nombre: 'Sueldo', monto: 820000, created_at: mesAtras(2) },
-    { id: 'if4', nombre: 'Sueldo', monto: 820000, created_at: mesAtras(3) },
+    { id: 'if1', user_id: USUARIO_DEMO.id, nombre: 'Sueldo', monto: 850000, monto_cobrado: 850000, activo: true, created_at: mesAtras(3) },
+    { id: 'if2', user_id: USUARIO_DEMO.id, nombre: 'Alquiler depto', monto: 180000, monto_cobrado: 180000, activo: true, created_at: mesAtras(2) },
   ],
   ingresos_freelance: [
-    { id: 'fr1', nombre: 'Proyecto web', monto: 240000, fecha: iso(6) },
-    { id: 'fr2', nombre: 'Consultoría', monto: 180000, fecha: iso(38) },
-    { id: 'fr3', nombre: 'Landing page', monto: 95000, fecha: iso(70) },
+    { id: 'fr1', user_id: USUARIO_DEMO.id, cliente: 'Estudio Nube', descripcion: 'Proyecto web', monto_total: 240000, monto_cobrado: 240000, fecha: iso(6) },
+    { id: 'fr2', user_id: USUARIO_DEMO.id, cliente: 'Grupo Andes', descripcion: 'Consultoría', monto_total: 220000, monto_cobrado: 180000, fecha: iso(38) },
+    { id: 'fr3', user_id: USUARIO_DEMO.id, cliente: 'Kilo Café', descripcion: 'Landing page', monto_total: 95000, monto_cobrado: 95000, fecha: iso(70) },
   ],
   gastos_fijos: [
-    { id: 'gf1', nombre: 'Alquiler', monto: 320000, debitado: true, created_at: mesAtras(0) },
-    { id: 'gf2', nombre: 'Expensas', monto: 78000, debitado: true, created_at: mesAtras(0) },
-    { id: 'gf3', nombre: 'Internet', monto: 32000, debitado: false, created_at: mesAtras(0) },
-    { id: 'gf4', nombre: 'Celular', monto: 18500, debitado: false, created_at: mesAtras(0) },
+    { id: 'gf1', user_id: USUARIO_DEMO.id, nombre: 'Alquiler', monto: 320000, categoria: 'Vivienda', debitado: true, activo: true, created_at: mesAtras(3) },
+    { id: 'gf2', user_id: USUARIO_DEMO.id, nombre: 'Expensas', monto: 78000, categoria: 'Vivienda', debitado: true, activo: true, created_at: mesAtras(3) },
+    { id: 'gf3', user_id: USUARIO_DEMO.id, nombre: 'Internet', monto: 32000, categoria: 'Servicios', debitado: false, activo: true, created_at: mesAtras(3) },
+    { id: 'gf4', user_id: USUARIO_DEMO.id, nombre: 'Celular', monto: 18500, categoria: 'Servicios', debitado: false, activo: true, created_at: mesAtras(2) },
   ],
   gastos_variables: [
-    { id: 'gv1', nombre: 'Supermercado', monto: 87400, categoria: 'mercado', fecha: iso(1), es_gasto_hormiga: false },
-    { id: 'gv2', nombre: 'Delivery', monto: 18900, categoria: 'comida', fecha: iso(2), es_gasto_hormiga: true },
-    { id: 'gv3', nombre: 'Uber', monto: 12500, categoria: 'transporte', fecha: iso(3), es_gasto_hormiga: true },
-    { id: 'gv4', nombre: 'Farmacia', monto: 24300, categoria: 'farmacia', fecha: iso(5), es_gasto_hormiga: false },
-    { id: 'gv5', nombre: 'Cine', monto: 16000, categoria: 'ocio', fecha: iso(8), es_gasto_hormiga: false },
-    { id: 'gv6', nombre: 'Café', monto: 4800, categoria: 'comida', fecha: iso(9), es_gasto_hormiga: true },
-    { id: 'gv7', nombre: 'Zapatillas', monto: 145000, categoria: 'ropa', fecha: iso(12), es_gasto_hormiga: false },
-    { id: 'gv8', nombre: 'Monotributo', monto: 37000, categoria: 'impuesto', fecha: iso(15), es_gasto_hormiga: false },
-    { id: 'gv9', nombre: 'Supermercado', monto: 92000, categoria: 'mercado', fecha: iso(33), es_gasto_hormiga: false },
-    { id: 'gv10', nombre: 'Nafta', monto: 45000, categoria: 'transporte', fecha: iso(40), es_gasto_hormiga: false },
+    { id: 'gv1', user_id: USUARIO_DEMO.id, nombre: 'Supermercado', monto: 87400, categoria: 'mercado', fecha: iso(1), es_gasto_hormiga: false },
+    { id: 'gv2', user_id: USUARIO_DEMO.id, nombre: 'Delivery', monto: 18900, categoria: 'comida', fecha: iso(2), es_gasto_hormiga: true },
+    { id: 'gv3', user_id: USUARIO_DEMO.id, nombre: 'Uber', monto: 12500, categoria: 'transporte', fecha: iso(3), es_gasto_hormiga: true },
+    { id: 'gv4', user_id: USUARIO_DEMO.id, nombre: 'Farmacia', monto: 24300, categoria: 'salud', fecha: iso(5), es_gasto_hormiga: false },
+    { id: 'gv5', user_id: USUARIO_DEMO.id, nombre: 'Cine', monto: 16000, categoria: 'ocio', fecha: iso(8), es_gasto_hormiga: false },
+    { id: 'gv6', user_id: USUARIO_DEMO.id, nombre: 'Café', monto: 4800, categoria: 'comida', fecha: iso(9), es_gasto_hormiga: true },
+    { id: 'gv7', user_id: USUARIO_DEMO.id, nombre: 'Zapatillas', monto: 145000, categoria: 'ropa', fecha: iso(12), es_gasto_hormiga: false },
+    { id: 'gv8', user_id: USUARIO_DEMO.id, nombre: 'Monotributo', monto: 37000, categoria: 'impuestos', fecha: iso(15), es_gasto_hormiga: false },
+    { id: 'gv9', user_id: USUARIO_DEMO.id, nombre: 'Supermercado', monto: 92000, categoria: 'mercado', fecha: iso(33), es_gasto_hormiga: false },
+    { id: 'gv10', user_id: USUARIO_DEMO.id, nombre: 'Nafta', monto: 45000, categoria: 'transporte', fecha: iso(40), es_gasto_hormiga: false },
+    { id: 'gv11', user_id: USUARIO_DEMO.id, nombre: 'Cena con amigos', monto: 28500, categoria: 'ocio', fecha: iso(62), es_gasto_hormiga: false },
+    { id: 'gv12', user_id: USUARIO_DEMO.id, nombre: 'Supermercado', monto: 81000, categoria: 'mercado', fecha: iso(65), es_gasto_hormiga: false },
   ],
   inversiones: [
-    { id: 'iv1', nombre: 'Plazo fijo UVA', app: 'Brubank', moneda: 'ARS', monto: 1200000, tasa_anual: 42, riesgo: 'conservador' },
-    { id: 'iv2', nombre: 'FCI Money Market', app: 'MercadoPago', moneda: 'ARS', monto: 450000, tasa_anual: 35, riesgo: 'conservador' },
-    { id: 'iv3', nombre: 'CEDEAR AAPL', app: 'IOL', moneda: 'ARS', monto: 380000, tasa_anual: 0, riesgo: 'moderado' },
-    { id: 'iv4', nombre: 'Bitcoin', app: 'Binance', moneda: 'USD', monto: 800, tasa_anual: 0, riesgo: 'alto' },
-    { id: 'iv5', nombre: 'Ethereum', app: 'Lemon', moneda: 'USD', monto: 350, tasa_anual: 0, riesgo: 'alto' },
+    { id: 'iv1', user_id: USUARIO_DEMO.id, nombre: 'Plazo fijo UVA', app: 'Brubank', tipo: 'Plazo fijo', moneda: 'ARS', monto: 1200000, tasa_anual: 42, nivel_riesgo: 'conservador' },
+    { id: 'iv2', user_id: USUARIO_DEMO.id, nombre: 'FCI Money Market', app: 'Mercado Pago', tipo: 'Fondo común', moneda: 'ARS', monto: 450000, tasa_anual: 35, nivel_riesgo: 'conservador' },
+    { id: 'iv3', user_id: USUARIO_DEMO.id, nombre: 'CEDEAR AAPL', app: 'IOL', tipo: 'CEDEAR', moneda: 'ARS', monto: 380000, tasa_anual: 0, nivel_riesgo: 'moderado' },
+    { id: 'iv4', user_id: USUARIO_DEMO.id, nombre: 'Bitcoin', app: 'Binance', tipo: 'Cripto', moneda: 'USD', monto: 800, tasa_anual: 0, nivel_riesgo: 'alto' },
+    { id: 'iv5', user_id: USUARIO_DEMO.id, nombre: 'Ethereum', app: 'Lemon', tipo: 'Cripto', moneda: 'USD', monto: 350, tasa_anual: 0, nivel_riesgo: 'alto' },
   ],
   secciones: [
     {
-      id: 'sec1', user_id: USUARIO_DEMO.id, nombre: 'Gastos Fijos', emoji: '🏠',
+      id: 'sec1', user_id: USUARIO_DEMO.id, nombre: 'Suscripciones', emoji: '📺',
       tipo: 'gasto', plantilla: 'gastos_fijos', orden: 0, created_at: mesAtras(2),
       campos: [
         { key: 'concepto', label: 'Concepto', tipo: 'text' },
@@ -73,7 +73,7 @@ const datos: Record<string, Record<string, unknown>[]> = {
       ],
     },
     {
-      id: 'sec2', user_id: USUARIO_DEMO.id, nombre: 'Freelance', emoji: '💼',
+      id: 'sec2', user_id: USUARIO_DEMO.id, nombre: 'Changas', emoji: '🛠️',
       tipo: 'ingreso', plantilla: 'trabajos', orden: 1, created_at: mesAtras(1),
       campos: [
         { key: 'empresa', label: 'Empresa', tipo: 'text' },
@@ -84,9 +84,10 @@ const datos: Record<string, Record<string, unknown>[]> = {
     },
   ],
   seccion_registros: [
-    { id: 'sr1', seccion_id: 'sec1', user_id: USUARIO_DEMO.id, monto: 45000, fecha: iso(4), datos: { concepto: 'Seguro auto', frecuencia: 'Mensual' }, created_at: mesAtras(0) },
-    { id: 'sr2', seccion_id: 'sec1', user_id: USUARIO_DEMO.id, monto: 22000, fecha: iso(10), datos: { concepto: 'Gimnasio', frecuencia: 'Mensual' }, created_at: mesAtras(0) },
+    { id: 'sr1', seccion_id: 'sec1', user_id: USUARIO_DEMO.id, monto: 12900, fecha: iso(4), datos: { concepto: 'Netflix', frecuencia: 'Mensual' }, created_at: mesAtras(0) },
+    { id: 'sr2', seccion_id: 'sec1', user_id: USUARIO_DEMO.id, monto: 7500, fecha: iso(10), datos: { concepto: 'Spotify', frecuencia: 'Mensual' }, created_at: mesAtras(0) },
     { id: 'sr3', seccion_id: 'sec2', user_id: USUARIO_DEMO.id, monto: 130000, fecha: iso(7), datos: { empresa: 'Estudio Nube', descripcion: 'Rediseño' }, created_at: mesAtras(0) },
+    { id: 'sr4', seccion_id: 'sec2', user_id: USUARIO_DEMO.id, monto: 64000, fecha: iso(41), datos: { empresa: 'Kilo Café', descripcion: 'Menú digital' }, created_at: mesAtras(1) },
   ],
 }
 
@@ -112,6 +113,8 @@ function consulta(tabla: string) {
       return q
     },
     eq: (col: string, val: unknown) => {
+      // el user_id no aplica: en demo hay un solo usuario
+      if (col === 'user_id') return q
       filas = filas.filter(f => f[col] === val)
       return q
     },
@@ -129,6 +132,20 @@ function consulta(tabla: string) {
     },
     lte: (col: string, val: string) => {
       filas = filas.filter(f => String(f[col] ?? '') <= val)
+      return q
+    },
+    like: (col: string, patron: string) => {
+      const re = new RegExp('^' + patron.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/%/g, '.*') + '$')
+      filas = filas.filter(f => re.test(String(f[col] ?? '')))
+      return q
+    },
+    ilike: (col: string, patron: string) => {
+      const re = new RegExp('^' + patron.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/%/g, '.*') + '$', 'i')
+      filas = filas.filter(f => re.test(String(f[col] ?? '')))
+      return q
+    },
+    range: (desde: number, hasta: number) => {
+      filas = filas.slice(desde, hasta + 1)
       return q
     },
     order: (col: string, opts?: { ascending?: boolean }) => {
