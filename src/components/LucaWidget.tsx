@@ -1,8 +1,8 @@
 'use client'
 import { useState, useRef } from 'react'
-import { Send } from 'lucide-react'
-import { createClient } from '@/lib/supabase'
-import { LucaAvatar, type LucaEstado } from '@/components/luca/LucaAvatar'
+import { createBrowserClient } from '@supabase/ssr'
+import { LucaAvatar } from './luca/LucaAvatar'
+import type { LucaEstado } from './luca/LucaAvatar'
 
 interface ParsedExpense {
   nombre: string
@@ -18,35 +18,42 @@ const FIELDS = [
   { label: 'Fecha', key: 'fecha' as const, type: 'date' },
 ]
 
-const EJEMPLOS = [
-  'Cobré $850.000 de sueldo',
-  'Gasté $32.000 en supermercado',
-  'Pagué $45.000 de tarjeta',
-]
-
 export function LucaWidget({ onSaved }: { onSaved?: () => void }) {
   const [input, setInput] = useState('')
-  const [estado, setEstado] = useState<LucaEstado>('idle')
+  const [loading, setLoading] = useState(false)
   const [parsed, setParsed] = useState<ParsedExpense | null>(null)
-  const [editando, setEditando] = useState(false)
+  const [editing, setEditing] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
   const [error, setError] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
 
-  const supabase = createClient()
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  )
 
-  const cargando = estado === 'thinking' || estado === 'saving'
+  // Estado del avatar según el estado del widget
+  const lucaEstado: LucaEstado = saved
+    ? 'celebration'
+    : error
+    ? 'sad'
+    : loading || saving
+    ? 'thinking'
+    : parsed
+    ? 'neutral'
+    : 'happy'
 
   const reset = () => {
     setParsed(null)
     setInput('')
-    setEditando(false)
+    setEditing(false)
     setError('')
-    setEstado('idle')
   }
 
   const parse = async () => {
     if (!input.trim()) return
-    setEstado('thinking')
+    setLoading(true)
     setError('')
     try {
       const res = await fetch('/api/parse-expense', {
@@ -57,20 +64,18 @@ export function LucaWidget({ onSaved }: { onSaved?: () => void }) {
       const data = await res.json()
       if (data?.nombre) {
         setParsed(data)
-        setEstado('success')
       } else {
-        setError('No pude entender ese movimiento. Probá con más detalle.')
-        setEstado('error')
+        setError('No pude entender ese gasto. Probá de nuevo con más detalle.')
       }
     } catch {
       setError('No pude conectarme. Revisá tu conexión e intentá otra vez.')
-      setEstado('error')
     }
+    setLoading(false)
   }
 
-  const confirmar = async () => {
+  const confirm = async () => {
     if (!parsed) return
-    setEstado('saving')
+    setSaving(true)
     setError('')
     try {
       const { data: { user } } = await supabase.auth.getUser()
@@ -83,92 +88,110 @@ export function LucaWidget({ onSaved }: { onSaved?: () => void }) {
         es_gasto_hormiga: false,
       })
       if (dbError) throw dbError
-      setEstado('celebration')
+      setSaved(true)
       onSaved?.()
-      setTimeout(reset, 1900)
+      setTimeout(() => {
+        reset()
+        setSaved(false)
+      }, 1800)
     } catch {
-      setError('No se pudo guardar el movimiento.')
-      setEstado('error')
+      setError('No se pudo guardar el gasto.')
     }
+    setSaving(false)
   }
 
   return (
-    <section className="fa-card p-5">
-      <div className="flex items-start gap-3">
-        <LucaAvatar estado={estado} size={44} className="mt-0.5 shrink-0" />
-        <div className="min-w-0 flex-1">
-          <h2 className="text-base font-bold text-primary">Decile a Luca</h2>
-          <p className="mt-0.5 text-xs text-secondary">
-            Registrá gastos, ingresos o movimientos como si le hablaras a un amigo.
+    <section className="fa-card p-6">
+      {/* Avatar Luca */}
+      <div className="flex items-center gap-4 mb-5">
+        <div className="relative shrink-0">
+          <LucaAvatar estado={lucaEstado} size={72} variant="auto" />
+          {/* Indicador online */}
+          <span className="absolute bottom-1 right-1 flex h-3 w-3">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+            <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500" />
+          </span>
+        </div>
+        <div>
+          <h2 className="text-sm font-extrabold text-primary leading-tight">Decile a Luca</h2>
+          <p className="text-xs text-secondary mt-0.5">
+            {saved
+              ? '¡Guardado! 🎉'
+              : error
+              ? 'Mmm, no entendí bien...'
+              : loading || saving
+              ? 'Estoy pensando...'
+              : parsed
+              ? '¿Esto es correcto?'
+              : 'Tu asistente de gastos IA'}
           </p>
         </div>
       </div>
 
-      <div className="mt-4 flex flex-col gap-2.5 sm:flex-row">
+      {/* Entrada */}
+      <div className="flex gap-3 flex-col sm:flex-row">
         <input
           ref={inputRef}
           value={input}
           onChange={e => setInput(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && !cargando && !parsed && parse()}
-          onFocus={() => estado === 'idle' && setEstado('listening')}
-          onBlur={() => estado === 'listening' && setEstado('idle')}
-          placeholder="Ej: Gasté $18.500 en una cena con amigos"
-          disabled={cargando || !!parsed}
-          className="min-w-0 flex-1 rounded-xl border bg-field px-4 py-3 text-sm text-primary disabled:opacity-60"
+          onKeyDown={e => e.key === 'Enter' && !loading && !parsed && parse()}
+          placeholder="Ej: Gasté $87 en supermercado"
+          disabled={loading || !!parsed}
+          className="flex-1 px-3 py-3 text-xs rounded-md border bg-field text-primary disabled:opacity-60"
         />
-        <button
-          onClick={parse}
-          disabled={cargando || !input.trim() || !!parsed}
-          className="flex items-center justify-center gap-2 rounded-xl bg-confirm px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-confirm-hover disabled:opacity-50"
-        >
-          <Send size={15} />
-          {estado === 'thinking' ? 'Pensando…' : 'Enviar'}
-        </button>
+        <div className="flex gap-3">
+          <button
+            onClick={parse}
+            disabled={loading || !input.trim() || !!parsed}
+            className="px-5 py-3 text-xs font-semibold rounded-md text-white bg-confirm hover:bg-confirm-hover disabled:opacity-50 transition-colors"
+          >
+            {loading ? 'Pensando…' : '✓ Enviar'}
+          </button>
+          <button
+            onClick={reset}
+            disabled={!input && !parsed}
+            className="px-5 py-3 text-xs font-semibold rounded-md border text-secondary hover:bg-alternate disabled:opacity-40 transition-colors"
+          >
+            Cancelar
+          </button>
+        </div>
       </div>
 
-      {!parsed && (
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          <span className="text-[11px] text-muted">Ejemplos:</span>
-          {EJEMPLOS.map(ej => (
-            <button
-              key={ej}
-              onClick={() => { setInput(ej); inputRef.current?.focus() }}
-              className="rounded-full border px-3 py-1.5 text-[11px] text-secondary transition-colors hover:bg-alternate hover:text-primary"
-            >
-              + {ej}
-            </button>
-          ))}
-        </div>
+      {error && (
+        <p className="mt-4 text-xs text-negative">{error}</p>
       )}
 
-      {error && <p className="mt-3 text-xs text-negative">{error}</p>}
-
-      {estado === 'celebration' && (
-        <p className="mt-3 text-xs font-semibold text-positive">✓ ¡Guardado!</p>
+      {saved && (
+        <p className="mt-4 text-xs font-semibold text-positive">✓ ¡Guardado!</p>
       )}
 
-      {parsed && estado !== 'celebration' && (
-        <div className="mt-4 rounded-xl border bg-alternate p-4">
-          <p className="mb-3 text-sm text-primary">Luca entiende:</p>
+      {/* Resultado interpretado */}
+      {parsed && !saved && (
+        <div className="mt-4 rounded-md border bg-alternate p-4">
+          <p className="text-sm text-primary mb-3">💸 Luca entiende:</p>
 
           <dl className="text-xs">
             {FIELDS.map(({ label, key, type }, i) => (
               <div
                 key={key}
-                className={`flex items-center gap-4 py-2.5 ${i < FIELDS.length - 1 ? 'border-b' : ''}`}
+                className={`flex items-center gap-4 py-2.5 ${
+                  i < FIELDS.length - 1 ? 'border-b' : ''
+                }`}
               >
-                <dt className="w-24 shrink-0 text-secondary">{label}:</dt>
-                <dd className="min-w-0 flex-1 text-primary">
-                  {editando ? (
+                <dt className="text-secondary w-24 shrink-0">{label}:</dt>
+                <dd className="flex-1 text-primary">
+                  {editing ? (
                     <input
                       type={type}
                       value={String(parsed[key])}
                       onChange={e =>
                         setParsed(p =>
-                          p ? { ...p, [key]: key === 'monto' ? Number(e.target.value) : e.target.value } : p
+                          p
+                            ? { ...p, [key]: key === 'monto' ? Number(e.target.value) : e.target.value }
+                            : p
                         )
                       }
-                      className="w-full rounded-lg border bg-field px-2 py-1.5 text-xs text-primary"
+                      className="w-full px-2 py-1.5 rounded border bg-field text-primary text-xs"
                     />
                   ) : key === 'monto' ? (
                     <span className="fa-amount">
@@ -182,23 +205,23 @@ export function LucaWidget({ onSaved }: { onSaved?: () => void }) {
             ))}
           </dl>
 
-          <div className="mt-4 flex flex-wrap gap-2">
+          <div className="flex gap-2 mt-4">
             <button
-              onClick={confirmar}
-              disabled={estado === 'saving'}
-              className="rounded-lg bg-confirm px-3.5 py-2 text-xs font-semibold text-white transition-colors hover:bg-confirm-hover disabled:opacity-50"
+              onClick={confirm}
+              disabled={saving}
+              className="px-3 py-2 text-[10px] font-semibold rounded-md text-white bg-confirm hover:bg-confirm-hover disabled:opacity-50 transition-colors"
             >
-              {estado === 'saving' ? 'Guardando…' : '✓ Confirmar'}
+              {saving ? 'Guardando…' : '✓ Confirmar'}
             </button>
             <button
-              onClick={() => setEditando(e => !e)}
-              className="rounded-lg border px-3.5 py-2 text-xs font-semibold text-secondary transition-colors hover:bg-card"
+              onClick={() => setEditing(e => !e)}
+              className="px-3 py-2 text-[10px] font-semibold rounded-md border text-secondary hover:bg-card transition-colors"
             >
-              {editando ? 'Listo' : 'Editar'}
+              {editing ? 'Listo' : 'Editar'}
             </button>
             <button
               onClick={reset}
-              className="rounded-lg border px-3.5 py-2 text-xs font-semibold text-secondary transition-colors hover:bg-card"
+              className="px-3 py-2 text-[10px] font-semibold rounded-md border text-secondary hover:bg-card transition-colors"
             >
               Descartar
             </button>
