@@ -2,62 +2,84 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ── VARIABLES DE TEMA (default: oscuro) ── */
+/* ══ TEMA OSCURO (default) ══════════════════════════════════════
+   Paleta tomada del mockup: fondo casi negro azulado, paneles un
+   escalón más claros, y acentos saturados sólo donde importan.   */
 :root {
-  --bg-page: #0D1117;
-  --bg-card: #161B22;
-  --bg-input: #21262D;
-  --bg-alternate: #1C2128;
-  --border-color: #30363D;
-  --border-subtle: #21262D;
-  --text-primary: #C9D1D9;
-  --text-secondary: #8B949E;
-  --text-muted: #6E7681;
-  --accent-positive: #3FB950;
-  --accent-negative: #FF7B72;
-  --accent-confirm: #238636;
-  --accent-confirm-hover: #2EA043;
-  --accent-secondary: #58A6FF;
-  --shadow: none;
-  --shadow-hover: 0 2px 4px rgba(0, 0, 0, 0.2);
-  --radius: 12px;
+  --bg-page: #080D13;
+  --bg-card: #111820;
+  --bg-input: #0D141B;
+  --bg-alternate: #161E27;
+  --border-color: #26313C;
+  --border-subtle: #1B242E;
 
-  /* Niveles de riesgo del portfolio */
-  --riesgo-bajo: #3FB950;
-  --riesgo-medio: #D29922;
-  --riesgo-alto: #FF7B72;
-  --riesgo-bajo-tint: rgba(63, 185, 80, 0.10);
-  --riesgo-medio-tint: rgba(210, 153, 34, 0.10);
-  --riesgo-alto-tint: rgba(255, 123, 114, 0.10);
+  --text-primary: #EEF2F6;
+  --text-secondary: #84909E;
+  --text-muted: #5C6773;
+
+  --accent-positive: #32D158;
+  --accent-negative: #FF5873;
+  --accent-confirm: #22C55E;
+  --accent-confirm-hover: #16A34A;
+  --accent-secondary: #63A9FF;
+  --accent-warning: #F5C451;
+  --accent-violet: #A855F7;
+
+  /* Luca adapta su color al tema */
+  --luca-glow: #32D158;
+  --luca-shell: #FFFFFF;
+  --luca-screen: #0B1116;
+
+  --riesgo-bajo: #32D158;
+  --riesgo-medio: #F5C451;
+  --riesgo-alto: #FF5873;
+  --riesgo-bajo-tint: rgba(50, 209, 88, 0.10);
+  --riesgo-medio-tint: rgba(245, 196, 81, 0.10);
+  --riesgo-alto-tint: rgba(255, 88, 115, 0.10);
+
+  --shadow: none;
+  --shadow-hover: 0 4px 16px rgba(0, 0, 0, 0.4);
+  --radius: 12px;
 }
 
-/* ── TEMA ROSA ── */
+/* ══ TEMA ROSA ══════════════════════════════════════════════════
+   Misma estructura y jerarquía, en clave clara. El texto principal
+   es un ciruela oscuro: el rosa saturado no tiene contraste
+   suficiente para leer párrafos sobre blanco.                    */
 [data-theme="rosa"] {
-  --bg-page: #FAF6F3;
+  --bg-page: #FDF6F9;
   --bg-card: #FFFFFF;
-  --bg-input: #FFF9F6;
-  --bg-alternate: #F5EEEB;
-  --border-color: #E8D8D0;
-  --border-subtle: #F0E6E1;
-  --text-primary: #C85A6D;
-  --text-secondary: #A97480;
-  --text-muted: #C4A39E;
-  --accent-positive: #C97B8F;
-  --accent-negative: #E8847D;
-  --accent-confirm: #D4849C;
-  --accent-confirm-hover: #C97B8F;
-  --accent-secondary: #E6A8B5;
-  --shadow: 0 2px 6px rgba(200, 123, 143, 0.08);
-  --shadow-hover: 0 4px 12px rgba(200, 123, 143, 0.12);
-  --radius: 14px;
+  --bg-input: #FFFAFC;
+  --bg-alternate: #FBEDF3;
+  --border-color: #F2DAE4;
+  --border-subtle: #F8E9EF;
 
-  /* Riesgo, en clave rosa: se mantienen distinguibles pero más suaves */
-  --riesgo-bajo: #C97B8F;
-  --riesgo-medio: #D9A05B;
-  --riesgo-alto: #E8847D;
-  --riesgo-bajo-tint: rgba(201, 123, 143, 0.12);
-  --riesgo-medio-tint: rgba(217, 160, 91, 0.14);
-  --riesgo-alto-tint: rgba(232, 132, 125, 0.12);
+  --text-primary: #2F1F28;
+  --text-secondary: #7C5A68;
+  --text-muted: #B0919C;
+
+  --accent-positive: #2FA36B;
+  --accent-negative: #E0517A;
+  --accent-confirm: #F7309B;
+  --accent-confirm-hover: #D81B84;
+  --accent-secondary: #C86AB0;
+  --accent-warning: #E0A63C;
+  --accent-violet: #A855F7;
+
+  --luca-glow: #FF6FA9;
+  --luca-shell: #FFFFFF;
+  --luca-screen: #2A1620;
+
+  --riesgo-bajo: #2FA36B;
+  --riesgo-medio: #E0A63C;
+  --riesgo-alto: #E0517A;
+  --riesgo-bajo-tint: rgba(47, 163, 107, 0.10);
+  --riesgo-medio-tint: rgba(224, 166, 60, 0.12);
+  --riesgo-alto-tint: rgba(224, 81, 122, 0.10);
+
+  --shadow: 0 2px 8px rgba(199, 122, 154, 0.10);
+  --shadow-hover: 0 6px 20px rgba(199, 122, 154, 0.16);
+  --radius: 14px;
 }
 
 html {
@@ -68,7 +90,7 @@ body {
   min-height: 100vh;
   background: var(--bg-page);
   color: var(--text-primary);
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, system-ui, sans-serif;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, system-ui, sans-serif;
   transition: background-color 300ms ease, color 300ms ease;
 }
 
@@ -94,7 +116,6 @@ select:focus {
   border-color: var(--accent-confirm);
 }
 
-/* El autofill del browser pisa el fondo: lo devolvemos al tema */
 input:-webkit-autofill,
 input:-webkit-autofill:hover,
 input:-webkit-autofill:focus {
@@ -113,6 +134,76 @@ input:-webkit-autofill:focus {
 }
 
 .fa-amount {
-  font-family: 'Courier New', Courier, monospace;
+  font-variant-numeric: tabular-nums;
   font-weight: 700;
+}
+
+/* Barra de scroll discreta, en tono del tema */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-color) transparent;
+}
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 8px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+
+/* ══ Animaciones de Luca ════════════════════════════════════════
+   Sutiles y funcionales: comunican estado, no decoran.           */
+@keyframes luca-float {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-3px); }
+}
+
+@keyframes luca-blink {
+  0%, 92%, 100% { transform: scaleY(1); }
+  95%           { transform: scaleY(0.1); }
+}
+
+@keyframes luca-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.45; }
+}
+
+@keyframes luca-dot {
+  0%, 80%, 100% { opacity: 0.25; }
+  40%           { opacity: 1; }
+}
+
+@keyframes luca-shake {
+  0%, 100%   { transform: translateX(0); }
+  25%        { transform: translateX(-2px); }
+  75%        { transform: translateX(2px); }
+}
+
+@keyframes luca-bounce {
+  0%, 100% { transform: translateY(0) scale(1); }
+  40%      { transform: translateY(-6px) scale(1.04); }
+}
+
+@keyframes luca-spin {
+  to { transform: rotate(360deg); }
+}
+
+.luca-float     { animation: luca-float 3.6s ease-in-out infinite; }
+.luca-eye       { animation: luca-blink 5s ease-in-out infinite; transform-origin: center; }
+.luca-antenna   { animation: luca-pulse 2s ease-in-out infinite; }
+.luca-shake     { animation: luca-shake 0.4s ease-in-out 2; }
+.luca-bounce    { animation: luca-bounce 0.9s ease-in-out infinite; }
+.luca-spin      { animation: luca-spin 1.1s linear infinite; transform-origin: center; }
+.luca-dot-1     { animation: luca-dot 1.2s ease-in-out infinite; }
+.luca-dot-2     { animation: luca-dot 1.2s ease-in-out 0.2s infinite; }
+.luca-dot-3     { animation: luca-dot 1.2s ease-in-out 0.4s infinite; }
+
+/* Si el sistema pide menos movimiento, Luca se queda quieto. */
+@media (prefers-reduced-motion: reduce) {
+  .luca-float, .luca-eye, .luca-antenna, .luca-shake,
+  .luca-bounce, .luca-spin, .luca-dot-1, .luca-dot-2, .luca-dot-3 {
+    animation: none;
+  }
+  html { scroll-behavior: auto; }
 }
