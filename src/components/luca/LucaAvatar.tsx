@@ -1,227 +1,93 @@
 'use client'
 
-/* ── Luca ─────────────────────────────────────────────────────────
-   Robot mascota de FinanzApp, dibujado en SVG para que sea nítido a
-   cualquier tamaño y tome el color del tema activo. No tiene rasgos
-   humanos ni género: es un aparatito.
-
-   Los estados neutros usan el color del tema (--luca-glow); los que
-   comunican un resultado usan el color semántico correspondiente,
-   así el verde siempre significa lo mismo en toda la app.         */
-
-export type LucaEstado =
-  | 'idle'
-  | 'listening'
-  | 'thinking'
-  | 'saving'
-  | 'success'
-  | 'celebration'
-  | 'warning'
-  | 'error'
-  | 'sad'
+export type LucaEstado = 'idle' | 'thinking' | 'celebration' | 'sad'
 
 interface Props {
   estado?: LucaEstado
-  /** Lado del cuadrado en px. Por debajo de 24 se pierde la expresión. */
   size?: number
-  className?: string
-  label?: string
 }
 
-const DESCRIPCION: Record<LucaEstado, string> = {
-  idle: 'Luca, en espera',
-  listening: 'Luca, escuchando',
-  thinking: 'Luca, pensando',
-  saving: 'Luca, guardando',
-  success: 'Luca, listo',
-  celebration: 'Luca, celebrando',
-  warning: 'Luca, atención',
-  error: 'Luca, hubo un error',
-  sad: 'Luca, sin novedades',
-}
-
-const COLOR_ESTADO: Partial<Record<LucaEstado, string>> = {
-  success: 'var(--accent-positive)',
-  celebration: 'var(--accent-positive)',
-  warning: 'var(--accent-warning)',
-  error: 'var(--accent-negative)',
-}
-
-const ANIMACION: Partial<Record<LucaEstado, string>> = {
-  idle: 'luca-float',
-  listening: 'luca-float',
-  celebration: 'luca-bounce',
-  error: 'luca-shake',
-}
-
-export function LucaAvatar({ estado = 'idle', size = 48, className = '', label }: Props) {
-  const g = COLOR_ESTADO[estado] ?? 'var(--luca-glow)'
-
+function FaceIdle() {
   return (
-    <svg
-      viewBox="0 0 120 120"
-      width={size}
-      height={size}
-      role="img"
-      aria-label={label ?? DESCRIPCION[estado]}
-      className={`${ANIMACION[estado] ?? ''} ${className}`}
-      style={{ overflow: 'visible' }}
-    >
-      <ellipse cx="60" cy="106" rx="24" ry="4" fill={g} opacity="0.10" />
-
-      <Alrededor estado={estado} g={g} />
-
-      {/* antena */}
-      <line x1="60" y1="26" x2="60" y2="13" stroke={g} strokeWidth="2.5" strokeLinecap="round" />
-      <circle cx="60" cy="10" r="4.2" fill={g} className={estado === 'idle' ? undefined : 'luca-antenna'} />
-
-      {/* orejas */}
-      <rect x="11" y="52" width="13" height="26" rx="6" fill={g} opacity="0.9" />
-      <rect x="96" y="52" width="13" height="26" rx="6" fill={g} opacity="0.9" />
-
-      {/* cabeza y visera */}
-      <rect x="20" y="26" width="80" height="72" rx="26" fill="var(--luca-shell)" stroke={g} strokeWidth="2" />
-      <path d="M40 30 h40 a22 22 0 0 1 16 12 h-72 a22 22 0 0 1 16 -12 z" fill={g} opacity="0.85" />
-
-      {/* pantalla */}
-      <rect x="30" y="44" width="60" height="42" rx="18" fill="var(--luca-screen)" />
-
-      <Cara estado={estado} g={g} />
-    </svg>
+    <>
+      <ellipse cx="25" cy="30" rx="8" ry="9" fill="#22c55e" opacity="0.12" />
+      <ellipse cx="25" cy="30" rx="5.5" ry="6.5" fill="#22c55e" />
+      <ellipse cx="23" cy="28" rx="1.8" ry="2.2" fill="white" opacity="0.55" />
+      <ellipse cx="51" cy="30" rx="8" ry="9" fill="#22c55e" opacity="0.12" />
+      <ellipse cx="51" cy="30" rx="5.5" ry="6.5" fill="#22c55e" />
+      <ellipse cx="49" cy="28" rx="1.8" ry="2.2" fill="white" opacity="0.55" />
+      <path d="M 24 44 Q 38 53 52 44" stroke="#22c55e" strokeWidth="2.5" fill="none" strokeLinecap="round" />
+    </>
   )
 }
 
-/* Lo que ocurre fuera de la cabeza: burbujas, aro de carga, zZ. */
-function Alrededor({ estado, g }: { estado: LucaEstado; g: string }) {
-  if (estado === 'thinking') {
-    return (
-      <>
-        <circle cx="99" cy="24" r="8" fill={g} opacity="0.16" />
-        <circle cx="93" cy="21" r="2.2" fill={g} className="luca-dot-1" />
-        <circle cx="99" cy="24" r="2.2" fill={g} className="luca-dot-2" />
-        <circle cx="105" cy="27" r="2.2" fill={g} className="luca-dot-3" />
-      </>
-    )
-  }
-
-  if (estado === 'saving') {
-    return (
-      <g className="luca-spin" style={{ transformOrigin: '60px 62px' }}>
-        <circle
-          cx="60" cy="62" r="54"
-          fill="none" stroke={g} strokeWidth="3.5" strokeLinecap="round"
-          strokeDasharray="60 280" opacity="0.9"
-        />
-      </g>
-    )
-  }
-
-  if (estado === 'sad') {
-    return (
-      <>
-        <text x="96" y="30" fontSize="17" fontWeight="700" fill={g} opacity="0.6">z</text>
-        <text x="108" y="19" fontSize="11" fontWeight="700" fill={g} opacity="0.38">z</text>
-      </>
-    )
-  }
-
-  if (estado === 'celebration') {
-    return (
-      <>
-        <circle cx="12" cy="34" r="3" fill={g} className="luca-dot-1" />
-        <circle cx="108" cy="40" r="2.5" fill={g} className="luca-dot-2" />
-        <circle cx="100" cy="18" r="2" fill={g} className="luca-dot-3" />
-        <circle cx="20" cy="16" r="2.2" fill={g} className="luca-dot-2" />
-      </>
-    )
-  }
-
-  return null
+function FaceThinking() {
+  return (
+    <>
+      <circle cx="22" cy="33" r="4.5" fill="#22c55e">
+        <animate attributeName="opacity" values="0.2;1;0.2" dur="1.2s" begin="0s" repeatCount="indefinite" />
+      </circle>
+      <circle cx="38" cy="33" r="4.5" fill="#22c55e">
+        <animate attributeName="opacity" values="0.2;1;0.2" dur="1.2s" begin="0.4s" repeatCount="indefinite" />
+      </circle>
+      <circle cx="54" cy="33" r="4.5" fill="#22c55e">
+        <animate attributeName="opacity" values="0.2;1;0.2" dur="1.2s" begin="0.8s" repeatCount="indefinite" />
+      </circle>
+    </>
+  )
 }
 
-function Cara({ estado, g }: { estado: LucaEstado; g: string }) {
-  switch (estado) {
-    case 'thinking':
-    case 'saving':
-      return (
-        <>
-          <circle cx="47" cy="62" r="5.5" fill={g} />
-          <circle cx="73" cy="62" r="5.5" fill={g} />
-          <path d="M53 77 h14" stroke={g} strokeWidth="2.8" strokeLinecap="round" />
-        </>
-      )
-
-    case 'listening':
-      return (
-        <>
-          <circle cx="47" cy="63" r="6" fill={g} />
-          <circle cx="73" cy="63" r="6" fill={g} />
-          <path d="M52 77 q8 5 16 0" fill="none" stroke={g} strokeWidth="2.6" strokeLinecap="round" />
-        </>
-      )
-
-    case 'success':
-      return (
-        <>
-          <path d="M41 65 q6 -8 12 0" fill="none" stroke={g} strokeWidth="4.5" strokeLinecap="round" />
-          <path d="M67 65 q6 -8 12 0" fill="none" stroke={g} strokeWidth="4.5" strokeLinecap="round" />
-          <path d="M51 74 q9 8 18 0" fill="none" stroke={g} strokeWidth="3" strokeLinecap="round" />
-        </>
-      )
-
-    case 'celebration':
-      return (
-        <>
-          <Estrella cx={47} cy={63} r={7} fill={g} />
-          <Estrella cx={73} cy={63} r={7} fill={g} />
-          <path d="M51 77 q9 7 18 0" fill="none" stroke={g} strokeWidth="3" strokeLinecap="round" />
-        </>
-      )
-
-    case 'warning':
-      return (
-        <>
-          <circle cx="47" cy="62" r="5.5" fill={g} />
-          <circle cx="73" cy="62" r="5.5" fill={g} />
-          <line x1="60" y1="73" x2="60" y2="79" stroke={g} strokeWidth="3.4" strokeLinecap="round" />
-          <circle cx="60" cy="84" r="1.9" fill={g} />
-        </>
-      )
-
-    case 'error':
-      return (
-        <>
-          <path d="M42 58 l10 10 M52 58 l-10 10" stroke={g} strokeWidth="3.4" strokeLinecap="round" />
-          <path d="M68 58 l10 10 M78 58 l-10 10" stroke={g} strokeWidth="3.4" strokeLinecap="round" />
-          <path d="M52 81 q8 -6 16 0" fill="none" stroke={g} strokeWidth="3" strokeLinecap="round" />
-        </>
-      )
-
-    case 'sad':
-      return (
-        <>
-          <path d="M41 62 q6 6 12 0" fill="none" stroke={g} strokeWidth="3.6" strokeLinecap="round" />
-          <path d="M67 62 q6 6 12 0" fill="none" stroke={g} strokeWidth="3.6" strokeLinecap="round" />
-          <path d="M52 81 q8 -6 16 0" fill="none" stroke={g} strokeWidth="2.8" strokeLinecap="round" />
-        </>
-      )
-
-    default:
-      return (
-        <>
-          <circle cx="47" cy="63" r="6" fill={g} className="luca-eye" />
-          <circle cx="73" cy="63" r="6" fill={g} className="luca-eye" />
-          <path d="M52 77 q8 6 16 0" fill="none" stroke={g} strokeWidth="2.8" strokeLinecap="round" />
-        </>
-      )
-  }
+function FaceCelebration() {
+  return (
+    <>
+      <text x="12" y="40" fontSize="19" fill="#fbbf24">&#9733;</text>
+      <text x="44" y="40" fontSize="19" fill="#fbbf24">&#9733;</text>
+      <path d="M 20 46 Q 38 58 56 46" stroke="#22c55e" strokeWidth="3" fill="none" strokeLinecap="round" />
+    </>
+  )
 }
 
-function Estrella({ cx, cy, r, fill }: { cx: number; cy: number; r: number; fill: string }) {
-  const puntos = Array.from({ length: 10 }, (_, i) => {
-    const radio = i % 2 === 0 ? r : r / 2.3
-    const ang = (Math.PI / 5) * i - Math.PI / 2
-    return `${cx + radio * Math.cos(ang)},${cy + radio * Math.sin(ang)}`
-  }).join(' ')
-  return <polygon points={puntos} fill={fill} />
+function FaceSad() {
+  return (
+    <>
+      <line x1="19" y1="24" x2="31" y2="36" stroke="#f87171" strokeWidth="2.5" strokeLinecap="round" />
+      <line x1="31" y1="24" x2="19" y2="36" stroke="#f87171" strokeWidth="2.5" strokeLinecap="round" />
+      <line x1="45" y1="24" x2="57" y2="36" stroke="#f87171" strokeWidth="2.5" strokeLinecap="round" />
+      <line x1="57" y1="24" x2="45" y2="36" stroke="#f87171" strokeWidth="2.5" strokeLinecap="round" />
+      <path d="M 24 50 Q 38 43 52 50" stroke="#f87171" strokeWidth="2.5" fill="none" strokeLinecap="round" />
+    </>
+  )
+}
+
+const FACES = { idle: FaceIdle, thinking: FaceThinking, celebration: FaceCelebration, sad: FaceSad }
+
+export function LucaAvatar({ estado = 'idle', size = 40 }: Props) {
+  const Face = FACES[estado]
+
+  return (
+    <svg
+      width={size}
+      height={Math.round(size * 1.1)}
+      viewBox="0 0 76 84"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-label="Luca"
+    >
+      <line x1="38" y1="2" x2="38" y2="10" stroke="#cbd5e1" strokeWidth="2.5" strokeLinecap="round" />
+      <circle cx="38" cy="1.5" r="3.5" fill="#22c55e" />
+      <ellipse cx="38" cy="36" rx="34" ry="30" fill="white" />
+      <ellipse cx="38" cy="64" rx="22" ry="3" fill="black" opacity="0.06" />
+      <rect x="1" y="22" width="9" height="22" rx="4.5" fill="#15803d" />
+      <rect x="2.5" y="27" width="6" height="12" rx="3" fill="#22c55e" opacity="0.55" />
+      <rect x="66" y="22" width="9" height="22" rx="4.5" fill="#15803d" />
+      <rect x="67.5" y="27" width="6" height="12" rx="3" fill="#22c55e" opacity="0.55" />
+      <rect x="9" y="12" width="58" height="48" rx="16" fill="#0f1623" />
+      <rect x="9" y="12" width="58" height="48" rx="16" fill="#22c55e" opacity="0.03" />
+      <Face />
+      <rect x="17" y="66" width="42" height="18" rx="9" fill="white" />
+      <text x="38" y="80" fontSize="13" fontWeight="bold" fill="#15803d" fontFamily="system-ui, -apple-system, sans-serif" textAnchor="middle">F</text>
+      <ellipse cx="11" cy="74" rx="6" ry="7" fill="white" />
+      <ellipse cx="65" cy="74" rx="6" ry="7" fill="white" />
+    </svg>
+  )
 }
