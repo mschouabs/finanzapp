@@ -29,7 +29,7 @@ export default function LucaChatPage() {
   const [mensajes, setMensajes] = useState<Mensaje[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
-  const [lucaEstado, setLucaEstado] = useState<LucaEstado>('happy')
+  const [lucaEstado, setLucaEstado] = useState<LucaEstado>('idle')
   const [guardando, setGuardando] = useState<string | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -112,7 +112,7 @@ export default function LucaChatPage() {
       }
 
       setMensajes(prev => [...prev, lucaMsg])
-      setLucaEstado(data.tipo === 'gasto' ? 'celebration' : 'happy')
+      setLucaEstado(data.tipo === 'gasto' ? 'celebration' : 'idle')
     } catch {
       setMensajes(prev => [...prev, {
         id: getId(),
@@ -124,7 +124,7 @@ export default function LucaChatPage() {
     }
 
     setLoading(false)
-    setTimeout(() => setLucaEstado('happy'), 3000)
+    setTimeout(() => setLucaEstado('idle'), 3000)
     inputRef.current?.focus()
   }
 
@@ -146,7 +146,7 @@ export default function LucaChatPage() {
         prev.map(m => m.id === msg.id ? { ...m, gastoCargado: true } : m)
       )
       setLucaEstado('celebration')
-      setTimeout(() => setLucaEstado('happy'), 2000)
+      setTimeout(() => setLucaEstado('idle'), 2000)
     } catch {
       // silencioso
     }
@@ -168,7 +168,7 @@ export default function LucaChatPage() {
       {/* Header */}
       <div className="flex items-center gap-3 px-5 py-4 border-b">
         <div className="relative shrink-0">
-          <LucaAvatar estado={lucaEstado} size={48} variant="auto" />
+          <LucaAvatar estado={lucaEstado} size={48} />
           <span className="absolute bottom-0 right-0 flex h-2.5 w-2.5">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
             <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500" />
@@ -193,7 +193,7 @@ export default function LucaChatPage() {
             <div className={`max-w-[78%] ${msg.rol === 'user' ? '' : 'flex gap-2'}`}>
               {msg.rol === 'luca' && (
                 <div className="shrink-0 mt-1">
-                  <LucaAvatar estado="happy" size={28} variant="auto" />
+                  <LucaAvatar estado="idle" size={28} />
                 </div>
               )}
               <div>
@@ -237,7 +237,7 @@ export default function LucaChatPage() {
         {loading && (
           <div className="flex justify-start">
             <div className="flex gap-2 items-center">
-              <LucaAvatar estado="thinking" size={28} variant="auto" />
+              <LucaAvatar estado="thinking" size={28} />
               <div className="bg-alternate rounded-2xl rounded-tl-sm px-4 py-2.5">
                 <span className="flex gap-1">
                   <span className="w-1.5 h-1.5 bg-secondary rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
