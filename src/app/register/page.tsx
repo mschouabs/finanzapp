@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import OAuthButtons from '@/components/ui/OAuthButtons'
@@ -71,7 +72,14 @@ export default function RegisterPage() {
     <div className="min-h-screen flex items-center justify-center bg-page px-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="text-4xl mb-2">💰</div>
+          <Image
+            src="/logo-f.png"
+            alt=""
+            width={296}
+            height={353}
+            priority
+            className="mx-auto mb-3 h-14 w-auto"
+          />
           <h1 className="text-3xl font-bold text-primary">FinanzApp</h1>
           <p className="text-secondary mt-1">Creá tu cuenta gratis</p>
         </div>
