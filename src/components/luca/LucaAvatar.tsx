@@ -1,10 +1,11 @@
 'use client'
 
-export type LucaEstado = 'idle' | 'thinking' | 'celebration' | 'sad'
+export type LucaEstado = 'idle' | 'thinking' | 'celebration' | 'sad' | 'warning'
 
 interface Props {
   estado?: LucaEstado
   size?: number
+  className?: string
 }
 
 function FaceIdle() {
@@ -59,9 +60,25 @@ function FaceSad() {
   )
 }
 
-const FACES = { idle: FaceIdle, thinking: FaceThinking, celebration: FaceCelebration, sad: FaceSad }
+function FaceWarning() {
+  return (
+    <>
+      <ellipse cx="25" cy="30" rx="5.5" ry="6.5" fill="#fbbf24" />
+      <ellipse cx="51" cy="30" rx="5.5" ry="6.5" fill="#fbbf24" />
+      <line x1="24" y1="47" x2="52" y2="47" stroke="#fbbf24" strokeWidth="2.5" strokeLinecap="round" />
+    </>
+  )
+}
 
-export function LucaAvatar({ estado = 'idle', size = 40 }: Props) {
+const FACES = {
+  idle: FaceIdle,
+  thinking: FaceThinking,
+  celebration: FaceCelebration,
+  sad: FaceSad,
+  warning: FaceWarning,
+}
+
+export function LucaAvatar({ estado = 'idle', size = 40, className }: Props) {
   const Face = FACES[estado]
 
   return (
@@ -70,6 +87,7 @@ export function LucaAvatar({ estado = 'idle', size = 40 }: Props) {
       height={Math.round(size * 1.1)}
       viewBox="0 0 76 84"
       fill="none"
+      className={className}
       xmlns="http://www.w3.org/2000/svg"
       aria-label="Luca"
     >
