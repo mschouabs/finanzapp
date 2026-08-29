@@ -131,6 +131,11 @@ export async function POST(req: NextRequest) {
     })
 
     const data = await res.json()
+
+    if (!res.ok || data?.error) {
+      const detalle = data?.error?.message || `HTTP ${res.status}`
+      return NextResponse.json({ tipo: 'texto', mensaje: `No pude conectarme con el motor de Luca. Detalle: ${detalle}` })
+    }
     let text: string = data?.content?.[0]?.text?.trim() || ''
 
     if (text.startsWith('```')) {
