@@ -97,7 +97,7 @@ export default function GastosPage() {
     setAiLoading(true)
     setAiMsg(null)
     try {
-      const res = await fetch('/api/parse-expense', {
+      const res = await fetch('/api/ai', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: aiText }),
