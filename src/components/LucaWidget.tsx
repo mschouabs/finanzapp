@@ -1,6 +1,6 @@
 'use client'
 import { useState, useRef } from 'react'
-import { createBrowserClient } from '@supabase/ssr'
+import { createClient } from '@/lib/supabase'
 import { LucaAvatar } from './luca/LucaAvatar'
 import type { LucaEstado } from './luca/LucaAvatar'
 
@@ -28,10 +28,7 @@ export function LucaWidget({ onSaved }: { onSaved?: () => void }) {
   const [error, setError] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
 
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  )
+  const supabase = createClient()
 
   // Estado del avatar según el estado del widget
   const lucaEstado: LucaEstado = saved

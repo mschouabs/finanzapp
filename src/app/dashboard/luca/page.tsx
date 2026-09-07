@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { createBrowserClient } from '@supabase/ssr'
+import { createClient } from '@/lib/supabase'
 import { LucaAvatar } from '@/components/luca/LucaAvatar'
 import type { LucaEstado } from '@/components/luca/LucaAvatar'
 
@@ -51,13 +51,11 @@ export default function LucaChatPage() {
   const [loading, setLoading] = useState(false)
   const [lucaEstado, setLucaEstado] = useState<LucaEstado>('idle')
   const [guardando, setGuardando] = useState<string | null>(null)
+  const [errores, setErrores] = useState<Record<string, string>>({})
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  )
+  const supabase = createClient()
 
   useEffect(() => {
     try {
@@ -137,9 +135,16 @@ export default function LucaChatPage() {
   const guardarRegistro = async (msg: Mensaje) => {
     if (!msg.tabla || !msg.datos) return
     setGuardando(msg.id)
+    setErrores(prev => {
+      if (!(msg.id in prev)) return prev
+      const copia = { ...prev }
+      delete copia[msg.id]
+      return copia
+    })
     try {
       const { data: { user } } = await supabase.auth.getUser()
       const uid = user?.id
+      if (!uid) throw new Error('No hay sesion activa. Inicia sesion para poder guardar.')
       let error
 
       if (msg.tabla === 'gasto_variable') {
@@ -173,13 +178,25 @@ export default function LucaChatPage() {
           nivel_riesgo: msg.datos.nivel_riesgo ?? 'conservador', app: 'Otro',
         })
         error = e
+      } else {
+        throw new Error(`Tipo de registro no soportado: ${msg.tabla}`)
       }
 
       if (error) throw error
       setMensajes(prev => prev.map(m => m.id === msg.id ? { ...m, guardado: true } : m))
       setLucaEstado('celebration')
       setTimeout(() => setLucaEstado('idle'), 2000)
-    } catch { /* silencioso */ }
+    } catch (e) {
+      const detalle =
+        e instanceof Error
+          ? e.message
+          : typeof e === 'object' && e !== null && 'message' in e
+            ? String((e as { message: unknown }).message)
+            : 'Error desconocido'
+      setErrores(prev => ({ ...prev, [msg.id]: detalle }))
+      setLucaEstado('sad')
+      setTimeout(() => setLucaEstado('idle'), 3000)
+    }
     setGuardando(null)
   }
 
@@ -258,8 +275,18 @@ export default function LucaChatPage() {
                       disabled={guardando === msg.id}
                       className="w-full mt-1 py-2 rounded-lg bg-confirm text-white font-semibold text-xs hover:bg-confirm-hover disabled:opacity-50 transition-colors"
                     >
-                      {guardando === msg.id ? 'Guardando…' : '✓ Guardar'}
+                      {guardando === msg.id
+                        ? 'Guardando…'
+                        : errores[msg.id]
+                          ? '↻ Reintentar'
+                          : '✓ Guardar'}
                     </button>
+
+                    {errores[msg.id] && (
+                      <p className="mt-1 text-[10px] text-negative font-semibold leading-relaxed">
+                        ⚠️ No se pudo guardar: {errores[msg.id]}
+                      </p>
+                    )}
                   </div>
                 )}
 

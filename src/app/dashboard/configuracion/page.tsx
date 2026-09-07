@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { createBrowserClient } from '@supabase/ssr'
+import { createClient } from '@/lib/supabase'
 import {
   User, Bell, Palette, DollarSign, Shield, Download,
   LogOut, ChevronRight, Check, Moon, Sun, Monitor,
@@ -22,10 +22,7 @@ export default function ConfiguracionPage() {
   const [guardado, setGuardado] = useState(false)
   const [seccion, setSeccion] = useState<string | null>(null)
 
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  )
+  const supabase = createClient()
 
   useEffect(() => {
     const cargar = async () => {
