@@ -1,51 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { parsear } from '@/lib/parser'
 
-// ─── Parser local (regex) — fallback sin API key ───────────────────────────
+// El parser local vive en src/lib/parser.ts y lo comparten
+// esta ruta y /api/luca-chat. Ver ese archivo para la logica.
 function parsearLocal(text: string, today: string) {
-  const t = text.toLowerCase()
-
-  // Extraer monto: $18.500 | $18,500 | 18500
-  let monto: number | null = null
-  const montoMatch = text.match(/\$\s*([\d]+(?:[.,]\d{3})*(?:[.,]\d{0,2})?)|(\b[\d]+(?:[.,]\d{3})+(?:[.,]\d{0,2})?)|(\b[\d]{3,}(?:[.,]\d{0,2})?\b)/)
-  if (montoMatch) {
-    const raw = (montoMatch[1] || montoMatch[2] || montoMatch[3] || '')
-      .replace(/\./g, '')
-      .replace(',', '.')
-    const n = parseFloat(raw)
-    if (!isNaN(n) && n > 0) monto = n
-  }
-
-  // Categoría por palabras clave
-  let categoria = 'varios'
-  if (/mercado|supermercado|super|verdulería|verduleria|carnicería|carniceria|almacén|almacen/.test(t)) categoria = 'mercado'
-  else if (/comida|resto\b|restaurant|delivery|pizza|sushi|empanada|cena|almuerzo|desayuno|café|cafe|mcdonald|burger|hamburguesa/.test(t)) categoria = 'comida'
-  else if (/uber|taxi|subte|colectivo|bus|nafta|peaje|estacionamiento|remis|combustible|tren/.test(t)) categoria = 'transporte'
-  else if (/farmacia|médico|medico|doctor|hospital|consulta|análisis|analisis|remedio|medicamento/.test(t)) categoria = 'farmacia'
-  else if (/cine|teatro|netflix|spotify|disney|prime|juego|game|fiesta|bar|boliche|recital/.test(t)) categoria = 'ocio'
-  else if (/ropa|zapatilla|camisa|pantalon|vestido|calzado|jean|remera|saco|campera/.test(t)) categoria = 'ropa'
-  else if (/monotributo|impuesto|afip|agip|arba|rentas|iva|ingresos brutos/.test(t)) categoria = 'impuesto'
-  else if (/celular|computadora|compu|laptop|tablet|tecnolog|electr[oó]nic|auricular/.test(t)) categoria = 'tecnologia'
-  else if (/regalo|presente|cumpleaños|cumpleanos/.test(t)) categoria = 'regalo'
-  else if (/gym|gimnasio|peluquería|peluqueria|belleza|manicura|masaje|barbería/.test(t)) categoria = 'personal'
-
-  // Nombre: quitar monto y palabras de relleno
-  const sinMonto = text
-    .replace(/\$\s*[\d]+(?:[.,]\d{3})*(?:[.,]\d{0,2})?/g, '')
-    .replace(/\b[\d]+(?:[.,]\d{3})+(?:[.,]\d{0,2})?\b/g, '')
-    .replace(/\b\d{4,}\b/g, '')
-    .replace(/\s*(pesos|ars)\b/gi, '')
-    .trim()
-
-  const nombre = sinMonto
-    .replace(/^(gasté|gaste|pagué|pague|compré|compre|me cobr\w+|salió|salio|fue\s+de?|en\s+|de\s+|por\s+|un\s+|una\s+|el\s+|la\s+)\s*/i, '')
-    .trim()
-    .slice(0, 50) || text.slice(0, 50)
-
+  const r = parsear(text, new Date(today + 'T12:00:00'))
   return {
-    nombre: nombre.charAt(0).toUpperCase() + nombre.slice(1),
-    monto,
-    categoria,
-    fecha: today,
+    nombre: r.datos?.nombre ?? text.slice(0, 50),
+    monto: r.datos?.monto ?? null,
+    categoria: r.datos?.categoria ?? 'varios',
+    fecha: r.datos?.fecha ?? today,
   }
 }
 

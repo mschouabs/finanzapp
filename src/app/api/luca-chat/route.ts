@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { parsear } from '@/lib/parser'
 
 function buildSystemPrompt(today: string) {
   return `Sos Luca, el asistente de registro financiero de FinanzApp. Hablás en español argentino informal, sos amigable y muy conciso.
@@ -104,14 +105,22 @@ export async function POST(req: NextRequest) {
     const { messages } = await req.json()
     if (!messages?.length) return NextResponse.json({ error: 'No messages' }, { status: 400 })
 
-    const apiKey = process.env.ANTHROPIC_API_KEY
-    if (!apiKey) {
-      return NextResponse.json({
-        tipo: 'texto',
-        mensaje: 'Hola! Soy Luca. Contame tus gastos, ingresos o inversiones y las registro por vos. No doy recomendaciones financieras, solo registro.',
-      })
+    const ultimo: string = messages[messages.length - 1]?.content ?? ''
+
+    // ── 1. Parser local: gratis, instantaneo, sin red ──────────────
+    const local = parsear(ultimo)
+    if (local.tipo !== 'texto') {
+      return NextResponse.json(local)
     }
 
+    // ── 2. Sin API key: devolvemos lo que dijo el parser ───────────
+    const apiKey = process.env.ANTHROPIC_API_KEY
+    if (!apiKey) {
+      return NextResponse.json(local)
+    }
+
+    // ── 3. Con API key: que la IA intente lo que el parser no pudo.
+    //      Si falla, cae al resultado local. ───────────────────────
     const today = new Date().toISOString().split('T')[0]
 
     const res = await fetch('https://api.anthropic.com/v1/messages', {
@@ -133,9 +142,9 @@ export async function POST(req: NextRequest) {
     const data = await res.json()
 
     if (!res.ok || data?.error) {
-      const detalle = data?.error?.message || `HTTP ${res.status}`
-      return NextResponse.json({ tipo: 'texto', mensaje: `No pude conectarme con el motor de Luca. Detalle: ${detalle}` })
+      return NextResponse.json(local)
     }
+
     let text: string = data?.content?.[0]?.text?.trim() || ''
 
     if (text.startsWith('```')) {
@@ -151,8 +160,11 @@ export async function POST(req: NextRequest) {
       } catch { /* fall through */ }
     }
 
-    return NextResponse.json({ tipo: 'texto', mensaje: text })
+    return NextResponse.json({ tipo: 'texto', mensaje: text || local.mensaje })
   } catch {
-    return NextResponse.json({ tipo: 'texto', mensaje: 'Ups, algo falló. Intentá de nuevo.' })
+    return NextResponse.json({
+      tipo: 'texto',
+      mensaje: 'Ups, algo fallo. Intenta de nuevo.',
+    })
   }
 }
