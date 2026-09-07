@@ -97,7 +97,7 @@ export default function LucaChatPage() {
       .map(m => ({ role: m.rol === 'user' ? 'user' : 'assistant', content: m.texto }))
 
     try {
-      const res = await fetch('/api/luca-chat', {
+      const res = await fetch('/api/ai', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ messages: historialAPI }),
