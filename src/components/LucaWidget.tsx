@@ -53,7 +53,7 @@ export function LucaWidget({ onSaved }: { onSaved?: () => void }) {
     setLoading(true)
     setError('')
     try {
-      const res = await fetch('/api/parse-expense', {
+      const res = await fetch('/api/ai', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: input }),
