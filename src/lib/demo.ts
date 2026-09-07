@@ -8,7 +8,7 @@
      · no se toca Supabase, ni se lee ni se escribe nada real
    ════════════════════════════════════════════════════════════════ */
 
-export const DEMO = true
+export const DEMO = false
 
 const hoy = new Date()
 const iso = (diasAtras: number) =>
