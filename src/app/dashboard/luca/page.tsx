@@ -52,8 +52,14 @@ export default function LucaChatPage() {
   const [lucaEstado, setLucaEstado] = useState<LucaEstado>('idle')
   const [guardando, setGuardando] = useState<string | null>(null)
   const [errores, setErrores] = useState<Record<string, string>>({})
+  const [grabando, setGrabando] = useState(false)
+  const [transcribiendo, setTranscribiendo] = useState(false)
+  const [segundos, setSegundos] = useState(0)
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
+  const chunksRef = useRef<Blob[]>([])
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const supabase = createClient()
 
@@ -200,6 +206,51 @@ export default function LucaChatPage() {
     setGuardando(null)
   }
 
+  const startGrabacion = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      chunksRef.current = []
+      const mr = new MediaRecorder(stream, { mimeType: 'audio/webm' })
+      mr.ondataavailable = e => { if (e.data.size > 0) chunksRef.current.push(e.data) }
+      mr.onstop = async () => {
+        stream.getTracks().forEach(t => t.stop())
+        if (timerRef.current) clearInterval(timerRef.current)
+        setGrabando(false)
+        setSegundos(0)
+        setTranscribiendo(true)
+        try {
+          const blob = new Blob(chunksRef.current, { type: 'audio/webm' })
+          const fd = new FormData()
+          fd.append('audio', blob, 'audio.webm')
+          const res = await fetch('/api/transcribe', { method: 'POST', body: fd })
+          const data = await res.json() as { text?: string; error?: string }
+          if (data.text) {
+            setInput(data.text)
+            setTimeout(() => inputRef.current?.focus(), 100)
+          }
+        } catch { /* silencioso */ }
+        setTranscribiendo(false)
+      }
+      mr.start()
+      mediaRecorderRef.current = mr
+      setGrabando(true)
+      setSegundos(0)
+      timerRef.current = setInterval(() => setSegundos(s => s + 1), 1000)
+    } catch {
+      alert('No se pudo acceder al micrófono.')
+    }
+  }
+
+  const stopGrabacion = () => {
+    mediaRecorderRef.current?.stop()
+    mediaRecorderRef.current = null
+  }
+
+  const toggleVoz = () => {
+    if (grabando) stopGrabacion()
+    else startGrabacion()
+  }
+
   const limpiarHistorial = () => {
     try { localStorage.removeItem(STORAGE_KEY) } catch { /* ignore */ }
     setMensajes([{
@@ -317,23 +368,49 @@ export default function LucaChatPage() {
       </div>
 
       {/* Input */}
-      <div className="px-4 py-3 border-t flex gap-2">
-        <input
-          ref={inputRef}
-          value={input}
-          onChange={e => setInput(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && enviar()}
-          placeholder="Ej: gasté $5000 en el super, cobré $80000 de sueldo…"
-          disabled={loading}
-          className="flex-1 px-3 py-2.5 text-xs rounded-xl border bg-field text-primary disabled:opacity-60 focus:outline-none focus:border-confirm"
-        />
-        <button
-          onClick={enviar}
-          disabled={loading || !input.trim()}
-          className="px-4 py-2.5 rounded-xl bg-confirm text-white text-xs font-semibold disabled:opacity-40 hover:bg-confirm-hover transition-colors"
-        >
-          Enviar
-        </button>
+      <div className="px-4 py-3 border-t space-y-2">
+        {grabando && (
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-red-50 border border-red-200 text-xs text-red-600 font-semibold">
+            <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+            Grabando… {segundos}s · Tocá el micrófono para detener
+          </div>
+        )}
+        {transcribiendo && (
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-alternate text-xs text-secondary">
+            <span className="w-2 h-2 bg-confirm rounded-full animate-pulse" />
+            Transcribiendo audio…
+          </div>
+        )}
+        <div className="flex gap-2">
+          <button
+            onClick={toggleVoz}
+            disabled={loading || transcribiendo}
+            title={grabando ? 'Detener grabación' : 'Grabar por voz'}
+            className={`px-3 py-2.5 rounded-xl text-sm font-semibold transition-colors disabled:opacity-40 ${
+              grabando
+                ? 'bg-red-500 text-white animate-pulse'
+                : 'bg-alternate text-secondary hover:bg-red-50 hover:text-red-500 border'
+            }`}
+          >
+            🎤
+          </button>
+          <input
+            ref={inputRef}
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && enviar()}
+            placeholder="Ej: gasté $5000 en el super, cobré $80000 de sueldo…"
+            disabled={loading || grabando || transcribiendo}
+            className="flex-1 px-3 py-2.5 text-xs rounded-xl border bg-field text-primary disabled:opacity-60 focus:outline-none focus:border-confirm"
+          />
+          <button
+            onClick={enviar}
+            disabled={loading || !input.trim() || grabando || transcribiendo}
+            className="px-4 py-2.5 rounded-xl bg-confirm text-white text-xs font-semibold disabled:opacity-40 hover:bg-confirm-hover transition-colors"
+          >
+            Enviar
+          </button>
+        </div>
       </div>
     </div>
   )
