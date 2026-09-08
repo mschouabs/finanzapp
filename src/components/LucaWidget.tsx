@@ -3,6 +3,7 @@ import { useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
 import { LucaAvatar } from './luca/LucaAvatar'
 import type { LucaEstado } from './luca/LucaAvatar'
+import { Mic } from 'lucide-react'
 
 interface ParsedExpense {
   nombre: string
@@ -27,6 +28,10 @@ export function LucaWidget({ onSaved }: { onSaved?: () => void }) {
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
+  const [grabando, setGrabando] = useState(false)
+  const [transcribiendo, setTranscribiendo] = useState(false)
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
+  const chunksRef = useRef<Blob[]>([])
 
   const supabase = createClient()
 
@@ -40,6 +45,39 @@ export function LucaWidget({ onSaved }: { onSaved?: () => void }) {
     : parsed
     ? 'idle'
     : 'idle'
+
+  async function toggleVoz() {
+    if (grabando) {
+      mediaRecorderRef.current?.stop()
+      return
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      const mr = new MediaRecorder(stream, { mimeType: 'audio/webm' })
+      chunksRef.current = []
+      mr.ondataavailable = e => { if (e.data.size > 0) chunksRef.current.push(e.data) }
+      mr.onstop = async () => {
+        stream.getTracks().forEach(t => t.stop())
+        setGrabando(false)
+        setTranscribiendo(true)
+        try {
+          const blob = new Blob(chunksRef.current, { type: 'audio/webm' })
+          const fd = new FormData()
+          fd.append('audio', blob, 'audio.webm')
+          const res = await fetch('/api/transcribe', { method: 'POST', body: fd })
+          const json = await res.json()
+          if (json.text) {
+            setInput(json.text)
+            setTimeout(() => inputRef.current?.focus(), 50)
+          }
+        } catch { /* silencioso */ }
+        setTranscribiendo(false)
+      }
+      mediaRecorderRef.current = mr
+      mr.start()
+      setGrabando(true)
+    } catch { /* sin permiso */ }
+  }
 
   const reset = () => {
     setParsed(null)
@@ -125,17 +163,36 @@ export function LucaWidget({ onSaved }: { onSaved?: () => void }) {
         </div>
       </div>
 
+      {/* Transcribiendo indicator */}
+      {transcribiendo && (
+        <p className="mb-2 text-xs text-secondary animate-pulse">Transcribiendo audio…</p>
+      )}
+
       {/* Entrada */}
       <div className="flex gap-3 flex-col sm:flex-row">
-        <input
-          ref={inputRef}
-          value={input}
-          onChange={e => setInput(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && !loading && !parsed && parse()}
-          placeholder="Ej: Gasté $87 en supermercado"
-          disabled={loading || !!parsed}
-          className="flex-1 px-3 py-3 text-xs rounded-md border bg-field text-primary disabled:opacity-60"
-        />
+        <div className="flex flex-1 gap-2">
+          <button
+            onClick={toggleVoz}
+            disabled={loading || !!parsed || transcribiendo}
+            title={grabando ? 'Detener grabación' : 'Grabar audio'}
+            className={`flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-md border transition-colors disabled:opacity-50 ${
+              grabando
+                ? 'border-red-500 bg-red-500/10 text-red-500 animate-pulse'
+                : 'border-border text-secondary hover:bg-alternate'
+            }`}
+          >
+            <Mic size={16} />
+          </button>
+          <input
+            ref={inputRef}
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && !loading && !parsed && parse()}
+            placeholder="Ej: Gasté $87 en supermercado"
+            disabled={loading || !!parsed}
+            className="flex-1 px-3 py-3 text-xs rounded-md border bg-field text-primary disabled:opacity-60"
+          />
+        </div>
         <div className="flex gap-3">
           <button
             onClick={parse}
