@@ -17,7 +17,7 @@ import type { Seccion } from '@/lib/secciones'
 const NAV = [
   { href: '/dashboard', label: 'Resumen', Icono: Home },
   { href: '/dashboard/ingresos-gastos', label: 'Trabajos', Icono: Briefcase },
-  { href: '/dashboard/gastos-variables', label: 'Gastos & CC', Icono: ShoppingCart },
+  { href: '/dashboard/gastos-variables', label: 'Movimientos', Icono: ShoppingCart },
   { href: '/dashboard/inversiones', label: 'Portfolio', Icono: TrendingUp },
   { href: '/dashboard/metas', label: 'Metas', Icono: Target },
   { href: '/dashboard/historial', label: 'Historial', Icono: Receipt },
