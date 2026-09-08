@@ -183,7 +183,7 @@ export default function DashboardPage() {
     <div className="flex flex-col gap-5">
       {/* saludo */}
       <header>
-        <h1 className="text-2xl font-extrabold text-primary">¡Buenas! 👋</h1>
+        <h1 className="text-2xl font-extrabold text-primary">{saludar()} 👋</h1>
         <p className="mt-1 text-sm text-secondary">Este es tu panorama financiero actual.</p>
       </header>
 
@@ -218,7 +218,7 @@ export default function DashboardPage() {
           <div className="mt-5 grid gap-4 border-t pt-4 sm:grid-cols-3">
             <Mini icono={<TrendingUp size={16} />} tono="var(--accent-positive)" label="Ingresos" valor={fmt(d.totalIngresos)} />
             <Mini icono={<TrendingDown size={16} />} tono="var(--accent-negative)" label="Gastos" valor={fmt(d.totalGastos)} />
-            <Mini icono={<PiggyBank size={16} />} tono="var(--accent-secondary)" label="Ahorro" valor={fmt(d.neto)} />
+            <Mini icono={<PiggyBank size={16} />} tono="var(--accent-secondary)" label="Tasa de ahorro" valor={`${tasaAhorro}%`} />
           </div>
         </section>
 
@@ -252,7 +252,16 @@ export default function DashboardPage() {
               <LineChart data={serie} margin={{ top: 8, right: 8, bottom: 0, left: -12 }}>
                 <CartesianGrid stroke="var(--border-color)" strokeDasharray="3 3" vertical={false} />
                 <XAxis dataKey="mes" tick={{ fill: 'var(--text-muted)', fontSize: 11 }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fill: 'var(--text-muted)', fontSize: 11 }} axisLine={false} tickLine={false} />
+                <YAxis
+                  tick={{ fill: 'var(--text-muted)', fontSize: 11 }}
+                  axisLine={false}
+                  tickLine={false}
+                  tickFormatter={(v: number) => {
+                    if (v >= 1_000_000) return `$${(v / 1_000_000).toFixed(1)}M`
+                    if (v >= 1_000) return `$${(v / 1_000).toFixed(0)}k`
+                    return `$${v}`
+                  }}
+                />
                 <Tooltip
                   contentStyle={{
                     background: 'var(--bg-card)',
@@ -345,6 +354,15 @@ export default function DashboardPage() {
       </div>
     </div>
   )
+}
+
+/* ── helpers de UI ──────────────────────────────── */
+
+function saludar() {
+  const h = new Date().getHours()
+  if (h < 12) return '¡Buenos días!'
+  if (h < 19) return '¡Buenas tardes!'
+  return '¡Buenas noches!'
 }
 
 /* ── piezas ──────────────────────────────────────── */
