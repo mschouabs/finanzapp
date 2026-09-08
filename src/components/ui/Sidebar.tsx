@@ -118,13 +118,15 @@ export default function Sidebar({ userName }: { userName?: string }) {
           )
         })}
 
-        <button
-          onClick={() => setModal(true)}
-          className="mt-1 flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-secondary transition-colors hover:bg-alternate hover:text-primary"
-        >
-          <Plus size={18} strokeWidth={2} />
-          Nueva sección
-        </button>
+        <div className="mt-3 border-t pt-3">
+          <button
+            onClick={() => setModal(true)}
+            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-[11px] font-medium text-muted transition-colors hover:bg-alternate hover:text-secondary"
+          >
+            <Plus size={14} strokeWidth={2} />
+            Agregar sección personalizada
+          </button>
+        </div>
       </nav>
 
       {/* Luca */}
