@@ -207,3 +207,16 @@ input:-webkit-autofill:focus {
   }
   html { scroll-behavior: auto; }
 }
+
+/* ══ Mobile / Safe Areas ════════════════════════════════════════
+   pb-bottom-nav reserva espacio para la barra de navegación fija
+   (60px) más el home indicator de iOS (env safe-area-inset-bottom).
+   En desktop (lg+) se sobreescribe con el padding estándar.        */
+.pb-bottom-nav {
+  padding-bottom: calc(60px + env(safe-area-inset-bottom, 0px));
+}
+@media (min-width: 1024px) {
+  .pb-bottom-nav {
+    padding-bottom: 1.5rem; /* equivalente a py-6 */
+  }
+}
