@@ -46,9 +46,9 @@ export default async function DashboardLayout({
   return (
     <div className="min-h-screen bg-page">
       <Sidebar userName={userName} />
-      {/* el margen deja lugar a la sidebar fija; en mobile no hay sidebar */}
+      {/* lg:ml-64 deja lugar a la sidebar fija en desktop */}
       <main className="lg:ml-64">
-        <div className="mx-auto max-w-[1200px] px-4 py-6 sm:px-6">
+        <div className="mx-auto max-w-[1200px] px-4 pt-6 sm:px-6 pb-bottom-nav">
           {children}
         </div>
       </main>
