@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import {
   Home, Briefcase, ShoppingCart, TrendingUp, Target, Receipt,
-  CreditCard, Download, Plus, Settings, LogOut, Menu, X,
+  CreditCard, Download, Plus, Settings, LogOut, X, Bot, LayoutGrid,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { ThemeSelector } from '@/components/ThemeSelector'
@@ -23,6 +23,15 @@ const NAV = [
   { href: '/dashboard/historial', label: 'Historial', Icono: Receipt },
   { href: '/dashboard/tarjetas', label: 'Tarjetas', Icono: CreditCard },
   { href: '/dashboard/importar', label: 'Importar', Icono: Download },
+]
+
+/* ── bottom nav tabs (mobile) ── */
+const BOTTOM_TABS = [
+  { href: '/dashboard', label: 'Resumen', Icono: Home },
+  { href: '/dashboard/gastos-variables', label: 'Movimientos', Icono: ShoppingCart },
+  // slot central = Luca (se renderiza aparte)
+  { href: '/dashboard/ingresos-gastos', label: 'Trabajos', Icono: Briefcase },
+  { href: '/dashboard/inversiones', label: 'Portfolio', Icono: TrendingUp },
 ]
 
 export default function Sidebar({ userName }: { userName?: string }) {
@@ -65,8 +74,15 @@ export default function Sidebar({ userName }: { userName?: string }) {
 
   const estiloActiva = { background: 'color-mix(in srgb, var(--accent-confirm) 16%, transparent)' }
 
+  /* contenido compartido: sidebar desktop + drawer mobile */
   const contenido = (
-    <div className="flex h-full flex-col gap-1 overflow-y-auto px-4 py-5">
+    <div
+      className="flex h-full flex-col gap-1 overflow-y-auto px-4"
+      style={{
+        paddingTop: 'max(1.25rem, env(safe-area-inset-top, 0px))',
+        paddingBottom: '1.25rem',
+      }}
+    >
       {/* marca */}
       <Link href="/dashboard" className="mb-6 flex items-center gap-2.5 px-1">
         <Image src="/logo-f.png" alt="" width={296} height={353} priority className="h-8 w-auto" />
@@ -191,27 +207,12 @@ export default function Sidebar({ userName }: { userName?: string }) {
 
   return (
     <>
-      {/* barra superior sólo en mobile */}
-      <div className="sticky top-0 z-30 flex items-center justify-between border-b bg-page px-4 py-3 lg:hidden">
-        <Link href="/dashboard" className="flex items-center gap-2">
-          <Image src="/logo-f.png" alt="" width={296} height={353} className="h-7 w-auto" />
-          <span className="font-extrabold text-primary">FinanzApp</span>
-        </Link>
-        <button
-          onClick={() => setAbierta(true)}
-          aria-label="Abrir menú"
-          className="rounded-lg p-2 text-secondary hover:bg-alternate hover:text-primary"
-        >
-          <Menu size={20} />
-        </button>
-      </div>
-
-      {/* sidebar fija en escritorio */}
+      {/* ── DESKTOP: sidebar fija a la izquierda ── */}
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 border-r bg-page lg:block">
         {contenido}
       </aside>
 
-      {/* panel deslizante en mobile */}
+      {/* ── MOBILE: drawer deslizante (abierto desde "Más") ── */}
       {abierta && (
         <div className="fixed inset-0 z-50 lg:hidden">
           <div className="absolute inset-0 bg-black/60" onClick={() => setAbierta(false)} />
@@ -219,7 +220,8 @@ export default function Sidebar({ userName }: { userName?: string }) {
             <button
               onClick={() => setAbierta(false)}
               aria-label="Cerrar menú"
-              className="absolute right-3 top-3 z-10 rounded-lg p-2 text-secondary hover:bg-alternate hover:text-primary"
+              className="absolute right-3 z-10 rounded-lg p-2 text-secondary hover:bg-alternate hover:text-primary"
+              style={{ top: 'calc(0.75rem + env(safe-area-inset-top, 0px))' }}
             >
               <X size={18} />
             </button>
@@ -228,6 +230,85 @@ export default function Sidebar({ userName }: { userName?: string }) {
         </div>
       )}
 
+      {/* ── MOBILE: bottom navigation bar ── */}
+      <nav
+        className="fixed bottom-0 left-0 right-0 z-40 border-t lg:hidden"
+        style={{
+          background: 'var(--bg-card)',
+          borderColor: 'var(--border-color)',
+          paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+        }}
+      >
+        <div className="flex h-[60px] items-center justify-around">
+          {/* Resumen */}
+          <BottomTab
+            href="/dashboard"
+            label="Resumen"
+            icono={<Home size={21} strokeWidth={2} />}
+            activa={pathname === '/dashboard'}
+          />
+
+          {/* Movimientos */}
+          <BottomTab
+            href="/dashboard/gastos-variables"
+            label="Movimientos"
+            icono={<ShoppingCart size={21} strokeWidth={2} />}
+            activa={pathname === '/dashboard/gastos-variables'}
+          />
+
+          {/* Luca — botón central destacado */}
+          <Link
+            href="/dashboard/luca"
+            className="flex flex-col items-center gap-0.5"
+            style={{ marginTop: '-20px' }}
+          >
+            <span
+              className="flex h-[54px] w-[54px] items-center justify-center rounded-full shadow-lg"
+              style={{
+                background: pathname === '/dashboard/luca'
+                  ? 'var(--accent-confirm-hover)'
+                  : 'var(--accent-confirm)',
+              }}
+            >
+              <Bot size={26} color="white" strokeWidth={1.8} />
+            </span>
+            <span
+              className="text-[10px] font-semibold"
+              style={{ color: 'var(--accent-confirm)' }}
+            >
+              Luca
+            </span>
+          </Link>
+
+          {/* Trabajos */}
+          <BottomTab
+            href="/dashboard/ingresos-gastos"
+            label="Trabajos"
+            icono={<Briefcase size={21} strokeWidth={2} />}
+            activa={pathname === '/dashboard/ingresos-gastos'}
+          />
+
+          {/* Más — abre el drawer completo */}
+          <button
+            onClick={() => setAbierta(true)}
+            aria-label="Más opciones"
+            className="flex min-h-[44px] min-w-[44px] flex-col items-center justify-center gap-0.5"
+          >
+            <LayoutGrid
+              size={21}
+              strokeWidth={2}
+              style={{ color: abierta ? 'var(--accent-confirm)' : 'var(--text-muted)' }}
+            />
+            <span
+              className="text-[10px] font-medium"
+              style={{ color: abierta ? 'var(--accent-confirm)' : 'var(--text-muted)' }}
+            >
+              Más
+            </span>
+          </button>
+        </div>
+      </nav>
+
       {modal && (
         <SeccionModal
           onClose={() => setModal(false)}
@@ -235,5 +316,31 @@ export default function Sidebar({ userName }: { userName?: string }) {
         />
       )}
     </>
+  )
+}
+
+/* ── helper: tab de la bottom nav ── */
+function BottomTab({
+  href,
+  label,
+  icono,
+  activa,
+}: {
+  href: string
+  label: string
+  icono: JSX.Element
+  activa: boolean
+}) {
+  const color = activa ? 'var(--accent-confirm)' : 'var(--text-muted)'
+  return (
+    <Link
+      href={href}
+      className="flex min-h-[44px] min-w-[44px] flex-col items-center justify-center gap-0.5"
+    >
+      <span style={{ color }}>{icono}</span>
+      <span className="text-[10px] font-medium" style={{ color }}>
+        {label}
+      </span>
+    </Link>
   )
 }
