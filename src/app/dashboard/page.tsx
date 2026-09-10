@@ -37,13 +37,15 @@ export default function DashboardPage() {
     setLoading(true)
     const supabase = createClient()
 
-    const [{ data: gv }, { data: gf }, { data: iff }, { data: inf }, { data: secs }] =
+    const [{ data: gv }, { data: gf }, { data: iff }, { data: inf }, { data: secs }, { data: vg }] =
       await Promise.all([
         supabase.from('gastos_variables').select('*'),
         supabase.from('gastos_fijos').select('*'),
         supabase.from('ingresos_fijos').select('*'),
         supabase.from('ingresos_freelance').select('*'),
         supabase.from('secciones').select('id, nombre, tipo'),
+        // monto_ars ya viene convertido por la base, sin importar la moneda
+        supabase.from('viaje_gastos').select('monto_ars, fecha'),
       ])
 
     /* registros de secciones dinámicas (las neutras no cuentan) */
@@ -106,12 +108,21 @@ export default function DashboardPage() {
       (gv || []).filter(r => enMesClave(r, mesActual)), r => (r.monto as number) || 0
     )
 
+    /* Los gastos de viaje son gastos reales del mes: entran al total
+       igual que los variables, ya convertidos a pesos por la base. */
+    const viajesEnMes = (key: string) =>
+      suma(
+        (vg || []).filter(r => enMesClave(r, key)),
+        r => (r.monto_ars as number) || 0
+      )
+    const viajesMes = viajesEnMes(mesActual)
+
     const totalIngresos =
       ingresosFijosMes + freelanceMes +
       sumaSecciones('ingreso', r => enMesClave(r, mesActual))
 
     const totalGastos =
-      gastosFijosMes + variablesMes +
+      gastosFijosMes + variablesMes + viajesMes +
       sumaSecciones('gasto', r => enMesClave(r, mesActual))
 
     /* gastos por categoría (mes en curso) */
@@ -121,6 +132,7 @@ export default function DashboardPage() {
       catMap[cat] = (catMap[cat] || 0) + ((r.monto as number) || 0)
     })
     if (gastosFijosMes > 0) catMap['Fijos'] = (catMap['Fijos'] || 0) + gastosFijosMes
+    if (viajesMes > 0) catMap['Viajes'] = (catMap['Viajes'] || 0) + viajesMes
     regsSecciones
       .filter(r => tipoPorSeccion.get(r.seccion_id as string) === 'gasto')
       .filter(r => enMesClave(r, mesActual))
@@ -155,6 +167,7 @@ export default function DashboardPage() {
       gastos:
         gastosFijosMes +
         suma((gv || []).filter(r => enMesClave(r, key)), r => (r.monto as number) || 0) +
+        viajesEnMes(key) +
         sumaSecciones('gasto', r => enMesClave(r, key)),
     }))
 
