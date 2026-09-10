@@ -236,6 +236,90 @@ export type Database = {
           created_at?: string
         }
       }
+      viajes: {
+        Row: {
+          id: string
+          user_id: string
+          nombre: string
+          emoji: string
+          destino: string | null
+          fecha_inicio: string | null
+          fecha_fin: string | null
+          presupuesto: number | null
+          notas: string | null
+          archivado: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          nombre: string
+          emoji?: string
+          destino?: string | null
+          fecha_inicio?: string | null
+          fecha_fin?: string | null
+          presupuesto?: number | null
+          notas?: string | null
+          archivado?: boolean
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          nombre?: string
+          emoji?: string
+          destino?: string | null
+          fecha_inicio?: string | null
+          fecha_fin?: string | null
+          presupuesto?: number | null
+          notas?: string | null
+          archivado?: boolean
+          created_at?: string
+        }
+      }
+      viaje_gastos: {
+        Row: {
+          id: string
+          viaje_id: string
+          user_id: string
+          concepto: string
+          categoria: string
+          monto: number
+          moneda: string
+          tipo_cambio: number
+          /** Columna generada por la base: monto x tipo_cambio. */
+          monto_ars: number
+          fecha: string
+          notas: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          viaje_id: string
+          user_id: string
+          concepto: string
+          categoria?: string
+          monto: number
+          moneda?: string
+          tipo_cambio?: number
+          fecha?: string
+          notas?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          viaje_id?: string
+          user_id?: string
+          concepto?: string
+          categoria?: string
+          monto?: number
+          moneda?: string
+          tipo_cambio?: number
+          fecha?: string
+          notas?: string | null
+          created_at?: string
+        }
+      }
     }
     Views: {
       [_ in never]: never
@@ -267,3 +351,6 @@ export type IngresoFreelance = Tables<'ingresos_freelance'>
 export type Inversion       = Tables<'inversiones'>
 export type Seccion         = Tables<'secciones'>
 export type SeccionRegistro = Tables<'seccion_registros'>
+
+export type Viaje           = Tables<'viajes'>
+export type ViajeGasto      = Tables<'viaje_gastos'>
