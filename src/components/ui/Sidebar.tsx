@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import {
   Home, Briefcase, ShoppingCart, TrendingUp, Target, Receipt,
-  CreditCard, Download, Plus, Settings, LogOut, X, Bot, LayoutGrid,
+  CreditCard, Download, Plus, Settings, LogOut, X, Bot, LayoutGrid, Plane,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { ThemeSelector } from '@/components/ThemeSelector'
@@ -18,6 +18,7 @@ const NAV = [
   { href: '/dashboard', label: 'Resumen', Icono: Home },
   { href: '/dashboard/ingresos-gastos', label: 'Trabajos', Icono: Briefcase },
   { href: '/dashboard/gastos-variables', label: 'Movimientos', Icono: ShoppingCart },
+  { href: '/dashboard/viajes', label: 'Viajes', Icono: Plane },
   { href: '/dashboard/inversiones', label: 'Portfolio', Icono: TrendingUp },
   { href: '/dashboard/metas', label: 'Metas', Icono: Target },
   { href: '/dashboard/historial', label: 'Historial', Icono: Receipt },
