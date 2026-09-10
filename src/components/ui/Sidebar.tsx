@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
@@ -329,7 +329,7 @@ function BottomTab({
 }: {
   href: string
   label: string
-  icono: JSX.Element
+  icono: ReactNode
   activa: boolean
 }) {
   const color = activa ? 'var(--accent-confirm)' : 'var(--text-muted)'
