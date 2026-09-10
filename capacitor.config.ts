@@ -3,18 +3,15 @@ import type { CapacitorConfig } from '@capacitor/cli'
 const config: CapacitorConfig = {
   appId: 'com.finanzapp.app',
   appName: 'FinanzApp',
-  webDir: 'out',
+  webDir: 'www',
   server: {
-    // Apunta a producción — no requiere export estático
-    url: 'https://finanzapp.vercel.app',
+    // URL real de producción del proyecto en Vercel.
+    // Ojo: finanzapp.vercel.app NO es esta app — pertenece a otra cuenta.
+    url: 'https://finanzapp-five-chi.vercel.app',
     cleartext: false,
   },
-  ios: {
-    contentInset: 'automatic',
-    backgroundColor: '#0a0a0a',
-  },
   android: {
-    backgroundColor: '#0a0a0a',
+    backgroundColor: '#080D13',
     allowMixedContent: false,
   },
 }
