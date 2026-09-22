@@ -141,7 +141,7 @@ export type Database = {
           nombre: string
           app: string | null
           tipo: string
-          moneda: 'ARS' | 'USD'
+          moneda: 'ARS' | 'USD' | 'BTC'
           monto: number
           tasa_anual: number | null
           nivel_riesgo: 'conservador' | 'moderado' | 'alto'
@@ -153,7 +153,7 @@ export type Database = {
           nombre: string
           app?: string | null
           tipo: string
-          moneda: 'ARS' | 'USD'
+          moneda: 'ARS' | 'USD' | 'BTC'
           monto: number
           tasa_anual?: number | null
           nivel_riesgo: 'conservador' | 'moderado' | 'alto'
@@ -165,7 +165,7 @@ export type Database = {
           nombre?: string
           app?: string | null
           tipo?: string
-          moneda?: 'ARS' | 'USD'
+          moneda?: 'ARS' | 'USD' | 'BTC'
           monto?: number
           tasa_anual?: number | null
           nivel_riesgo?: 'conservador' | 'moderado' | 'alto'
