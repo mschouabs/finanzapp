@@ -166,11 +166,27 @@ export default function LucaChatPage() {
         })
         error = e
       } else if (msg.tabla === 'ingreso_fijo') {
-        const { error: e } = await supabase.from('ingresos_fijos').insert({
-          user_id: uid, nombre: msg.datos.nombre, monto: msg.datos.monto,
-          monto_cobrado: 0, activo: true,
-        })
-        error = e
+        /* Si ya existe un sueldo activo con el mismo nombre, actualizamos su
+           "cobrado este mes" en vez de crear una fila nueva (eso era lo que
+           generaba sueldos duplicados cada vez que se anotaba un cobro). */
+        const { data: existentes } = await supabase
+          .from('ingresos_fijos')
+          .select('id')
+          .eq('user_id', uid)
+          .eq('activo', true)
+          .ilike('nombre', msg.datos.nombre ?? '')
+        if (existentes && existentes.length > 0) {
+          const { error: e } = await supabase.from('ingresos_fijos')
+            .update({ monto_cobrado: msg.datos.monto })
+            .eq('id', existentes[0].id)
+          error = e
+        } else {
+          const { error: e } = await supabase.from('ingresos_fijos').insert({
+            user_id: uid, nombre: msg.datos.nombre, monto: msg.datos.monto,
+            monto_cobrado: msg.datos.monto, activo: true,
+          })
+          error = e
+        }
       } else if (msg.tabla === 'ingreso_freelance') {
         const { error: e } = await supabase.from('ingresos_freelance').insert({
           user_id: uid, cliente: msg.datos.cliente, descripcion: msg.datos.descripcion,

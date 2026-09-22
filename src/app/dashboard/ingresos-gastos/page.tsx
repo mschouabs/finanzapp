@@ -33,6 +33,7 @@ export default function TrabajosPage() {
   const [showForm, setShowForm] = useState<'fijo' | 'freelance' | null>(null)
   const [formFijo, setFormFijo] = useState({ nombre: '', monto: '', monto_cobrado: '' })
   const [formFreelance, setFormFreelance] = useState({ cliente: '', descripcion: '', monto_total: '', monto_cobrado: '' })
+  const [editandoFijoId, setEditandoFijoId] = useState<string | null>(null)
 
   useEffect(() => { loadData() }, [])
 
@@ -54,15 +55,35 @@ export default function TrabajosPage() {
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
-    await supabase.from('ingresos_fijos').insert({
-      user_id: user.id, nombre: formFijo.nombre,
-      monto: Number(formFijo.monto),
-      monto_cobrado: formFijo.monto_cobrado ? Number(formFijo.monto_cobrado) : null,
-      activo: true,
-    })
+
+    const monto = Number(formFijo.monto)
+    const monto_cobrado = formFijo.monto_cobrado ? Number(formFijo.monto_cobrado) : null
+
+    /* Si estamos editando una fila puntual, o si ya existe un sueldo activo
+       con el mismo nombre, actualizamos en vez de crear un duplicado. Esto es
+       lo que pasaba antes: cada "cobré tal cosa" agregaba una fila nueva en
+       vez de actualizar el sueldo del mes. */
+    const existente = editandoFijoId
+      ? fijos.find(f => f.id === editandoFijoId)
+      : fijos.find(f => f.nombre.trim().toLowerCase() === formFijo.nombre.trim().toLowerCase())
+
+    if (existente) {
+      await supabase.from('ingresos_fijos').update({ nombre: formFijo.nombre, monto, monto_cobrado }).eq('id', existente.id)
+    } else {
+      await supabase.from('ingresos_fijos').insert({
+        user_id: user.id, nombre: formFijo.nombre, monto, monto_cobrado, activo: true,
+      })
+    }
     setFormFijo({ nombre: '', monto: '', monto_cobrado: '' })
+    setEditandoFijoId(null)
     setShowForm(null)
     loadData()
+  }
+
+  function editarFijo(f: IngresoFijo) {
+    setFormFijo({ nombre: f.nombre, monto: String(f.monto), monto_cobrado: f.monto_cobrado != null ? String(f.monto_cobrado) : '' })
+    setEditandoFijoId(f.id)
+    setShowForm('fijo')
   }
 
   async function addFreelance() {
@@ -130,7 +151,7 @@ export default function TrabajosPage() {
             <h2 className="font-semibold text-primary">💼 Sueldos fijos</h2>
             <p className="text-xs text-muted mt-0.5">Relación de dependencia / mensuales</p>
           </div>
-          <button onClick={() => setShowForm(showForm === 'fijo' ? null : 'fijo')}
+          <button onClick={() => { setEditandoFijoId(null); setFormFijo({ nombre: '', monto: '', monto_cobrado: '' }); setShowForm(showForm === 'fijo' ? null : 'fijo') }}
             className="text-sm bg-confirm text-white px-3 py-1.5 rounded-lg hover:bg-confirm-hover transition-colors">
             + Agregar
           </button>
@@ -138,6 +159,9 @@ export default function TrabajosPage() {
 
         {showForm === 'fijo' && (
           <div className="p-5 bg-alternate border-b border-line">
+            {editandoFijoId && (
+              <p className="text-xs text-muted mb-2">Editando «{formFijo.nombre}» — se actualiza esta fila, no se crea una nueva.</p>
+            )}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <input placeholder="Nombre (ej. Trabajo principal)" value={formFijo.nombre}
                 onChange={e => setFormFijo(p => ({ ...p, nombre: e.target.value }))}
@@ -150,8 +174,10 @@ export default function TrabajosPage() {
                 className="border border-line rounded-lg px-3 py-2 text-sm" />
             </div>
             <div className="flex gap-2 mt-3">
-              <button onClick={addFijo} className="bg-confirm text-white px-4 py-2 rounded-lg text-sm hover:bg-confirm-hover">Guardar</button>
-              <button onClick={() => setShowForm(null)} className="text-secondary px-4 py-2 rounded-lg text-sm hover:bg-alternate">Cancelar</button>
+              <button onClick={addFijo} className="bg-confirm text-white px-4 py-2 rounded-lg text-sm hover:bg-confirm-hover">
+                {editandoFijoId ? 'Actualizar' : 'Guardar'}
+              </button>
+              <button onClick={() => { setShowForm(null); setEditandoFijoId(null) }} className="text-secondary px-4 py-2 rounded-lg text-sm hover:bg-alternate">Cancelar</button>
             </div>
           </div>
         )}
@@ -176,6 +202,7 @@ export default function TrabajosPage() {
                       </p>
                     )}
                   </div>
+                  <button onClick={() => editarFijo(f)} className="text-muted hover:text-confirm text-sm leading-none ml-1" title="Editar / actualizar cobrado">✎</button>
                   <button onClick={() => deleteFijo(f.id)} className="text-muted hover:text-negative text-xl leading-none ml-1">×</button>
                 </div>
               </div>
