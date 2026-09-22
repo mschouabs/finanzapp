@@ -14,6 +14,10 @@ interface Inversion {
   nivel_riesgo: 'conservador' | 'moderado' | 'alto'
 }
 
+function fmtBtc(n: number) {
+  return `₿ ${n.toLocaleString('es-AR', { maximumFractionDigits: 8 })}`
+}
+
 function fmt(n: number) {
   if (Math.abs(n) >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`
   if (Math.abs(n) >= 1_000) return `$${(n / 1_000).toFixed(0)}K`
@@ -34,13 +38,15 @@ export default function InversionesPage() {
   const [inversiones, setInversiones] = useState<Inversion[]>([])
   const [loading, setLoading] = useState(true)
   const [dolar, setDolar] = useState<number | null>(null)
+  const [btcUsd, setBtcUsd] = useState<number | null>(null)
+  const [cotizacionesAt, setCotizacionesAt] = useState<Date | null>(null)
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState({
     nombre: '', app: 'MercadoPago', tipo: 'fondo', moneda: 'ARS',
     monto: '', tasa_anual: '', nivel_riesgo: 'conservador' as 'conservador' | 'moderado' | 'alto',
   })
 
-  useEffect(() => { loadData(); fetchDolar() }, [])
+  useEffect(() => { loadData(); fetchCotizaciones() }, [])
 
   async function loadData() {
     const supabase = createClient()
@@ -51,11 +57,18 @@ export default function InversionesPage() {
     setLoading(false)
   }
 
-  async function fetchDolar() {
+  /* Trae USD blue y BTC/USD en paralelo para que el portfolio se actualice
+     solo, sin depender de que alguien cargue el valor a mano cada mes. */
+  async function fetchCotizaciones() {
     try {
-      const res = await fetch('/api/dolar')
-      const json = await res.json()
-      setDolar(json.blue)
+      const [resDolar, resCrypto] = await Promise.all([
+        fetch('/api/dolar'),
+        fetch('/api/crypto?ids=bitcoin'),
+      ])
+      const [dolarJson, cryptoJson] = await Promise.all([resDolar.json(), resCrypto.json()])
+      setDolar(dolarJson.blue ?? null)
+      setBtcUsd(cryptoJson?.bitcoin?.usd ?? null)
+      setCotizacionesAt(new Date())
     } catch {}
   }
 
@@ -86,6 +99,7 @@ export default function InversionesPage() {
   }
 
   function toARS(inv: Inversion) {
+    if (inv.moneda === 'BTC' && btcUsd && dolar) return inv.monto * btcUsd * dolar
     if (inv.moneda === 'USD' && dolar) return inv.monto * dolar
     return inv.monto
   }
@@ -118,12 +132,25 @@ export default function InversionesPage() {
               <p className="text-sm font-bold text-info">${dolar.toFixed(0)}</p>
             </div>
           )}
+          {btcUsd && (
+            <div className="text-right bg-card border border-line rounded-xl px-3 py-2">
+              <p className="text-xs text-muted">BTC</p>
+              <p className="text-sm font-bold text-info">u$s {btcUsd.toLocaleString('es-AR', { maximumFractionDigits: 0 })}</p>
+            </div>
+          )}
           <div className="text-right bg-card border border-line rounded-xl px-3 py-2">
             <p className="text-xs text-muted">Total ARS</p>
             <p className="text-sm font-bold text-primary">{fmt(totalARS)}</p>
           </div>
         </div>
       </div>
+      {cotizacionesAt && (
+        <p className="text-xs text-muted -mt-4">
+          Cotizaciones actualizadas {cotizacionesAt.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}
+          {' · '}
+          <button onClick={fetchCotizaciones} className="underline hover:text-secondary">actualizar</button>
+        </p>
+      )}
 
       {/* Add button */}
       <div className="flex justify-end">
@@ -158,6 +185,7 @@ export default function InversionesPage() {
               className="border border-line rounded-lg px-3 py-2 text-sm">
               <option value="ARS">ARS $</option>
               <option value="USD">USD u$s</option>
+              <option value="BTC">BTC ₿ (cantidad, no dólares)</option>
             </select>
             <input placeholder="Tasa anual % (opcional)" type="number" value={form.tasa_anual}
               onChange={e => setForm(p => ({ ...p, tasa_anual: e.target.value }))}
@@ -229,7 +257,10 @@ export default function InversionesPage() {
                       </div>
                       <div className="flex items-center gap-3">
                         <div className="text-right">
-                          <p className="font-bold text-primary">{inv.moneda === 'USD' ? `u$s ${inv.monto.toLocaleString()}` : fmt(inv.monto)}</p>
+                          <p className="font-bold text-primary">
+                            {inv.moneda === 'BTC' ? fmtBtc(inv.monto) : inv.moneda === 'USD' ? `u$s ${inv.monto.toLocaleString()}` : fmt(inv.monto)}
+                          </p>
+                          {inv.moneda === 'BTC' && btcUsd && dolar && <p className="text-xs text-muted">≈ u$s {(inv.monto * btcUsd).toLocaleString('es-AR', { maximumFractionDigits: 0 })} · {fmt(arsVal)}</p>}
                           {inv.moneda === 'USD' && dolar && <p className="text-xs text-muted">≈ {fmt(arsVal)}</p>}
                           {rendM > 0 && <p className="text-xs text-positive">{inv.tasa_anual}% TNA</p>}
                         </div>
