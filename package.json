@@ -11,27 +11,27 @@
     "cap:ios": "npx cap open ios"
   },
   "dependencies": {
-    "@capacitor/android": "^7.0.0",
-    "@capacitor/core": "^7.0.0",
-    "@capacitor/ios": "^7.0.0",
+    "@capacitor/android": "^8.5.1",
+    "@capacitor/cli": "^8.5.1",
+    "@capacitor/core": "^8.5.1",
+    "@capacitor/ios": "^8.5.1",
+    "@supabase/ssr": "^0.5.2",
+    "@supabase/supabase-js": "^2.47.0",
+    "lucide-react": "^0.468.0",
     "next": "16.3.3",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "@supabase/supabase-js": "^2.47.0",
-    "@supabase/ssr": "^0.5.2",
-    "lucide-react": "^0.468.0",
     "recharts": "^2.13.3"
   },
   "devDependencies": {
-    "@capacitor/cli": "^7.0.0",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "typescript": "^5",
-    "tailwindcss": "^3.4.1",
     "autoprefixer": "^10.0.1",
-    "postcss": "^8",
     "eslint": "^9",
-    "eslint-config-next": "16.3.3"
+    "eslint-config-next": "16.3.3",
+    "postcss": "^8",
+    "tailwindcss": "^3.4.1",
+    "typescript": "^5"
   }
 }
