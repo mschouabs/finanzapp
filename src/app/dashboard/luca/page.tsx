@@ -111,19 +111,41 @@ export default function LucaChatPage() {
       const data = await res.json()
 
       const TIPOS: TipoRegistro[] = ['gasto_variable', 'gasto_fijo', 'ingreso_fijo', 'ingreso_freelance', 'inversion']
-      const esRegistro = TIPOS.includes(data.tipo)
 
-      const lucaMsg: Mensaje = {
-        id: getId(),
-        rol: 'luca',
-        texto: data.mensaje || 'No entendí bien, ¿podés repetirlo?',
-        timestamp: Date.now(),
-        tabla: esRegistro ? data.tipo : undefined,
-        datos: esRegistro ? data.datos : undefined,
+      if (data.tipo === 'multiple' && Array.isArray(data.registros)) {
+        /* Luca detectó varios movimientos en un mismo mensaje: se
+           muestra una tarjeta de confirmación por cada uno. */
+        const intro: Mensaje = {
+          id: getId(), rol: 'luca',
+          texto: data.mensaje || `Encontré ${data.registros.length} movimientos:`,
+          timestamp: Date.now(),
+        }
+        const tarjetas: Mensaje[] = data.registros
+          .filter((r: { tipo: string }) => TIPOS.includes(r.tipo as TipoRegistro))
+          .map((r: { tipo: TipoRegistro; mensaje: string; datos: DatosRegistro }) => ({
+            id: getId(), rol: 'luca' as const,
+            texto: r.mensaje,
+            timestamp: Date.now(),
+            tabla: r.tipo,
+            datos: r.datos,
+          }))
+        setMensajes(prev => [...prev, intro, ...tarjetas])
+        setLucaEstado(tarjetas.length > 0 ? 'celebration' : 'idle')
+      } else {
+        const esRegistro = TIPOS.includes(data.tipo)
+
+        const lucaMsg: Mensaje = {
+          id: getId(),
+          rol: 'luca',
+          texto: data.mensaje || 'No entendí bien, ¿podés repetirlo?',
+          timestamp: Date.now(),
+          tabla: esRegistro ? data.tipo : undefined,
+          datos: esRegistro ? data.datos : undefined,
+        }
+
+        setMensajes(prev => [...prev, lucaMsg])
+        setLucaEstado(esRegistro ? 'celebration' : 'idle')
       }
-
-      setMensajes(prev => [...prev, lucaMsg])
-      setLucaEstado(esRegistro ? 'celebration' : 'idle')
     } catch {
       setMensajes(prev => [...prev, {
         id: getId(), rol: 'luca',
@@ -213,8 +235,8 @@ export default function LucaChatPage() {
         e instanceof Error
           ? e.message
           : typeof e === 'object' && e !== null && 'message' in e
-            ? String((e as { message: unknown }).message)
-            : 'Error desconocido'
+          ? String((e as { message: unknown }).message)
+          : 'Error desconocido'
       setErrores(prev => ({ ...prev, [msg.id]: detalle }))
       setLucaEstado('sad')
       setTimeout(() => setLucaEstado('idle'), 3000)
@@ -345,8 +367,8 @@ export default function LucaChatPage() {
                       {guardando === msg.id
                         ? 'Guardando…'
                         : errores[msg.id]
-                          ? '↻ Reintentar'
-                          : '✓ Guardar'}
+                        ? '↻ Reintentar'
+                        : '✓ Guardar'}
                     </button>
 
                     {errores[msg.id] && (
