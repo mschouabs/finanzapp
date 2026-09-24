@@ -1,10 +1,10 @@
 /* ═══════════════════════════════════════════════════════════════
-   Parser local de transacciones — sin IA, sin costo, sin red.
+Parser local de transacciones — sin IA, sin costo, sin red.
 
-   Interpreta lenguaje natural argentino y devuelve un registro
-   listo para guardar. Es la fuente de verdad de /api/parse-expense
-   y el primer intento de /api/luca-chat.
-   ═══════════════════════════════════════════════════════════════ */
+Interpreta lenguaje natural argentino y devuelve un registro
+listo para guardar. Es la fuente de verdad de /api/parse-expense
+y el primer intento de /api/luca-chat.
+═══════════════════════════════════════════════════════════════ */
 
 export type TipoRegistro =
   | 'gasto_variable'
@@ -37,7 +37,7 @@ export interface Resultado {
 /* ── Normalización ──────────────────────────────────────────── */
 
 function sinAcentos(t: string) {
-  return t.normalize('NFD').replace(/[̀-ͯ]/g, '')
+  return t.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
 }
 
 const norm = (t: string) => sinAcentos(t.toLowerCase())
@@ -199,6 +199,26 @@ export function detectarTipo(texto: string): TipoRegistro {
   }
   if (RE_GASTO_FIJO.test(t)) return 'gasto_fijo'
   return 'gasto_variable'
+}
+
+/* ── Varias transacciones en un mismo mensaje ─────────────────
+   "gasté 5mil en el super y 3mil en nafta" -> 2 registros.
+   Solo se activa si CADA fragmento separado por " y " tiene su
+   propio monto; si no, se deja que el flujo normal (un solo
+   registro) se encargue del mensaje completo. ────────────────── */
+
+export function parsearVarios(texto: string, hoy = new Date()): Resultado[] | null {
+  const fragmentos = texto
+    .split(/\s+y\s+(?=.*\d)/i)
+    .map(f => f.trim())
+    .filter(Boolean)
+
+  if (fragmentos.length < 2) return null
+
+  const resultados = fragmentos.map(f => parsear(f, hoy))
+  const todosConMonto = resultados.every(r => r.tipo !== 'texto' && r.datos?.monto)
+
+  return todosConMonto ? resultados : null
 }
 
 /* ── Fechas ─────────────────────────────────────────────────── */
