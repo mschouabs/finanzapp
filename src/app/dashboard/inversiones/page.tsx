@@ -12,6 +12,7 @@ interface Inversion {
   monto: number
   tasa_anual: number
   nivel_riesgo: 'conservador' | 'moderado' | 'alto'
+  etiqueta?: string | null
 }
 
 function fmtBtc(n: number) {
@@ -253,7 +254,7 @@ export default function InversionesPage() {
                     <div key={inv.id} className="flex items-center justify-between px-5 py-3">
                       <div>
                         <p className="text-sm font-medium text-primary">{inv.nombre}</p>
-                        <p className="text-xs text-muted">{inv.app} · {inv.moneda}</p>
+                        <p className="text-xs text-muted">{inv.etiqueta || inv.app} · {inv.moneda}</p>
                       </div>
                       <div className="flex items-center gap-3">
                         <div className="text-right">

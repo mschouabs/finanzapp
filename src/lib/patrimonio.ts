@@ -14,6 +14,11 @@ export interface LineaSaldo {
   tasa_anual: number | null
   nivel_riesgo: string | null
   es_disponible: boolean | null
+  /** Nombre visible de la billetera (si la renombraste). `app` sigue
+      siendo la clave con la que Luca la reconoce. */
+  etiqueta?: string | null
+  /** Posición de la tarjeta en la grilla de Billeteras. */
+  orden?: number | null
 }
 
 export interface Cotizaciones {

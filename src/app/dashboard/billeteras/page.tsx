@@ -2,31 +2,81 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { Pencil, Check, X, Plus } from 'lucide-react'
+import {
+  ArrowDownRight, ArrowRight, ArrowUpRight, Check, ChevronRight, Coins, Eye, EyeOff,
+  GripVertical, Landmark, LineChart, Pencil, Plus, Trash2, Wallet, X,
+} from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { COLORES_MARCA, marcaDeMedio, normalizar } from '@/lib/tarjetas'
 import {
-  aPesos, calcularPatrimonio, esLiquida, traerCotizaciones,
+  aPesos, calcularPatrimonio, esLiquida, mesAnteriorClave, traerCotizaciones,
   type Cotizaciones, type LineaSaldo,
 } from '@/lib/patrimonio'
+import { GrillaOrdenable, type HandleProps } from '@/components/GrillaOrdenable'
+import { LucaAvatar } from '@/components/luca/LucaAvatar'
 
+/* ── formato ─────────────────────────────── */
+const OCULTO = '••••••'
 const fmtARS = (n: number) => '$' + Math.round(n).toLocaleString('es-AR')
-const fmtLinea = (l: LineaSaldo) =>
-  l.moneda === 'USD' ? `US$ ${Number(l.monto).toLocaleString('es-AR', { maximumFractionDigits: 2 })}`
-  : l.moneda === 'BTC' ? `₿ ${Number(l.monto).toLocaleString('es-AR', { maximumFractionDigits: 8 })}`
-  : fmtARS(Number(l.monto))
+const fmtUSD = (n: number) => 'US$ ' + n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+const fmtBTC = (n: number) => n.toLocaleString('es-AR', { maximumFractionDigits: 8 }) + ' BTC'
+const fmtNativo = (l: LineaSaldo) =>
+  l.moneda === 'USD' ? fmtUSD(Number(l.monto)) : l.moneda === 'BTC' ? fmtBTC(Number(l.monto)) : fmtARS(Number(l.monto))
 
+/* ── identidad visual de cada app (color + iniciales, sin logos) ── */
 function colorApp(app: string) {
-  const marca = marcaDeMedio(app === 'Uala' ? 'Ualá' : app)
-  if (COLORES_MARCA[marca] && marca !== 'Otra') return COLORES_MARCA[marca]
   const n = normalizar(app)
-  if (n.includes('bingx') || n.includes('binance')) return '#F0B90B'
-  if (n.includes('iol')) return '#0B3D91'
-  if (n.includes('lemon')) return '#00C853'
+  if (n.includes('uala')) return '#3E5BF6'
+  const marca = marcaDeMedio(app)
+  if (COLORES_MARCA[marca] && marca !== 'Otra') return COLORES_MARCA[marca]
+  if (n.includes('mercado')) return COLORES_MARCA['Mercado Pago']
+  if (n.includes('naranja')) return COLORES_MARCA['Naranja X']
+  if (n.includes('brubank')) return COLORES_MARCA['Brubank']
+  if (n.includes('bingx') || n.includes('binance')) return '#1D4ED8'
+  if (n.includes('iol')) return '#1E3A8A'
+  if (n.includes('lemon')) return '#00B96B'
   return '#6E7681'
 }
 
-interface GastoDebito { id: string; nombre: string; monto: number; fecha: string; billetera_linea_id: string | null }
+function iniciales(nombre: string) {
+  const limpio = nombre.replace(/invertir online/i, '').trim()
+  const palabras = limpio.split(/\s+/).filter(Boolean)
+  if (palabras.length >= 2) return (palabras[0][0] + palabras[1][0]).toUpperCase()
+  const p = palabras[0] ?? '?'
+  /* "MercadoPago" -> "MP", "BINGX" -> "BX", "Ualá" -> "U" */
+  const mayus = p.match(/[A-ZÁÉÍÓÚ]/g)
+  if (mayus && mayus.length >= 2 && p !== p.toUpperCase()) return mayus.slice(0, 2).join('')
+  if (p === p.toUpperCase() && p.length > 3) return p[0] + p[p.length - 1]
+  return p.slice(0, p.length <= 3 ? 3 : 1).toUpperCase()
+}
+
+function Insignia({ app, size = 32 }: { app: string; size?: number }) {
+  const ini = iniciales(app)
+  return (
+    <span
+      aria-hidden="true"
+      className="flex shrink-0 items-center justify-center rounded-lg font-extrabold text-white"
+      style={{ width: size, height: size, background: colorApp(app), fontSize: ini.length > 2 ? size * 0.3 : size * 0.38 }}
+    >
+      {ini}
+    </span>
+  )
+}
+
+function IconoLinea({ l }: { l: LineaSaldo }) {
+  const base = 'flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[13px] font-bold'
+  if (l.moneda === 'BTC') return <span className={base} style={{ background: '#F7931A', color: '#fff' }}>₿</span>
+  if (l.moneda === 'USD' && l.tipo === 'cripto') return <span className={base} style={{ background: '#26A17B', color: '#fff' }}>₮</span>
+  if (l.moneda === 'USD') return <span className={base} style={{ background: 'color-mix(in srgb, var(--accent-positive) 18%, transparent)', color: 'var(--accent-positive)' }}>US$</span>
+  if (['acciones', 'cedear'].includes(l.tipo)) return <span className={base} style={{ background: 'var(--bg-alternate, rgba(127,127,127,.15))', color: 'var(--text-secondary)' }}><LineChart size={14} /></span>
+  if (['fondo_comun', 'plazo_fijo'].includes(l.tipo)) return <span className={base} style={{ background: 'var(--bg-alternate, rgba(127,127,127,.15))', color: 'var(--text-secondary)' }}><Coins size={14} /></span>
+  return <span className={base} style={{ background: 'color-mix(in srgb, var(--accent-secondary) 18%, transparent)', color: 'var(--accent-secondary)' }}>$</span>
+}
+
+const RIESGO: Record<string, { label: string; color: string }> = {
+  alto: { label: 'Riesgo alto', color: 'var(--accent-negative)' },
+  moderado: { label: 'Riesgo medio', color: 'var(--riesgo-medio)' },
+}
 
 const TIPOS_LINEA = [
   { key: 'efectivo',    label: 'Disponible / caja de ahorro' },
@@ -38,72 +88,125 @@ const TIPOS_LINEA = [
   { key: 'cripto',      label: 'Cripto' },
 ]
 
+interface Grupo { app: string; nombre: string; items: LineaSaldo[]; total: number }
+
+/* ═══════════════════════════════════════ */
+
 export default function BilleterasPage() {
   const [lineas, setLineas] = useState<LineaSaldo[]>([])
-  const [gastos, setGastos] = useState<GastoDebito[]>([])
   const [cot, setCot] = useState<Cotizaciones>({ dolar: null, btcUsd: null })
+  const [anterior, setAnterior] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [oculto, setOculto] = useState(false)
 
-  const [editando, setEditando] = useState<string | null>(null)
-  const [valorEdit, setValorEdit] = useState('')
+  const [lineaEdit, setLineaEdit] = useState<{ id: string; nombre: string; monto: string } | null>(null)
+  const [appEdit, setAppEdit] = useState<{ app: string; nombre: string } | null>(null)
 
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState({ app: '', nombre: '', tipo: 'efectivo', moneda: 'ARS', monto: '' })
 
   const cargar = useCallback(async () => {
-    setLoading(true)
     const supabase = createClient()
-    const hoy = new Date()
-    const desde = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-01`
-    const [{ data: ls, error: e1 }, { data: gs }] = await Promise.all([
-      supabase.from('inversiones').select('*').order('app').order('moneda'),
-      supabase.from('gastos_variables')
-        .select('id, nombre, monto, fecha, billetera_linea_id')
-        .not('billetera_linea_id', 'is', null)
-        .gte('fecha', desde)
-        .order('fecha', { ascending: false }),
+    const [{ data: ls, error: e1 }, { data: prev }] = await Promise.all([
+      supabase.from('inversiones').select('*'),
+      supabase.from('patrimonio_mensual').select('total_ars').eq('mes', mesAnteriorClave()).maybeSingle(),
     ])
     if (e1) setError('No se pudieron cargar los saldos.')
     setLineas((ls ?? []) as LineaSaldo[])
-    setGastos((gs ?? []) as GastoDebito[])
+    setAnterior(prev ? Number(prev.total_ars) : null)
     setLoading(false)
   }, [])
 
   useEffect(() => {
     cargar()
     traerCotizaciones().then(setCot)
+    try { setOculto(localStorage.getItem('billeteras_ocultar') === '1') } catch { /* sin storage */ }
   }, [cargar])
 
-  const { liquidas, invertidas, totales } = useMemo(() => {
-    const agrupar = (ls: LineaSaldo[]) => {
+  const toggleOculto = () => {
+    setOculto(v => {
+      try { localStorage.setItem('billeteras_ocultar', v ? '0' : '1') } catch { /* sin storage */ }
+      return !v
+    })
+  }
+  const $ = (n: number) => (oculto ? OCULTO : fmtARS(n))
+
+  const { liquidas, invertidas, tot, monedas } = useMemo(() => {
+    const agrupar = (ls: LineaSaldo[]): Grupo[] => {
       const m = new Map<string, LineaSaldo[]>()
       for (const l of ls) m.set(l.app, [...(m.get(l.app) ?? []), l])
       return Array.from(m.entries())
-        .map(([app, items]) => ({ app, items, total: items.reduce((s, l) => s + aPesos(l, cot), 0) }))
-        .sort((a, b) => b.total - a.total)
+        .map(([app, items]) => ({
+          app,
+          nombre: items.find(i => i.etiqueta)?.etiqueta || app,
+          items: [...items].sort((a, b) => (a.moneda === b.moneda ? 0 : a.moneda === 'ARS' ? -1 : b.moneda === 'ARS' ? 1 : a.moneda.localeCompare(b.moneda))),
+          total: items.reduce((s, l) => s + aPesos(l, cot), 0),
+        }))
+        .sort((a, b) => {
+          const oa = Math.min(...a.items.map(i => i.orden ?? 999))
+          const ob = Math.min(...b.items.map(i => i.orden ?? 999))
+          return oa !== ob ? oa - ob : b.total - a.total
+        })
     }
     return {
       liquidas: agrupar(lineas.filter(esLiquida)),
       invertidas: agrupar(lineas.filter(l => !esLiquida(l))),
-      totales: calcularPatrimonio(lineas, cot),
+      tot: calcularPatrimonio(lineas, cot),
+      monedas: new Set(lineas.filter(l => Number(l.monto) !== 0).map(l => l.moneda)).size,
     }
   }, [lineas, cot])
 
-  async function guardarEdicion(l: LineaSaldo) {
-    const monto = Number(valorEdit.replace(/\./g, '').replace(',', '.'))
-    if (isNaN(monto)) return
+  const variacion = anterior ? ((tot.total - anterior) / Math.abs(anterior)) * 100 : null
+  const pctLiq = tot.total > 0 ? Math.round((tot.liquido / tot.total) * 100) : 0
+  const pctInv = 100 - pctLiq
+
+  /* ── acciones ─────────────────────────── */
+
+  const guardarOrden = useCallback((grupos: Grupo[]) => async (apps: string[]) => {
+    /* orden optimista en pantalla, después se guarda en la base */
+    const pos = new Map(apps.map((a, i) => [a, i]))
+    const ids = new Set(grupos.flatMap(g => g.items.map(i => i.id)))
+    setLineas(prev => prev.map(l => (ids.has(l.id) ? { ...l, orden: pos.get(l.app) ?? l.orden } : l)))
     const supabase = createClient()
-    const { error: e } = await supabase.from('inversiones').update({ monto }).eq('id', l.id)
-    if (e) { setError('No se pudo actualizar el saldo.'); return }
-    setEditando(null)
+    await Promise.all(
+      grupos.map(g => supabase.from('inversiones').update({ orden: pos.get(g.app) ?? 0 }).in('id', g.items.map(i => i.id))),
+    )
+  }, [])
+
+  const ordenarLiquidas = useMemo(() => guardarOrden(liquidas), [guardarOrden, liquidas])
+  const ordenarInvertidas = useMemo(() => guardarOrden(invertidas), [guardarOrden, invertidas])
+
+  async function renombrarApp() {
+    if (!appEdit) return
+    const nombre = appEdit.nombre.trim()
+    const supabase = createClient()
+    const { error: e } = await supabase
+      .from('inversiones')
+      .update({ etiqueta: nombre && nombre !== appEdit.app ? nombre : null })
+      .eq('app', appEdit.app)
+    if (e) { setError('No se pudo cambiar el nombre.'); return }
+    setAppEdit(null)
+    cargar()
+  }
+
+  async function guardarLinea() {
+    if (!lineaEdit) return
+    const monto = Number(lineaEdit.monto.replace(',', '.'))
+    if (isNaN(monto) || !lineaEdit.nombre.trim()) return
+    const supabase = createClient()
+    const { error: e } = await supabase.from('inversiones')
+      .update({ monto, nombre: lineaEdit.nombre.trim() }).eq('id', lineaEdit.id)
+    if (e) { setError('No se pudo guardar.'); return }
+    setLineaEdit(null)
     cargar()
   }
 
   async function borrarLinea(l: LineaSaldo) {
-    if (!window.confirm(`¿Borrar "${l.nombre}" de ${l.app}?`)) return
+    if (!window.confirm(`¿Borrar "${l.nombre}"?`)) return
     const supabase = createClient()
     await supabase.from('inversiones').delete().eq('id', l.id)
+    setLineaEdit(null)
     cargar()
   }
 
@@ -113,12 +216,10 @@ export default function BilleterasPage() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
     const app = form.app.trim()
-    /* La primera línea en pesos "disponible" de una app es de donde
-       se descuentan los gastos con débito. */
     const yaTieneDisponible = lineas.some(l => l.app === app && l.es_disponible)
+    const etiqueta = lineas.find(l => l.app === app)?.etiqueta ?? null
     const { error: e } = await supabase.from('inversiones').insert({
-      user_id: user.id,
-      app,
+      user_id: user.id, app, etiqueta,
       nombre: form.nombre.trim(),
       tipo: form.tipo,
       moneda: form.moneda,
@@ -133,32 +234,132 @@ export default function BilleterasPage() {
     cargar()
   }
 
+  const abrirAgregar = (app = '') => {
+    setForm(f => ({ ...f, app }))
+    setShowForm(true)
+    setTimeout(() => document.getElementById('form-saldo')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50)
+  }
+
   const apps = Array.from(new Set(lineas.map(l => l.app))).sort()
 
   if (loading) {
     return <div className="fa-card p-8 text-center"><p className="text-sm text-secondary">Cargando billeteras…</p></div>
   }
 
+  /* ── tarjeta de una app ───────────────── */
+  const renderTarjeta = (g: Grupo, handle: HandleProps, arrastrando: boolean, inversion: boolean) => {
+    const riesgo = inversion ? (g.items.some(i => i.nivel_riesgo === 'alto') ? RIESGO.alto : g.items.some(i => i.nivel_riesgo === 'moderado') ? RIESGO.moderado : null) : null
+    const editandoNombre = appEdit?.app === g.app
+    return (
+      <div
+        className="fa-card flex h-full flex-col p-4"
+        style={arrastrando ? { boxShadow: '0 18px 40px rgba(0,0,0,.35)', outline: '2px solid var(--accent-positive)' } : undefined}
+      >
+        {/* cabecera: manija + nombre + lápiz */}
+        <div className="flex items-center gap-2">
+          <button type="button" {...handle} className="-ml-1 rounded p-1 text-muted hover:bg-alternate hover:text-primary">
+            <GripVertical size={16} />
+          </button>
+          <Insignia app={g.nombre} size={30} />
+          {editandoNombre ? (
+            <div className="flex min-w-0 flex-1 items-center gap-1">
+              <input
+                autoFocus value={appEdit.nombre}
+                onChange={e => setAppEdit({ ...appEdit, nombre: e.target.value })}
+                onKeyDown={e => { if (e.key === 'Enter') renombrarApp(); if (e.key === 'Escape') setAppEdit(null) }}
+                className="min-w-0 flex-1 rounded border bg-field px-2 py-1 text-sm text-primary"
+                aria-label="Nuevo nombre"
+              />
+              <button onClick={renombrarApp} aria-label="Guardar nombre" className="rounded p-1 text-positive hover:bg-alternate"><Check size={15} /></button>
+              <button onClick={() => setAppEdit(null)} aria-label="Cancelar" className="rounded p-1 text-muted hover:bg-alternate"><X size={15} /></button>
+            </div>
+          ) : (
+            <>
+              <span className="min-w-0 truncate text-sm font-semibold text-primary">{g.nombre}</span>
+              <button
+                onClick={() => setAppEdit({ app: g.app, nombre: g.nombre })}
+                aria-label={`Cambiar nombre de ${g.nombre}`}
+                className="rounded p-1 text-muted hover:bg-alternate hover:text-primary"
+              >
+                <Pencil size={13} />
+              </button>
+              {riesgo && (
+                <span className="ml-auto shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-semibold"
+                  style={{ color: riesgo.color, background: `color-mix(in srgb, ${riesgo.color} 16%, transparent)` }}>
+                  {riesgo.label}
+                </span>
+              )}
+              {!riesgo && (
+                <button onClick={() => abrirAgregar(g.app)} aria-label={`Agregar saldo a ${g.nombre}`}
+                  className="ml-auto rounded p-1 text-muted hover:bg-alternate hover:text-primary">
+                  <Plus size={15} />
+                </button>
+              )}
+            </>
+          )}
+        </div>
+
+        <p className="fa-amount mt-3 text-2xl text-primary">{$(g.total)}</p>
+
+        {/* líneas */}
+        <div className="mt-3 flex flex-col divide-y divide-line border-t border-line">
+          {g.items.map(l => {
+            const edit = lineaEdit?.id === l.id
+            if (edit) {
+              return (
+                <div key={l.id} className="flex flex-col gap-2 py-2.5">
+                  <input value={lineaEdit.nombre} onChange={e => setLineaEdit({ ...lineaEdit, nombre: e.target.value })}
+                    aria-label="Nombre" className="rounded border bg-field px-2 py-1.5 text-sm text-primary" />
+                  <div className="flex items-center gap-1">
+                    <span className="text-xs text-muted">{l.moneda}</span>
+                    <input autoFocus type="number" inputMode="decimal" value={lineaEdit.monto}
+                      onChange={e => setLineaEdit({ ...lineaEdit, monto: e.target.value })}
+                      onKeyDown={e => { if (e.key === 'Enter') guardarLinea(); if (e.key === 'Escape') setLineaEdit(null) }}
+                      aria-label="Monto" className="min-w-0 flex-1 rounded border bg-field px-2 py-1.5 text-right text-sm text-primary" />
+                    <button onClick={guardarLinea} aria-label="Guardar" className="rounded p-1.5 text-positive hover:bg-alternate"><Check size={16} /></button>
+                    <button onClick={() => setLineaEdit(null)} aria-label="Cancelar" className="rounded p-1.5 text-muted hover:bg-alternate"><X size={16} /></button>
+                    <button onClick={() => borrarLinea(l)} aria-label="Borrar" className="rounded p-1.5 text-muted hover:bg-alternate hover:text-negative"><Trash2 size={15} /></button>
+                  </div>
+                </div>
+              )
+            }
+            return (
+              <button
+                key={l.id}
+                onClick={() => setLineaEdit({ id: l.id, nombre: l.nombre, monto: String(Number(l.monto)) })}
+                className="group flex w-full items-center gap-2.5 py-2.5 text-left"
+              >
+                {inversion && <IconoLinea l={l} />}
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm text-secondary group-hover:text-primary">{l.nombre}</span>
+                </span>
+                <span className="shrink-0 text-right">
+                  <span className={`fa-amount block text-sm ${Number(l.monto) < 0 ? 'text-negative' : 'text-primary'}`}>
+                    {oculto ? OCULTO : fmtNativo(l)}
+                  </span>
+                  {l.moneda !== 'ARS' && !oculto && (
+                    <span className="block text-[11px] text-muted">≈ {fmtARS(aPesos(l, cot))}</span>
+                  )}
+                </span>
+                <ChevronRight size={15} className="shrink-0 text-muted group-hover:text-primary" />
+              </button>
+            )
+          })}
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="flex flex-col gap-6">
       {/* Encabezado */}
-      <div className="fa-card flex flex-wrap items-center justify-between gap-4 p-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-lg font-extrabold text-primary">👛 Billeteras</h1>
-          <p className="mt-1 text-xs text-secondary">
-            Dónde está tu plata{cot.dolar ? ` · Dólar blue $${Math.round(cot.dolar).toLocaleString('es-AR')}` : ''}
-          </p>
+          <h1 className="text-2xl font-extrabold text-primary">Billeteras</h1>
+          <p className="mt-1 text-sm text-secondary">Dónde está tu plata. Cuentas, dólares e inversiones.</p>
         </div>
-        <div className="flex flex-wrap gap-5 text-right">
-          <Total label="Disponible" valor={totales.liquido} />
-          <Total label="Invertido" valor={totales.invertido} />
-          <Total label="Total" valor={totales.total} fuerte />
-        </div>
-      </div>
-
-      <div className="flex justify-end">
         <button
-          onClick={() => setShowForm(v => !v)}
+          onClick={() => (showForm ? setShowForm(false) : abrirAgregar())}
           className="flex min-h-[44px] items-center gap-1.5 rounded-xl bg-confirm px-4 py-2 text-sm font-semibold text-white hover:bg-confirm-hover"
         >
           <Plus size={16} strokeWidth={2.5} /> Agregar saldo
@@ -167,180 +368,172 @@ export default function BilleterasPage() {
 
       {error && <p className="text-sm text-negative">{error}</p>}
 
+      {/* Patrimonio */}
+      <section className="fa-card grid gap-6 p-5 lg:grid-cols-[1.1fr_1.4fr_auto] lg:items-center">
+        <div>
+          <div className="flex items-center gap-2">
+            <Wallet size={17} className="text-positive" />
+            <h2 className="text-sm font-semibold text-primary">Patrimonio financiero</h2>
+            <button onClick={toggleOculto} aria-label={oculto ? 'Mostrar montos' : 'Ocultar montos'}
+              className="rounded p-1 text-muted hover:bg-alternate hover:text-primary">
+              {oculto ? <EyeOff size={15} /> : <Eye size={15} />}
+            </button>
+          </div>
+          <p className="fa-amount mt-2 text-4xl text-primary">{$(tot.total)}</p>
+          {variacion !== null ? (
+            <p className="mt-1.5 flex items-center gap-1 text-sm">
+              {variacion >= 0
+                ? <ArrowUpRight size={16} className="text-positive" />
+                : <ArrowDownRight size={16} className="text-negative" />}
+              <span className={`font-semibold ${variacion >= 0 ? 'text-positive' : 'text-negative'}`}>
+                {variacion >= 0 ? '+' : ''}{variacion.toFixed(1).replace('.', ',')}%
+              </span>
+              <span className="text-secondary">respecto al mes anterior</span>
+            </p>
+          ) : (
+            <p className="mt-1.5 text-xs text-secondary">Primer mes registrado: desde el mes que viene ves la comparación.</p>
+          )}
+        </div>
+
+        <div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <p className="text-xs text-secondary">Disponible</p>
+              <p className="fa-amount text-xl text-primary">{$(tot.liquido)}</p>
+              <p className="text-sm font-semibold text-positive">{pctLiq}%</p>
+            </div>
+            <div className="border-l border-line pl-4">
+              <p className="text-xs text-secondary">Invertido</p>
+              <p className="fa-amount text-xl text-primary">{$(tot.invertido)}</p>
+              <p className="text-sm font-semibold" style={{ color: 'var(--accent-violet, #8B5CF6)' }}>{pctInv}%</p>
+            </div>
+          </div>
+          <div className="mt-3 flex h-2.5 overflow-hidden rounded-full" style={{ background: 'var(--border-color)' }}>
+            <div style={{ width: `${pctLiq}%`, background: 'var(--accent-positive)' }} />
+            <div style={{ width: `${pctInv}%`, background: 'var(--accent-violet, #8B5CF6)' }} />
+          </div>
+        </div>
+
+        <ul className="flex gap-5 text-sm text-secondary lg:flex-col lg:gap-2.5 lg:border-l lg:border-line lg:pl-6">
+          <li className="flex items-center gap-2"><Landmark size={15} /> {liquidas.length} cuentas</li>
+          <li className="flex items-center gap-2"><LineChart size={15} /> {invertidas.length} inversiones</li>
+          <li className="flex items-center gap-2"><Coins size={15} /> {monedas} monedas</li>
+        </ul>
+      </section>
+
+      {/* Formulario */}
       {showForm && (
-        <div className="fa-card p-5">
+        <div id="form-saldo" className="fa-card p-5">
           <p className="mb-3 text-sm font-semibold text-primary">Nuevo saldo</p>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
             <input list="apps-existentes" placeholder="App o banco (ej: Lemon Cash)" value={form.app}
               onChange={e => setForm(f => ({ ...f, app: e.target.value }))}
-              className="rounded-lg border bg-field px-3 py-2 text-sm text-primary" />
+              className="rounded-lg border bg-field px-3 py-2.5 text-sm text-primary" />
             <datalist id="apps-existentes">{apps.map(a => <option key={a} value={a} />)}</datalist>
-            <input placeholder="Concepto (ej: Pesos disponibles)" value={form.nombre}
+            <input placeholder="Concepto (ej: Pesos)" value={form.nombre}
               onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))}
-              className="rounded-lg border bg-field px-3 py-2 text-sm text-primary" />
+              className="rounded-lg border bg-field px-3 py-2.5 text-sm text-primary" />
             <select value={form.tipo} onChange={e => setForm(f => ({ ...f, tipo: e.target.value, moneda: e.target.value === 'divisa' ? 'USD' : f.moneda }))}
-              className="rounded-lg border bg-field px-3 py-2 text-sm text-primary">
+              className="rounded-lg border bg-field px-3 py-2.5 text-sm text-primary">
               {TIPOS_LINEA.map(t => <option key={t.key} value={t.key}>{t.label}</option>)}
             </select>
             <select value={form.moneda} onChange={e => setForm(f => ({ ...f, moneda: e.target.value }))}
-              className="rounded-lg border bg-field px-3 py-2 text-sm text-primary">
+              className="rounded-lg border bg-field px-3 py-2.5 text-sm text-primary">
               <option value="ARS">Pesos</option>
               <option value="USD">Dólares</option>
               <option value="BTC">BTC (cantidad)</option>
             </select>
-            <input placeholder="Monto" type="number" value={form.monto}
+            <input placeholder="Monto" type="number" inputMode="decimal" value={form.monto}
               onChange={e => setForm(f => ({ ...f, monto: e.target.value }))}
-              className="rounded-lg border bg-field px-3 py-2 text-sm text-primary" />
+              className="rounded-lg border bg-field px-3 py-2.5 text-sm text-primary" />
           </div>
           <div className="mt-3 flex gap-2">
-            <button onClick={agregarLinea} className="rounded-lg bg-confirm px-4 py-2 text-sm text-white hover:bg-confirm-hover">Guardar</button>
-            <button onClick={() => setShowForm(false)} className="rounded-lg px-4 py-2 text-sm text-secondary hover:bg-alternate">Cancelar</button>
+            <button onClick={agregarLinea} className="rounded-lg bg-confirm px-5 py-2.5 text-sm font-semibold text-white hover:bg-confirm-hover">Guardar</button>
+            <button onClick={() => setShowForm(false)} className="rounded-lg px-4 py-2.5 text-sm text-secondary hover:bg-alternate">Cancelar</button>
           </div>
         </div>
       )}
 
-      {/* Bancos y billeteras */}
+      {/* Cuentas y billeteras */}
       <Seccion
-        titulo="🏦 Bancos y billeteras virtuales"
-        subtitulo="Plata disponible en pesos y dólares. Los gastos con débito se descuentan solos de acá."
-        total={totales.liquido}
+        icono={<Wallet size={20} />}
+        titulo="Cuentas y billeteras"
+        subtitulo="Plata disponible en pesos y dólares. Los gastos con débito se descuentan de acá."
+        etiquetaTotal="Total disponible"
+        total={$(tot.liquido)}
       >
-        {liquidas.map(g => (
-          <TarjetaApp key={g.app} app={g.app} total={g.total}>
-            {g.items.map(l => (
-              <FilaLinea
-                key={l.id} l={l} cot={cot}
-                editando={editando === l.id} valorEdit={valorEdit}
-                onEditar={() => { setEditando(l.id); setValorEdit(String(l.monto)) }}
-                onCambiar={setValorEdit}
-                onGuardar={() => guardarEdicion(l)}
-                onCancelar={() => setEditando(null)}
-                onBorrar={() => borrarLinea(l)}
-              />
-            ))}
-            {(() => {
-              const ids = new Set(g.items.map(l => l.id))
-              const mios = gastos.filter(x => x.billetera_linea_id && ids.has(x.billetera_linea_id))
-              if (mios.length === 0) return null
-              const total = mios.reduce((s, x) => s + Number(x.monto), 0)
-              return (
-                <div className="mt-2 border-t pt-2">
-                  <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-muted">
-                    Pagado con débito este mes · {fmtARS(total)}
-                  </p>
-                  {mios.slice(0, 4).map(x => (
-                    <div key={x.id} className="flex justify-between gap-2 text-xs">
-                      <span className="truncate text-secondary">{x.nombre}</span>
-                      <span className="shrink-0 text-negative">-{fmtARS(Number(x.monto))}</span>
-                    </div>
-                  ))}
-                </div>
-              )
-            })()}
-          </TarjetaApp>
-        ))}
+        <GrillaOrdenable
+          ids={liquidas.map(g => g.app)}
+          onReordenar={ordenarLiquidas}
+          className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4"
+          render={(app, handle, arr) => {
+            const g = liquidas.find(x => x.app === app)
+            return g ? renderTarjeta(g, handle, arr, false) : null
+          }}
+        />
       </Seccion>
 
       {/* Inversiones */}
       <Seccion
-        titulo="📈 Inversiones"
-        subtitulo="FCIs, CEDEARs, acciones y cripto. Por nivel de riesgo, en Portfolio."
-        total={totales.invertido}
-        extra={<Link href="/dashboard/inversiones" className="text-xs font-semibold text-secondary underline underline-offset-2 hover:text-primary">Ver Portfolio →</Link>}
+        icono={<LineChart size={20} />}
+        titulo="Inversiones"
+        subtitulo="FCIs, CEDEARs, acciones y cripto."
+        etiquetaTotal="Total invertido"
+        total={$(tot.invertido)}
       >
-        {invertidas.map(g => (
-          <TarjetaApp key={g.app} app={g.app} total={g.total}>
-            {g.items.map(l => (
-              <FilaLinea
-                key={l.id} l={l} cot={cot}
-                editando={editando === l.id} valorEdit={valorEdit}
-                onEditar={() => { setEditando(l.id); setValorEdit(String(l.monto)) }}
-                onCambiar={setValorEdit}
-                onGuardar={() => guardarEdicion(l)}
-                onCancelar={() => setEditando(null)}
-                onBorrar={() => borrarLinea(l)}
-              />
-            ))}
-          </TarjetaApp>
-        ))}
+        <GrillaOrdenable
+          ids={invertidas.map(g => g.app)}
+          onReordenar={ordenarInvertidas}
+          className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4"
+          render={(app, handle, arr) => {
+            const g = invertidas.find(x => x.app === app)
+            return g ? renderTarjeta(g, handle, arr, true) : null
+          }}
+        />
       </Seccion>
-    </div>
-  )
-}
 
-/* ── piezas ─────────────────────────────── */
+      <p className="-mt-2 text-center text-xs text-muted">
+        Arrastrá las tarjetas desde <GripVertical size={12} className="inline" /> para ordenarlas · Tocá un saldo para editarlo
+        {cot.dolar ? ` · Dólar blue $${Math.round(cot.dolar).toLocaleString('es-AR')}` : ''}
+      </p>
 
-function Total({ label, valor, fuerte }: { label: string; valor: number; fuerte?: boolean }) {
-  return (
-    <div>
-      <div className="text-[10px] font-semibold uppercase tracking-wide text-secondary">{label}</div>
-      <div className={`fa-amount ${fuerte ? 'text-2xl' : 'text-lg'} text-primary`}>{fmtARS(valor)}</div>
-    </div>
-  )
-}
-
-function Seccion({ titulo, subtitulo, total, extra, children }: {
-  titulo: string; subtitulo: string; total: number; extra?: React.ReactNode; children: React.ReactNode
-}) {
-  return (
-    <section className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-end justify-between gap-2">
-        <div>
-          <h2 className="text-base font-bold text-primary">{titulo}</h2>
-          <p className="text-xs text-secondary">{subtitulo}</p>
-        </div>
-        <div className="flex items-center gap-3">
-          {extra}
-          <span className="fa-amount text-lg text-primary">{fmtARS(total)}</span>
-        </div>
-      </div>
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{children}</div>
-    </section>
-  )
-}
-
-function TarjetaApp({ app, total, children }: { app: string; total: number; children: React.ReactNode }) {
-  const color = colorApp(app)
-  return (
-    <div className="fa-card overflow-hidden">
-      <div className="flex items-center justify-between gap-2 px-4 py-3" style={{ background: color }}>
-        <span className="truncate text-sm font-bold text-white">{app}</span>
-        <span className="fa-amount shrink-0 text-base text-white">{fmtARS(total)}</span>
-      </div>
-      <div className="flex flex-col gap-1.5 p-4">{children}</div>
-    </div>
-  )
-}
-
-function FilaLinea({ l, cot, editando, valorEdit, onEditar, onCambiar, onGuardar, onCancelar, onBorrar }: {
-  l: LineaSaldo; cot: Cotizaciones; editando: boolean; valorEdit: string
-  onEditar: () => void; onCambiar: (v: string) => void; onGuardar: () => void; onCancelar: () => void; onBorrar: () => void
-}) {
-  const negativo = Number(l.monto) < 0
-  return (
-    <div className="flex items-center justify-between gap-2">
-      <div className="min-w-0">
-        <p className="truncate text-sm text-primary">
-          {l.nombre}
-          {l.es_disponible && <span className="ml-1.5 rounded bg-alternate px-1.5 py-0.5 text-[9px] font-semibold uppercase text-secondary">débito</span>}
+      {/* Luca */}
+      <section className="fa-card flex flex-wrap items-center gap-4 p-4">
+        <LucaAvatar estado={variacion !== null && variacion < 0 ? 'warning' : 'idle'} size={40} />
+        <p className="min-w-0 flex-1 text-sm text-secondary">
+          {variacion !== null
+            ? `Tu patrimonio ${variacion >= 0 ? 'aumentó' : 'bajó'} ${Math.abs(variacion).toFixed(1).replace('.', ',')}% este mes. `
+            : 'Ya guardé la foto de tu patrimonio de este mes. '}
+          El {pctInv}% de tu dinero está invertido.
         </p>
-        {l.moneda !== 'ARS' && <p className="text-[11px] text-muted">≈ {fmtARS(aPesos(l, cot))}</p>}
-      </div>
-      {editando ? (
-        <div className="flex shrink-0 items-center gap-1">
-          <input autoFocus type="number" value={valorEdit} onChange={e => onCambiar(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') onGuardar(); if (e.key === 'Escape') onCancelar() }}
-            className="w-28 rounded border bg-field px-2 py-1 text-right text-sm text-primary" />
-          <button onClick={onGuardar} aria-label="Guardar" className="rounded p-1 text-positive hover:bg-alternate"><Check size={15} /></button>
-          <button onClick={onCancelar} aria-label="Cancelar" className="rounded p-1 text-muted hover:bg-alternate"><X size={15} /></button>
-        </div>
-      ) : (
-        <div className="flex shrink-0 items-center gap-1">
-          <span className={`fa-amount text-sm ${negativo ? 'text-negative' : 'text-primary'}`}>{fmtLinea(l)}</span>
-          <button onClick={onEditar} aria-label={`Editar ${l.nombre}`} className="rounded p-1 text-muted hover:bg-alternate hover:text-primary"><Pencil size={13} /></button>
-          <button onClick={onBorrar} aria-label={`Borrar ${l.nombre}`} className="rounded p-1 text-muted hover:bg-alternate hover:text-negative"><X size={13} /></button>
-        </div>
-      )}
+        <Link href="/dashboard/inversiones"
+          className="flex items-center gap-1.5 rounded-xl border px-4 py-2 text-sm font-medium text-primary hover:bg-alternate">
+          Ver análisis completo <ArrowRight size={15} />
+        </Link>
+      </section>
     </div>
+  )
+}
+
+function Seccion({ icono, titulo, subtitulo, etiquetaTotal, total, children }: {
+  icono: React.ReactNode; titulo: string; subtitulo: string; etiquetaTotal: string; total: string; children: React.ReactNode
+}) {
+  return (
+    <section className="flex flex-col gap-4 border-t border-line pt-5">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div className="flex items-start gap-3">
+          <span className="mt-0.5 text-positive">{icono}</span>
+          <div>
+            <h2 className="text-lg font-bold text-primary">{titulo}</h2>
+            <p className="text-xs text-secondary">{subtitulo}</p>
+          </div>
+        </div>
+        <div className="text-right">
+          <p className="text-xs text-secondary">{etiquetaTotal}</p>
+          <p className="fa-amount text-xl text-primary">{total}</p>
+        </div>
+      </div>
+      {children}
+    </section>
   )
 }
