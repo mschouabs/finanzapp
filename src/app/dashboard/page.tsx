@@ -1,30 +1,42 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { ArrowDownRight, ArrowUpRight, PiggyBank, TrendingDown, TrendingUp } from 'lucide-react'
+import {
+  ArrowDownRight, ArrowUpRight, CalendarDays, PiggyBank, TrendingDown, TrendingUp,
+} from 'lucide-react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import {
-  calcularPatrimonio, mesAnteriorClave, mesClave as claveMes, traerCotizaciones,
+  calcularPatrimonio, esLiquida, mesAnteriorClave, mesClave as claveMes, traerCotizaciones,
   type LineaSaldo,
 } from '@/lib/patrimonio'
 import {
   COLUMNAS_CONSUMO, avisosDeVencimiento, estadoTarjeta,
-  type AvisoVencimiento, type Consumo, type TarjetaInfo,
+  type AvisoVencimiento, type Consumo, type ResumenInfo, type TarjetaInfo,
 } from '@/lib/resumenes'
 import { fmtDiaMes } from '@/lib/ciclos'
+import { pagarConsumos } from '@/lib/movimientos'
 import { LucaWidget } from '@/components/LucaWidget'
 import { LucaMensaje } from '@/components/luca/LucaMensaje'
 import type { LucaEstado } from '@/components/luca/LucaAvatar'
+import { PagarResumen } from '@/components/tarjetas/Modales'
 import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
   LineChart, Line, XAxis, YAxis, CartesianGrid, Legend,
+  BarChart, Bar,
 } from 'recharts'
 
 /* ── helpers ─────────────────────────────────────── */
 const fmt = (n: number) => '$' + n.toLocaleString('es-AR', { minimumFractionDigits: 0 })
 
 const COLORS = ['#32D158', '#63A9FF', '#A855F7', '#F5C451', '#FF5873', '#22C55E', '#79C0FF', '#DF7897']
+const MESES_CORTO = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic']
+const etiquetaMesClave = (k: string) => `${MESES_CORTO[Number(k.slice(5, 7)) - 1]} '${k.slice(2, 4)}`
+
+const tooltipStyle = {
+  background: 'var(--bg-card)', border: '1px solid var(--border-color)',
+  borderRadius: 10, fontSize: 12, color: 'var(--text-primary)',
+}
 
 interface Patrimonio {
   total: number
@@ -36,19 +48,38 @@ interface Patrimonio {
   anterior: number | null
 }
 
+interface PuntoEvolucion { mes: string; neto: number; liquido: number; invertido: number }
+
+interface MovimientoReciente { nombre: string; monto: number; moneda: string; categoria: string; fecha: string }
+
 interface DashboardData {
   totalIngresos: number
   totalGastos: number
+  gastosFijosMes: number
   neto: number
   gastosPorCategoria: { name: string; value: number }[]
+  comparacionCategorias: { name: string; actual: number; anterior: number }[]
   tendenciaMensual: { mes: string; ingresos: number; gastos: number }[]
+  recientes: MovimientoReciente[]
 }
+
+const RANGOS = [
+  { key: '3', label: '3M' },
+  { key: '6', label: '6M' },
+  { key: '12', label: '12M' },
+  { key: 'todo', label: 'Todo' },
+] as const
 
 export default function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
   const [patrimonio, setPatrimonio] = useState<Patrimonio | null>(null)
   const [avisos, setAvisos] = useState<AvisoVencimiento[]>([])
+  const [evolucion, setEvolucion] = useState<PuntoEvolucion[]>([])
+  const [rango, setRango] = useState<typeof RANGOS[number]['key']>('6')
+  const [vistaCategoria, setVistaCategoria] = useState<'torta' | 'comparar'>('torta')
+  const [lineas, setLineas] = useState<LineaSaldo[]>([])
+  const [pagando, setPagando] = useState<{ t: TarjetaInfo; r: ResumenInfo } | null>(null)
 
   useEffect(() => {
     cargar()
@@ -62,23 +93,35 @@ export default function DashboardPage() {
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
-    const [{ data: ls }, cot, { data: previo }, { data: ts }, { data: cs }] = await Promise.all([
+    const [{ data: ls }, cot, { data: previo }, { data: ts }, { data: cs }, { data: historial }] = await Promise.all([
       supabase.from('inversiones').select('*'),
       traerCotizaciones(),
       supabase.from('patrimonio_mensual').select('total_ars, detalle').eq('mes', mesAnteriorClave()).maybeSingle(),
       supabase.from('tarjetas_cuentas').select('*').eq('tipo', 'tarjeta'),
       supabase.from('gastos_variables').select(COLUMNAS_CONSUMO).eq('forma_pago', 'credito').eq('pagado', false),
+      supabase.from('patrimonio_mensual').select('mes, total_ars, detalle').order('mes', { ascending: true }).limit(24),
     ])
     const p = calcularPatrimonio((ls ?? []) as LineaSaldo[], cot)
     const dolar = cot.dolar ?? 1560
     const estados = ((ts ?? []) as TarjetaInfo[]).map(t => estadoTarjeta(t, (cs ?? []) as Consumo[], dolar))
     const deuda = estados.reduce((s, e) => s + e.deuda, 0)
     setAvisos(avisosDeVencimiento(estados, dolar, 7))
+    setLineas(((ls ?? []) as LineaSaldo[]).filter(esLiquida))
     /* la comparación es de patrimonio neto; los meses viejos sin ese dato usan el total */
     const prevNeto = previo
       ? Number((previo.detalle as { neto?: number } | null)?.neto ?? previo.total_ars)
       : null
     setPatrimonio({ ...p, deuda, anterior: prevNeto })
+
+    setEvolucion((historial ?? []).map(h => {
+      const det = h.detalle as { neto?: number; liquido?: number; invertido?: number } | null
+      return {
+        mes: h.mes as string,
+        neto: Math.round(det?.neto ?? (h.total_ars as number)),
+        liquido: Math.round(det?.liquido ?? 0),
+        invertido: Math.round(det?.invertido ?? 0),
+      }
+    }))
 
     if ((ls ?? []).length > 0) {
       await supabase.from('patrimonio_mensual').upsert(
@@ -94,6 +137,16 @@ export default function DashboardPage() {
         { onConflict: 'user_id,mes' },
       )
     }
+  }
+
+  async function pagar(lineaARS: string | null, lineaUSD: string | null): Promise<string | null> {
+    if (!pagando) return null
+    const supabase = createClient()
+    const { error: e } = await pagarConsumos(supabase, pagando.r.consumos, lineaARS, lineaUSD)
+    if (e) return e
+    setPagando(null)
+    cargar()
+    return null
   }
 
   async function cargar() {
@@ -192,21 +245,27 @@ export default function DashboardPage() {
       gastosFijosMes + variablesMes + viajesMes +
       sumaSecciones('gasto', r => enMesClave(r, mesActual))
 
-    /* gastos por categoría (mes en curso) */
-    const catMap: Record<string, number> = {}
-    ;(gv || []).filter(r => enMesClave(r, mesActual)).forEach(r => {
-      const cat = (r.categoria as string) || 'Sin categoría'
-      catMap[cat] = (catMap[cat] || 0) + montoGv(r)
-    })
-    if (gastosFijosMes > 0) catMap['Fijos'] = (catMap['Fijos'] || 0) + gastosFijosMes
-    if (viajesMes > 0) catMap['Viajes'] = (catMap['Viajes'] || 0) + viajesMes
-    regsSecciones
-      .filter(r => tipoPorSeccion.get(r.seccion_id as string) === 'gasto')
-      .filter(r => enMesClave(r, mesActual))
-      .forEach(r => {
-        const cat = nombrePorSeccion.get(r.seccion_id as string) || 'Sección'
-        catMap[cat] = (catMap[cat] || 0) + ((r.monto as number) || 0)
+    /* gastos por categoría — junta variables + tarjeta (ya están en gv),
+       fijos y viajes en un solo mapa, para un mes dado */
+    const mapaCategorias = (key: string) => {
+      const m: Record<string, number> = {}
+      ;(gv || []).filter(r => enMesClave(r, key)).forEach(r => {
+        const cat = (r.categoria as string) || 'Sin categoría'
+        m[cat] = (m[cat] || 0) + montoGv(r)
       })
+      if (gastosFijosMes > 0) m['Fijos'] = (m['Fijos'] || 0) + gastosFijosMes
+      const vj = viajesEnMes(key)
+      if (vj > 0) m['Viajes'] = (m['Viajes'] || 0) + vj
+      regsSecciones
+        .filter(r => tipoPorSeccion.get(r.seccion_id as string) === 'gasto')
+        .filter(r => enMesClave(r, key))
+        .forEach(r => {
+          const cat = nombrePorSeccion.get(r.seccion_id as string) || 'Sección'
+          m[cat] = (m[cat] || 0) + ((r.monto as number) || 0)
+        })
+      return m
+    }
+    const catMap = mapaCategorias(mesActual)
     /* mostramos las 7 más grandes y agrupamos el resto en "Otros",
        así el total del anillo coincide con los gastos del mes */
     const catOrdenadas = Object.entries(catMap)
@@ -217,6 +276,31 @@ export default function DashboardPage() {
     const gastosPorCategoria = resto > 0
       ? [...catOrdenadas.slice(0, 7), { name: 'Otros', value: resto }]
       : catOrdenadas
+
+    /* comparación este mes vs. el mes pasado, por categoría */
+    const mesAnteriorKey = mesClave(new Date(now.getFullYear(), now.getMonth() - 1, 1))
+    const catMapAnt = mapaCategorias(mesAnteriorKey)
+    const categoriasTop = catOrdenadas.slice(0, 6).map(c => c.name)
+    const comparacionCategorias = categoriasTop.map(name => ({
+      name, actual: catMap[name] || 0, anterior: catMapAnt[name] || 0,
+    }))
+
+    /* movimientos de los últimos 7 días, para el vistazo rápido */
+    const hace7 = new Date(now); hace7.setDate(hace7.getDate() - 7)
+    const recientes: MovimientoReciente[] = (gv || [])
+      .filter((r: Record<string, unknown>) => {
+        const f = (r.fecha as string) || ''
+        return f && new Date(f) >= hace7 && new Date(f) <= now
+      })
+      .sort((a: Record<string, unknown>, b: Record<string, unknown>) => String(b.fecha).localeCompare(String(a.fecha)))
+      .slice(0, 8)
+      .map((r: Record<string, unknown>) => ({
+        nombre: (r.nombre as string) || 'Gasto',
+        monto: (r.monto as number) || 0,
+        moneda: (r.moneda as string) || 'ARS',
+        categoria: (r.categoria as string) || 'Sin categoría',
+        fecha: (r.fecha as string) || '',
+      }))
 
     /* tendencia de los últimos 6 meses */
     const meses: { key: string; label: string }[] = []
@@ -238,7 +322,11 @@ export default function DashboardPage() {
         sumaSecciones('gasto', r => enMesClave(r, key)),
     }))
 
-    setData({ totalIngresos, totalGastos, neto: totalIngresos - totalGastos, gastosPorCategoria, tendenciaMensual })
+    setData({
+      totalIngresos, totalGastos, gastosFijosMes,
+      neto: totalIngresos - totalGastos,
+      gastosPorCategoria, comparacionCategorias, tendenciaMensual, recientes,
+    })
     setLoading(false)
   }
 
@@ -271,8 +359,8 @@ export default function DashboardPage() {
       {avisos.length > 0 && (
         <div className="flex flex-col gap-2">
           {avisos.map(a => (
-            <Link key={a.tarjeta.id + a.resumen.clave} href="/dashboard/tarjetas"
-              className="flex flex-wrap items-center gap-2 rounded-xl border p-3 text-sm hover:bg-alternate"
+            <div key={a.tarjeta.id + a.resumen.clave}
+              className="flex flex-wrap items-center gap-2 rounded-xl border p-3 text-sm"
               style={{ borderColor: a.dias < 0 ? 'var(--accent-negative)' : 'var(--accent-warning, #F5C451)' }}>
               <span>{a.dias < 0 ? '⚠️' : '📅'}</span>
               <span className="flex-1 text-primary">
@@ -280,8 +368,16 @@ export default function DashboardPage() {
                   ? <>El resumen de <b>{a.tarjeta.nombre}</b> venció hace {-a.dias} días: {fmt(Math.round(a.monto))}</>
                   : <><b>{a.tarjeta.nombre}</b> vence {a.dias === 0 ? 'hoy' : `en ${a.dias} ${a.dias === 1 ? 'día' : 'días'}`} ({fmtDiaMes(a.resumen.vencimiento)}): {fmt(Math.round(a.monto))}</>}
               </span>
-              <span className="text-xs font-semibold text-secondary">Pagar →</span>
-            </Link>
+              <button
+                onClick={() => setPagando({ t: a.tarjeta, r: a.resumen })}
+                className="rounded-lg bg-confirm px-3 py-1.5 text-xs font-semibold text-white hover:bg-confirm-hover"
+              >
+                Pagar ahora
+              </button>
+              <Link href="/dashboard/tarjetas" className="text-xs font-semibold text-secondary underline underline-offset-2 hover:text-primary">
+                Ver detalle →
+              </Link>
+            </div>
           ))}
         </div>
       )}
@@ -318,8 +414,12 @@ export default function DashboardPage() {
           </div>
 
           <div className="mt-5 grid gap-4 border-t pt-4 sm:grid-cols-3">
-            <Mini icono={<TrendingUp size={16} />} tono="var(--accent-positive)" label="Ingresos" valor={fmt(d.totalIngresos)} />
-            <Mini icono={<TrendingDown size={16} />} tono="var(--accent-negative)" label="Gastos" valor={fmt(d.totalGastos)} />
+            <Link href="/dashboard/ingresos-gastos" className="rounded-lg -m-1 p-1 hover:bg-alternate">
+              <Mini icono={<TrendingUp size={16} />} tono="var(--accent-positive)" label="Ingresos" valor={fmt(d.totalIngresos)} />
+            </Link>
+            <Link href="/dashboard/gastos-variables" className="rounded-lg -m-1 p-1 hover:bg-alternate">
+              <Mini icono={<TrendingDown size={16} />} tono="var(--accent-negative)" label="Gastos" valor={fmt(d.totalGastos)} />
+            </Link>
             <Mini icono={<PiggyBank size={16} />} tono="var(--accent-secondary)" label="Tasa de ahorro" valor={`${tasaAhorro}%`} />
           </div>
         </section>
@@ -335,6 +435,9 @@ export default function DashboardPage() {
         </section>
       </div>
 
+      {/* salud financiera: cuánto de lo que entra ya está comprometido en gastos fijos */}
+      {d.totalIngresos > 0 && <SaludFinanciera fijos={d.gastosFijosMes} ingresos={d.totalIngresos} />}
+
       {/* Luca */}
       <div className="grid gap-5 lg:grid-cols-[1fr_320px]">
         <LucaWidget onSaved={cargar} />
@@ -342,6 +445,55 @@ export default function DashboardPage() {
           {mensajeLuca(sinDatos, tasaAhorro, d.totalGastos)}
         </LucaMensaje>
       </div>
+
+      {/* esta semana */}
+      {d.recientes.length > 0 && <EstaSemana movimientos={d.recientes} />}
+
+      {/* evolución del patrimonio neto */}
+      {evolucion.length >= 2 && (
+        <section className="fa-card p-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-base font-bold text-primary">Evolución del patrimonio</h2>
+              <p className="mt-0.5 text-xs text-secondary">Patrimonio neto, foto de fin de cada mes</p>
+            </div>
+            <div className="flex gap-1 rounded-lg bg-alternate p-1">
+              {RANGOS.map(r => (
+                <button key={r.key} onClick={() => setRango(r.key)}
+                  className="rounded-md px-2.5 py-1 text-xs font-semibold"
+                  style={rango === r.key
+                    ? { background: 'var(--bg-card)', color: 'var(--text-primary)' }
+                    : { color: 'var(--text-secondary)' }}>
+                  {r.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="mt-4 h-[220px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart
+                data={rango === 'todo' ? evolucion : evolucion.slice(-Number(rango))}
+                margin={{ top: 8, right: 8, bottom: 0, left: -12 }}
+              >
+                <CartesianGrid stroke="var(--border-color)" strokeDasharray="3 3" vertical={false} />
+                <XAxis dataKey="mes" tickFormatter={etiquetaMesClave} tick={{ fill: 'var(--text-muted)', fontSize: 11 }} axisLine={false} tickLine={false} />
+                <YAxis
+                  tick={{ fill: 'var(--text-muted)', fontSize: 11 }}
+                  axisLine={false}
+                  tickLine={false}
+                  tickFormatter={(v: number) => {
+                    if (Math.abs(v) >= 1_000_000) return `$${(v / 1_000_000).toFixed(1)}M`
+                    if (Math.abs(v) >= 1_000) return `$${(v / 1_000).toFixed(0)}k`
+                    return `$${v}`
+                  }}
+                />
+                <Tooltip contentStyle={tooltipStyle} labelFormatter={etiquetaMesClave} formatter={(v: number) => fmt(v)} />
+                <Line type="monotone" dataKey="neto" name="Patrimonio neto" stroke="var(--accent-secondary)" strokeWidth={2.5} dot={{ r: 3 }} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </section>
+      )}
 
       {/* gráficos */}
       <div className="grid gap-5 lg:grid-cols-[1fr_380px]">
@@ -383,8 +535,26 @@ export default function DashboardPage() {
         </section>
 
         <section className="fa-card p-5">
-          <h2 className="text-base font-bold text-primary">Gastos por categoría</h2>
-          <p className="mt-0.5 text-xs text-secondary">Este mes</p>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h2 className="text-base font-bold text-primary">Gastos por categoría</h2>
+              <p className="mt-0.5 text-xs text-secondary">{vistaCategoria === 'torta' ? 'Este mes' : 'Este mes vs. el pasado'}</p>
+            </div>
+            {d.gastosPorCategoria.length > 0 && (
+              <div className="flex gap-1 rounded-lg bg-alternate p-1">
+                <button onClick={() => setVistaCategoria('torta')}
+                  className="rounded-md px-2.5 py-1 text-xs font-semibold"
+                  style={vistaCategoria === 'torta' ? { background: 'var(--bg-card)', color: 'var(--text-primary)' } : { color: 'var(--text-secondary)' }}>
+                  Torta
+                </button>
+                <button onClick={() => setVistaCategoria('comparar')}
+                  className="rounded-md px-2.5 py-1 text-xs font-semibold"
+                  style={vistaCategoria === 'comparar' ? { background: 'var(--bg-card)', color: 'var(--text-primary)' } : { color: 'var(--text-secondary)' }}>
+                  Comparar
+                </button>
+              </div>
+            )}
+          </div>
 
           {d.gastosPorCategoria.length === 0 ? (
             <LucaMensaje
@@ -395,6 +565,21 @@ export default function DashboardPage() {
             >
               Registrá tu primer gasto con Luca y empezá a ver tus categorías.
             </LucaMensaje>
+          ) : vistaCategoria === 'comparar' ? (
+            <div className="mt-3 h-[260px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={d.comparacionCategorias} layout="vertical" margin={{ top: 4, right: 12, bottom: 0, left: 0 }}>
+                  <CartesianGrid stroke="var(--border-color)" strokeDasharray="3 3" horizontal={false} />
+                  <XAxis type="number" tick={{ fill: 'var(--text-muted)', fontSize: 11 }} axisLine={false} tickLine={false}
+                    tickFormatter={(v: number) => v >= 1000 ? `$${(v / 1000).toFixed(0)}k` : `$${v}`} />
+                  <YAxis type="category" dataKey="name" width={90} tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} axisLine={false} tickLine={false} />
+                  <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => fmt(v)} />
+                  <Legend wrapperStyle={{ fontSize: 12, color: 'var(--text-secondary)' }} />
+                  <Bar dataKey="anterior" name="Mes pasado" fill="var(--border-color)" radius={[0, 4, 4, 0]} />
+                  <Bar dataKey="actual" name="Este mes" fill="var(--accent-secondary)" radius={[0, 4, 4, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           ) : (
             <>
               <div className="relative mt-2 h-[190px]">
@@ -454,6 +639,16 @@ export default function DashboardPage() {
           )}
         </section>
       </div>
+
+      {pagando && (
+        <PagarResumen
+          tarjeta={pagando.t}
+          resumen={pagando.r}
+          lineas={lineas}
+          onPagar={pagar}
+          onCerrar={() => setPagando(null)}
+        />
+      )}
     </div>
   )
 }
@@ -582,6 +777,57 @@ function Anillo({ pct }: { pct: number }) {
         {pct}%
       </span>
     </div>
+  )
+}
+
+function SaludFinanciera({ fijos, ingresos }: { fijos: number; ingresos: number }) {
+  const pct = Math.round((fijos / ingresos) * 100)
+  const [color, texto] = pct <= 50
+    ? ['var(--accent-positive)', 'Tus gastos fijos están controlados.']
+    : pct <= 70
+    ? ['var(--accent-warning, #F5C451)', 'Tus gastos fijos ocupan buena parte de lo que entra.']
+    : ['var(--accent-negative)', 'Tus gastos fijos se comen casi todo el ingreso.']
+  return (
+    <section className="fa-card flex flex-wrap items-center gap-4 p-5">
+      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-lg font-bold"
+        style={{ background: `color-mix(in srgb, ${color} 16%, transparent)`, color }}>
+        {pct}%
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-semibold text-primary">Salud financiera: gastos fijos vs. ingresos</p>
+        <p className="mt-0.5 text-xs text-secondary">{texto}</p>
+      </div>
+      <div className="h-2 w-full max-w-[160px] overflow-hidden rounded-full sm:w-40" style={{ background: 'var(--border-color)' }}>
+        <div className="h-full rounded-full" style={{ width: `${Math.min(100, pct)}%`, background: color }} />
+      </div>
+    </section>
+  )
+}
+
+function EstaSemana({ movimientos }: { movimientos: MovimientoReciente[] }) {
+  return (
+    <section className="fa-card p-5">
+      <div className="flex items-center gap-2">
+        <CalendarDays size={16} className="text-secondary" />
+        <h2 className="text-base font-bold text-primary">Esta semana</h2>
+      </div>
+      <p className="mt-0.5 text-xs text-secondary">Tus últimos movimientos, de un vistazo</p>
+      <ul className="mt-3 divide-y divide-line">
+        {movimientos.map((m, i) => (
+          <li key={i} className="flex items-center gap-3 py-2 text-sm">
+            <span className="min-w-0 flex-1 truncate text-primary">{m.nombre}</span>
+            <span className="shrink-0 rounded-full bg-alternate px-2 py-0.5 text-[11px] capitalize text-secondary">{m.categoria}</span>
+            <span className="shrink-0 text-xs text-muted">{fmtDiaMes(new Date(m.fecha + 'T00:00:00'))}</span>
+            <span className="fa-amount shrink-0 text-primary">
+              {m.moneda === 'USD' ? `US$ ${m.monto.toLocaleString('es-AR')}` : fmt(m.monto)}
+            </span>
+          </li>
+        ))}
+      </ul>
+      <Link href="/dashboard/gastos-variables" className="mt-3 inline-block text-xs font-semibold text-secondary underline underline-offset-2 hover:text-primary">
+        Ver todos los movimientos →
+      </Link>
+    </section>
   )
 }
 
