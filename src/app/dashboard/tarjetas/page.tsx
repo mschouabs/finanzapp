@@ -36,7 +36,8 @@ export default function TarjetasPage() {
   const [detalle, setDetalle] = useState<string | null>(null)
   const [pagando, setPagando] = useState<{ t: TarjetaInfo; r: ResumenInfo } | null>(null)
   const [consumoForm, setConsumoForm] = useState<string | null>(null)
-  const [form, setForm] = useState({ nombre: '', monto: '', moneda: 'ARS' as 'ARS' | 'USD', cuotas: '1', fecha: hoyISO() })
+  const formVacio = { nombre: '', monto: '', moneda: 'ARS' as 'ARS' | 'USD', cuotas: '1', cuotaInicial: '1', fecha: hoyISO() }
+  const [form, setForm] = useState(formVacio)
 
   const cargar = useCallback(async () => {
     const supabase = createClient()
@@ -125,10 +126,11 @@ export default function TarjetasPage() {
       medio_pago: t.nombre,
       forma_pago: 'credito',
       cuotas: Number(form.cuotas) || 1,
+      cuotaInicial: Number(form.cuotaInicial) || 1,
     })
     if (e) { setError('No se pudo registrar el consumo.'); return }
     setConsumoForm(null)
-    setForm({ nombre: '', monto: '', moneda: 'ARS', cuotas: '1', fecha: hoyISO() })
+    setForm(formVacio)
     cargar()
   }
 
@@ -245,18 +247,39 @@ export default function TarjetasPage() {
               <label className="flex items-center gap-1.5 text-xs text-secondary">
                 Cuotas
                 <input type="number" min={1} max={48} value={form.cuotas}
-                  onChange={ev => setForm({ ...form, cuotas: ev.target.value })}
+                  onChange={ev => {
+                    const cuotas = ev.target.value
+                    setForm(f => ({ ...f, cuotas, cuotaInicial: Number(f.cuotaInicial) > Number(cuotas) ? cuotas : f.cuotaInicial }))
+                  }}
                   className="w-16 rounded-lg border bg-field px-2 py-2 text-sm text-primary" />
               </label>
+              {Number(form.cuotas) > 1 && (
+                <label className="flex items-center gap-1.5 text-xs text-secondary">
+                  Vamos por la
+                  <input type="number" min={1} max={Number(form.cuotas) || 1} value={form.cuotaInicial}
+                    onChange={ev => setForm({ ...form, cuotaInicial: ev.target.value })}
+                    className="w-16 rounded-lg border bg-field px-2 py-2 text-sm text-primary" />
+                </label>
+              )}
               <input type="date" value={form.fecha} onChange={ev => setForm({ ...form, fecha: ev.target.value })}
-                aria-label="Fecha de compra" className="min-w-0 flex-1 rounded-lg border bg-field px-2 py-2 text-sm text-primary" />
+                aria-label={Number(form.cuotaInicial) > 1 ? 'Fecha de esta cuota' : 'Fecha de compra'}
+                className="min-w-0 flex-1 rounded-lg border bg-field px-2 py-2 text-sm text-primary" />
             </div>
-            {Number(form.cuotas) > 1 && Number(form.monto) > 0 && (
-              <p className="text-[11px] text-secondary">
-                {form.cuotas} cuotas de {form.moneda === 'USD' ? 'US$ ' : '$'}{(Number(form.monto) / Number(form.cuotas)).toLocaleString('es-AR', { maximumFractionDigits: 2 })}
-                {' '}· la primera entra en el resumen de {etiquetaMes(resumenDeCompra(form.fecha, t))}
-              </p>
-            )}
+            {Number(form.cuotas) > 1 && Number(form.monto) > 0 && (() => {
+              const cuotas = Number(form.cuotas)
+              const cuotaInicial = Math.min(cuotas, Math.max(1, Number(form.cuotaInicial) || 1))
+              const montoCuota = Number(form.monto) / cuotas
+              const signo = form.moneda === 'USD' ? 'US$ ' : '$'
+              return (
+                <p className="text-[11px] text-secondary">
+                  {cuotaInicial > 1
+                    ? <>Cuota {cuotaInicial}/{cuotas} de {signo}{montoCuota.toLocaleString('es-AR', { maximumFractionDigits: 2 })}
+                        {' '}· entra en el resumen de {etiquetaMes(resumenDeCompra(form.fecha, t))} · las {cuotaInicial - 1} anteriores no se cargan (ya pagadas)</>
+                    : <>{cuotas} cuotas de {signo}{montoCuota.toLocaleString('es-AR', { maximumFractionDigits: 2 })}
+                        {' '}· la primera entra en el resumen de {etiquetaMes(resumenDeCompra(form.fecha, t))}</>}
+                </p>
+              )
+            })()}
             <div className="flex gap-2">
               <button onClick={() => registrarConsumo(t)} className="flex-1 rounded-lg py-2 text-sm font-semibold text-white"
                 style={{ background: colorTarjeta(t.marca) }}>Guardar</button>
@@ -264,7 +287,7 @@ export default function TarjetasPage() {
             </div>
           </div>
         ) : (
-          <button onClick={() => { setConsumoForm(t.id); setForm({ nombre: '', monto: '', moneda: 'ARS', cuotas: '1', fecha: hoyISO() }) }}
+          <button onClick={() => { setConsumoForm(t.id); setForm(formVacio) }}
             className="mt-auto w-full rounded-xl border border-dashed py-2.5 text-sm text-secondary hover:bg-alternate hover:text-primary">
             + Registrar consumo
           </button>

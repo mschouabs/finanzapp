@@ -24,6 +24,13 @@ export interface NuevoGasto {
   forma_pago?: FormaPago | null
   /** Compras con tarjeta: en cuántas cuotas (monto = total de la compra). */
   cuotas?: number | null
+  /**
+   * Para cargar una compra que ya venía en curso (ej: "vamos por la
+   * cuota 5 de 6"): no crea las cuotas anteriores, arranca directo en
+   * esta. `fecha` pasa a ser la fecha de ESA cuota (para saber en qué
+   * resumen cae), no la de la compra original. 1 por defecto.
+   */
+  cuotaInicial?: number | null
   /** 'ARS' por defecto. Los consumos en dólares con tarjeta van en 'USD'. */
   moneda?: 'ARS' | 'USD'
 }
@@ -113,25 +120,30 @@ export async function guardarGastoVariable(
     const { data: t } = await supabase
       .from('tarjetas_cuentas').select('cierre, vencimiento').eq('id', tarjeta_id).single()
     const dias = { cierre: t?.cierre ?? null, vencimiento: t?.vencimiento ?? null }
+    /* si la compra ya venía en curso ("vamos por la cuota 5 de 6"),
+       arranca ahí: no crea las cuotas anteriores, y `g.fecha` marca la
+       fecha de esa cuota (no la de la compra original) */
+    const cuotaInicial = Math.min(cuotas, Math.max(1, Math.round(Number(g.cuotaInicial) || 1)))
     const primero = resumenDeCompra(g.fecha, dias)
     const total = Number(g.monto)
     const cuota = Math.round((total / cuotas) * 100) / 100
     const compra_id = cuotas > 1 ? nuevoId() : null
-    filas = Array.from({ length: cuotas }, (_, i) => {
+    filas = Array.from({ length: cuotas - cuotaInicial + 1 }, (_, i) => {
+      const numero = cuotaInicial + i
       const resumen = sumarMeses(primero, i)
       /* la última cuota absorbe el redondeo */
-      const monto = i === cuotas - 1 ? Math.round((total - cuota * (cuotas - 1)) * 100) / 100 : cuota
+      const monto = numero === cuotas ? Math.round((total - cuota * (cuotas - 1)) * 100) / 100 : cuota
       return {
         ...base,
         monto,
-        /* la primera cuota queda en la fecha de compra; las demás, en el
-           vencimiento de su resumen (cuando la vas a pagar) */
+        /* la primera cuota que cargamos queda en la fecha indicada; las
+           demás, en el vencimiento de su resumen (cuando la vas a pagar) */
         fecha: i === 0 ? g.fecha : aISO(fechasDeResumen(resumen, dias).vencimiento),
         fecha_compra: g.fecha,
         resumen,
         pagado: false,
         compra_id,
-        cuota_numero: i + 1,
+        cuota_numero: numero,
         cuotas_total: cuotas,
         monto_total: total,
       }
