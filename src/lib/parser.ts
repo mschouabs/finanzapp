@@ -155,6 +155,15 @@ export function extraerMonto(texto: string): number | null {
     if (n !== null && n > 0) return n
   }
 
+  /* monto en dólares: como suelen ser montos chicos ("gasté 50 dólares"),
+     no llegan al mínimo de 3 dígitos de la regla genérica de abajo. Si el
+     número está pegado a "dólares/usd/u$s", alcanza con que sea > 0. */
+  const conDolares = t.match(/\b(\d+(?:[.,]\d+)?)\s*(dolares?|u\$s|usd)\b/)
+  if (conDolares) {
+    const n = aNumero(conDolares[1])
+    if (n !== null && n > 0) return n
+  }
+
   // número pelado de 3 o más dígitos
   const pelado = t.match(/\b(\d{3,})\b/)
   if (pelado) {
