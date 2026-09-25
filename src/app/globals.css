@@ -138,6 +138,35 @@ input:-webkit-autofill:focus {
   font-weight: 700;
 }
 
+/* Tarjetas que "se levantan" al pasar el mouse, con la misma sombra de
+   superposición que al arrastrar una billetera o una tarjeta. */
+.fa-lift {
+  transition: transform .18s cubic-bezier(.2,.8,.2,1), box-shadow .18s ease, border-color .18s ease;
+}
+.fa-lift:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, .34);
+  border-color: color-mix(in srgb, var(--accent-positive) 35%, var(--border-color));
+}
+[data-theme="rosa"] .fa-lift:hover {
+  box-shadow: 0 16px 36px rgba(199, 122, 154, .24);
+}
+
+/* Punto que late (viaje en curso, meta vencida, etc.) */
+@keyframes fa-latido {
+  0%   { box-shadow: 0 0 0 0 color-mix(in srgb, currentColor 55%, transparent); }
+  70%  { box-shadow: 0 0 0 7px transparent; }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+.fa-latido { animation: fa-latido 1.8s ease-out infinite; }
+
+/* Entrada suave de tarjetas y paneles */
+@keyframes fa-aparecer {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: none; }
+}
+.fa-aparecer { animation: fa-aparecer .4s cubic-bezier(.2,.8,.2,1) both; }
+
 /* Barra de scroll discreta, en tono del tema */
 * {
   scrollbar-width: thin;
@@ -202,9 +231,11 @@ input:-webkit-autofill:focus {
 /* Si el sistema pide menos movimiento, Luca se queda quieto. */
 @media (prefers-reduced-motion: reduce) {
   .luca-float, .luca-eye, .luca-antenna, .luca-shake,
-  .luca-bounce, .luca-spin, .luca-dot-1, .luca-dot-2, .luca-dot-3 {
+  .luca-bounce, .luca-spin, .luca-dot-1, .luca-dot-2, .luca-dot-3,
+  .fa-latido, .fa-aparecer {
     animation: none;
   }
+  .fa-lift, .fa-lift:hover { transition: none; transform: none; }
   html { scroll-behavior: auto; }
 }
 

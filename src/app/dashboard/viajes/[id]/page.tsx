@@ -3,7 +3,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
-import { ArrowLeft, Plus, Pencil, Archive, Trash2 } from 'lucide-react'
+import { ArrowLeft, Plus, Pencil, Archive, Trash2, X } from 'lucide-react'
+import { Bar, BarChart, CartesianGrid, Cell, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { Dona, Leyenda, Titulo, fmtK, tooltipStyle, type Porcion } from '@/components/ui/Piezas'
 import { createClient } from '@/lib/supabase'
 import { ViajeModal } from '@/components/ViajeModal'
 import {
@@ -110,6 +112,44 @@ export default function ViajeDetallePage() {
       .map(([key, monto]) => ({ ...getCategoriaViaje(key), monto }))
       .sort((a, b) => b.monto - a.monto)
   }, [gastos])
+
+  const [filtroCat, setFiltroCat] = useState<string | null>(null)
+
+  const porciones: Porcion[] = useMemo(
+    () => porCategoria.map(c => ({ key: c.key, label: `${c.emoji} ${c.label}`, valor: c.monto, color: c.color })),
+    [porCategoria]
+  )
+
+  /* un día por barra: todo el rango del viaje, o los días con gastos */
+  const porDia = useMemo(() => {
+    const acum: Record<string, number> = {}
+    for (const g of gastos) acum[g.fecha] = (acum[g.fecha] ?? 0) + (Number(g.monto_ars) || 0)
+    let fechas = Object.keys(acum).sort()
+    if (viaje?.fecha_inicio && viaje?.fecha_fin && viaje.fecha_fin >= viaje.fecha_inicio) {
+      const rango: string[] = []
+      const d = new Date(viaje.fecha_inicio + 'T12:00:00')
+      const fin = new Date(viaje.fecha_fin + 'T12:00:00')
+      while (d <= fin && rango.length < 120) { rango.push(d.toISOString().slice(0, 10)); d.setDate(d.getDate() + 1) }
+      fechas = Array.from(new Set([...rango, ...fechas])).sort()
+    }
+    return fechas.map(f => ({ fecha: f, etiqueta: `${f.slice(8, 10)}/${f.slice(5, 7)}`, monto: acum[f] ?? 0 }))
+  }, [gastos, viaje])
+  const diaMax = porDia.reduce((m, d) => (d.monto > (porDia.find(x => x.fecha === m)?.monto ?? -1) ? d.fecha : m), '')
+
+  const porMoneda = useMemo(() => {
+    const acum: Record<string, { original: number; ars: number }> = {}
+    for (const g of gastos) {
+      const a = acum[g.moneda] ?? { original: 0, ars: 0 }
+      a.original += Number(g.monto) || 0
+      a.ars += Number(g.monto_ars) || 0
+      acum[g.moneda] = a
+    }
+    return Object.entries(acum).map(([codigo, v]) => ({ codigo, ...v })).sort((a, b) => b.ars - a.ars)
+  }, [gastos])
+
+  const gastosVisibles = filtroCat
+    ? gastos.filter(g => getCategoriaViaje(g.categoria).key === filtroCat)
+    : gastos
 
   const equivalenteARS = useMemo(() => {
     const m = Number(form.monto)
@@ -234,7 +274,6 @@ export default function ViajeDetallePage() {
   const dias = duracionDias(viaje)
   const promedioDia = dias && dias > 0 ? total / dias : null
   const estado = ETIQUETA_ESTADO[estadoViaje(viaje)]
-  const maxCat = porCategoria[0]?.monto ?? 0
 
   const input =
     'w-full rounded-md border bg-field px-3 py-2 text-sm text-primary placeholder:text-muted'
@@ -384,39 +423,64 @@ export default function ViajeDetallePage() {
         </div>
       </div>
 
-      {/* Desglose por categoría */}
-      {porCategoria.length > 0 && (
-        <div className="fa-card p-5">
-          <h2 className="mb-4 text-xs font-bold text-primary">En qué se fue</h2>
-          <div className="flex flex-col gap-3">
-            {porCategoria.map(c => (
-              <div key={c.key}>
-                <div className="mb-1 flex items-center justify-between gap-2 text-[11px]">
-                  <span className="text-secondary">
-                    {c.emoji} {c.label}
-                  </span>
-                  <span className="fa-amount text-primary">
-                    {fmtCorto(c.monto)}
-                    <span className="ml-1.5 font-normal text-muted">
-                      {total > 0 ? `${((c.monto / total) * 100).toFixed(0)}%` : ''}
-                    </span>
-                  </span>
-                </div>
-                <div
-                  className="h-1.5 overflow-hidden rounded-full"
-                  style={{ background: 'var(--border-color)' }}
-                >
-                  <div
-                    className="h-full rounded-full"
-                    style={{
-                      width: maxCat > 0 ? `${(c.monto / maxCat) * 100}%` : '0%',
-                      background: c.color,
-                    }}
-                  />
-                </div>
+      {/* Gráficos: categorías, días y monedas */}
+      {gastos.length > 0 && (
+        <div className="grid gap-5 lg:grid-cols-2">
+          <section className="fa-card p-5">
+            <Titulo
+              titulo="En qué se fue"
+              sub="Tocá una categoría para filtrar los gastos"
+              derecha={filtroCat ? (
+                <button onClick={() => setFiltroCat(null)} className="flex items-center gap-1 rounded-full border px-2 py-1 text-[11px] text-secondary hover:bg-alternate">
+                  <X size={12} /> Quitar filtro
+                </button>
+              ) : undefined}
+            />
+            <div className="mt-4 flex flex-col items-center gap-4 sm:flex-row sm:items-start">
+              <Dona
+                datos={porciones}
+                activo={filtroCat}
+                onElegir={k => setFiltroCat(f => (f === k ? null : k))}
+                centro={<>
+                  <span className="text-[10px] font-semibold uppercase tracking-wide text-secondary">Total</span>
+                  <span className="fa-amount text-base text-primary">{fmtCorto(total)}</span>
+                </>}
+              />
+              <Leyenda datos={porciones} fmt={fmtCorto} activo={filtroCat} onElegir={k => setFiltroCat(f => (f === k ? null : k))} />
+            </div>
+          </section>
+
+          <section className="fa-card p-5">
+            <Titulo titulo="Gasto por día" sub={promedioDia != null ? `Promedio ${fmtARS(promedioDia)} por día` : 'Según la fecha de cada gasto'} />
+            <div className="mt-4 h-[170px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={porDia} margin={{ top: 4, right: 4, bottom: 0, left: -18 }}>
+                  <CartesianGrid stroke="var(--border-color)" strokeDasharray="3 3" vertical={false} />
+                  <XAxis dataKey="etiqueta" tick={{ fill: 'var(--text-muted)', fontSize: 10 }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
+                  <YAxis tick={{ fill: 'var(--text-muted)', fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={(v: number) => fmtK(v)} />
+                  <Tooltip contentStyle={tooltipStyle} cursor={{ fill: 'var(--bg-alternate)' }} formatter={(v: number) => [fmtARS(v), 'Gastado']} />
+                  {promedioDia != null && <ReferenceLine y={promedioDia} stroke="var(--accent-warning)" strokeDasharray="4 4" />}
+                  <Bar dataKey="monto" radius={[4, 4, 0, 0]}>
+                    {porDia.map(d => <Cell key={d.fecha} fill={d.fecha === diaMax ? 'var(--accent-negative)' : 'var(--accent-secondary)'} />)}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* monedas */}
+            <div className="mt-4 border-t border-line pt-3">
+              <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-secondary">Cómo pagaste</p>
+              <div className="flex flex-wrap gap-2">
+                {porMoneda.map(m => (
+                  <div key={m.codigo} className="fa-lift rounded-xl border border-line bg-alternate px-3 py-2">
+                    <p className="text-xs font-semibold text-primary">{getMoneda(m.codigo).bandera} {m.codigo} <span className="font-normal text-muted">· {total > 0 ? Math.round((m.ars / total) * 100) : 0}%</span></p>
+                    <p className="fa-amount text-sm text-primary">{fmtMonedaOriginal(m.original, m.codigo)}</p>
+                    {m.codigo !== 'ARS' && <p className="text-[10px] text-muted">≈ {fmtARS(m.ars)}</p>}
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+            </div>
+          </section>
         </div>
       )}
 
@@ -611,7 +675,10 @@ export default function ViajeDetallePage() {
 
       {/* Lista de gastos */}
       <div className="fa-card overflow-hidden">
-        <h2 className="border-b p-5 pb-3 text-xs font-bold text-primary">Gastos</h2>
+        <h2 className="border-b p-5 pb-3 text-xs font-bold text-primary">
+          Gastos{filtroCat ? ` · ${getCategoriaViaje(filtroCat).emoji} ${getCategoriaViaje(filtroCat).label}` : ''}
+          <span className="ml-2 font-normal text-muted">{gastosVisibles.length}</span>
+        </h2>
 
         {gastos.length === 0 ? (
           <p className="p-8 text-center text-xs text-secondary">
@@ -619,13 +686,13 @@ export default function ViajeDetallePage() {
           </p>
         ) : (
           <ul>
-            {gastos.map(g => {
+            {gastosVisibles.map(g => {
               const cat = getCategoriaViaje(g.categoria)
               const enOtraMoneda = g.moneda !== 'ARS'
               return (
                 <li
                   key={g.id}
-                  className="flex items-center gap-3 border-b px-5 py-3 last:border-b-0"
+                  className="flex items-center gap-3 border-b px-5 py-3 transition-colors last:border-b-0 hover:bg-alternate"
                 >
                   <span className="text-lg">{cat.emoji}</span>
 

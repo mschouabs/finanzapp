@@ -3,9 +3,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import {
-  ArrowDownRight, ArrowRight, ArrowUpRight, Check, ChevronRight, Coins, Eye, EyeOff,
+  ArrowDownRight, ArrowLeftRight, ArrowRight, ArrowUpRight, Check, ChevronRight, Coins, Eye, EyeOff,
   GripVertical, Landmark, LineChart, Pencil, Plus, Trash2, Wallet, X,
 } from 'lucide-react'
+import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { BarraApilada, Dona, Leyenda, PALETA, Titulo, fmtK, tooltipStyle, type Porcion } from '@/components/ui/Piezas'
+import { Modal } from '@/components/tarjetas/Modales'
 import { createClient } from '@/lib/supabase'
 import { COLORES_MARCA, marcaDeMedio, normalizar } from '@/lib/tarjetas'
 import {
@@ -96,6 +99,9 @@ export default function BilleterasPage() {
   const [lineas, setLineas] = useState<LineaSaldo[]>([])
   const [cot, setCot] = useState<Cotizaciones>({ dolar: null, btcUsd: null })
   const [anterior, setAnterior] = useState<number | null>(null)
+  const [historia, setHistoria] = useState<{ mes: string; total: number }[]>([])
+  const [focoApp, setFocoApp] = useState<string | null>(null)
+  const [transfiriendo, setTransfiriendo] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [oculto, setOculto] = useState(false)
@@ -108,13 +114,15 @@ export default function BilleterasPage() {
 
   const cargar = useCallback(async () => {
     const supabase = createClient()
-    const [{ data: ls, error: e1 }, { data: prev }] = await Promise.all([
+    const [{ data: ls, error: e1 }, { data: prev }, { data: hist }] = await Promise.all([
       supabase.from('inversiones').select('*'),
       supabase.from('patrimonio_mensual').select('total_ars').eq('mes', mesAnteriorClave()).maybeSingle(),
+      supabase.from('patrimonio_mensual').select('mes, total_ars').order('mes', { ascending: true }).limit(24),
     ])
     if (e1) setError('No se pudieron cargar los saldos.')
     setLineas((ls ?? []) as LineaSaldo[])
     setAnterior(prev ? Number(prev.total_ars) : null)
+    setHistoria(((hist ?? []) as { mes: string; total_ars: number }[]).map(h => ({ mes: h.mes, total: Number(h.total_ars) })))
     setLoading(false)
   }, [])
 
@@ -160,6 +168,40 @@ export default function BilleterasPage() {
   const variacion = anterior ? ((tot.total - anterior) / Math.abs(anterior)) * 100 : null
   const pctLiq = tot.total > 0 ? Math.round((tot.liquido / tot.total) * 100) : 0
   const pctInv = 100 - pctLiq
+
+  /* distribución por app (todas las cuentas e inversiones) */
+  const porApp: Porcion[] = [...liquidas, ...invertidas]
+    .filter(g => g.total > 0)
+    .sort((a, b) => b.total - a.total)
+    .map((g, i) => ({ key: g.app, label: g.nombre, valor: g.total, color: colorApp(g.app) !== '#6E7681' ? colorApp(g.app) : PALETA[i % PALETA.length] }))
+
+  /* exposición por moneda: pesos vs dólares vs cripto */
+  const exposicion: Porcion[] = (() => {
+    let ars = 0, usd = 0, cripto = 0
+    for (const l of lineas) {
+      const v = aPesos(l, cot)
+      if (v <= 0) continue
+      if (l.moneda === 'BTC' || l.tipo === 'cripto') cripto += v
+      else if (l.moneda === 'USD') usd += v
+      else ars += v
+    }
+    return [
+      { key: 'ARS', label: 'Pesos', valor: ars, color: 'var(--accent-secondary)' },
+      { key: 'USD', label: 'Dólares', valor: usd, color: 'var(--accent-positive)' },
+      { key: 'CRIPTO', label: 'Cripto', valor: cripto, color: '#F7931A' },
+    ]
+  })()
+  const totalExpo = exposicion.reduce((s, e) => s + e.valor, 0)
+  const pctPesos = totalExpo > 0 ? (exposicion[0].valor / totalExpo) * 100 : 0
+  const semaforo = pctPesos > 70
+    ? { color: 'var(--accent-negative)', texto: 'Mucho en pesos: la inflación se lo come. Pensá en pasar una parte a dólares.' }
+    : pctPesos > 40
+    ? { color: 'var(--riesgo-medio)', texto: 'Mitad y mitad. Razonable, pero ojo con la plata en pesos que no rinde.' }
+    : { color: 'var(--accent-positive)', texto: 'Buena cobertura: la mayor parte está en moneda dura.' }
+
+  const serieHistoria = historia.length && historia[historia.length - 1].mes === mesActualClave()
+    ? historia.map(h => (h.mes === mesActualClave() ? { ...h, total: Math.round(tot.total) } : h))
+    : [...historia, { mes: mesActualClave(), total: Math.round(tot.total) }]
 
   /* ── acciones ─────────────────────────── */
 
@@ -234,6 +276,21 @@ export default function BilleterasPage() {
     cargar()
   }
 
+  async function transferir(desdeId: string, haciaId: string, sale: number, llega: number): Promise<string | null> {
+    const supabase = createClient()
+    const { error: e1 } = await supabase.rpc('ajustar_saldo', { p_id: desdeId, p_delta: -sale })
+    if (e1) return 'No se pudo descontar de la cuenta de origen.'
+    const { error: e2 } = await supabase.rpc('ajustar_saldo', { p_id: haciaId, p_delta: llega })
+    if (e2) {
+      /* si no se pudo acreditar, devolvemos la plata al origen */
+      await supabase.rpc('ajustar_saldo', { p_id: desdeId, p_delta: sale })
+      return 'No se pudo acreditar en la cuenta de destino. No se movió nada.'
+    }
+    setTransfiriendo(false)
+    cargar()
+    return null
+  }
+
   const abrirAgregar = (app = '') => {
     setForm(f => ({ ...f, app }))
     setShowForm(true)
@@ -252,8 +309,8 @@ export default function BilleterasPage() {
     const editandoNombre = appEdit?.app === g.app
     return (
       <div
-        className="fa-card flex h-full flex-col p-4"
-        style={arrastrando ? { boxShadow: '0 18px 40px rgba(0,0,0,.35)', outline: '2px solid var(--accent-positive)' } : undefined}
+        className={`fa-card flex h-full flex-col p-4 ${arrastrando ? '' : 'fa-lift'}`}
+        style={focoApp === g.app && !arrastrando ? { outline: '2px solid var(--accent-secondary)', outlineOffset: 2 } : arrastrando ? { boxShadow: '0 18px 40px rgba(0,0,0,.35)', outline: '2px solid var(--accent-positive)' } : undefined}
       >
         {/* cabecera: manija + nombre + lápiz */}
         <div className="flex items-center gap-2">
@@ -363,12 +420,21 @@ export default function BilleterasPage() {
           <h1 className="text-2xl font-extrabold text-primary">Billeteras</h1>
           <p className="mt-1 text-sm text-secondary">Dónde está tu plata. Cuentas, dólares e inversiones.</p>
         </div>
-        <button
-          onClick={() => (showForm ? setShowForm(false) : abrirAgregar())}
-          className="flex min-h-[44px] items-center gap-1.5 rounded-xl bg-confirm px-4 py-2 text-sm font-semibold text-white hover:bg-confirm-hover"
-        >
-          <Plus size={16} strokeWidth={2.5} /> Agregar saldo
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => setTransfiriendo(true)}
+            disabled={lineas.length < 2}
+            className="flex min-h-[44px] items-center gap-1.5 rounded-xl border px-4 py-2 text-sm font-semibold text-primary hover:bg-alternate disabled:opacity-40"
+          >
+            <ArrowLeftRight size={16} /> Transferir
+          </button>
+          <button
+            onClick={() => (showForm ? setShowForm(false) : abrirAgregar())}
+            className="flex min-h-[44px] items-center gap-1.5 rounded-xl bg-confirm px-4 py-2 text-sm font-semibold text-white hover:bg-confirm-hover"
+          >
+            <Plus size={16} strokeWidth={2.5} /> Agregar saldo
+          </button>
+        </div>
       </div>
 
       {error && <p className="text-sm text-negative">{error}</p>}
@@ -425,6 +491,78 @@ export default function BilleterasPage() {
           <li className="flex items-center gap-2"><Coins size={15} /> {monedas} monedas</li>
         </ul>
       </section>
+
+      {/* Distribución, exposición y evolución */}
+      {tot.total > 0 && (
+        <div className="grid gap-5 xl:grid-cols-3">
+          <section className="fa-card p-5">
+            <Titulo titulo="Dónde está tu plata" sub="Tocá una app para resaltarla abajo" />
+            <div className="mt-4 flex flex-col items-center gap-3 sm:flex-row sm:items-start xl:flex-col xl:items-center">
+              <Dona
+                datos={porApp}
+                size={160}
+                activo={focoApp}
+                onElegir={k => setFocoApp(f => (f === k ? null : k))}
+                centro={<>
+                  <span className="text-[10px] font-semibold uppercase tracking-wide text-secondary">Total</span>
+                  <span className="fa-amount text-base text-primary">{oculto ? OCULTO : fmtK(tot.total)}</span>
+                </>}
+              />
+              <Leyenda datos={porApp} fmt={n => (oculto ? OCULTO : fmtK(n))} activo={focoApp} onElegir={k => setFocoApp(f => (f === k ? null : k))} max={6} />
+            </div>
+          </section>
+
+          <section className="fa-card flex flex-col p-5">
+            <Titulo titulo="En qué moneda" sub="Cuánto de tu patrimonio está en pesos, dólares y cripto" />
+            <div className="mt-5">
+              <BarraApilada datos={exposicion} alto={14} />
+            </div>
+            <ul className="mt-4 space-y-2.5">
+              {exposicion.map(e => (
+                <li key={e.key} className="flex items-center gap-2 text-sm">
+                  <span className="h-2.5 w-2.5 rounded-full" style={{ background: e.color }} />
+                  <span className="flex-1 text-secondary">{e.label}</span>
+                  <span className="fa-amount text-primary">{oculto ? OCULTO : fmtK(e.valor)}</span>
+                  <span className="w-10 text-right text-xs font-semibold text-muted">{totalExpo > 0 ? Math.round((e.valor / totalExpo) * 100) : 0}%</span>
+                </li>
+              ))}
+            </ul>
+            <div className="mt-auto flex items-start gap-2 rounded-xl p-3 pt-3 text-xs" style={{ background: `color-mix(in srgb, ${semaforo.color} 12%, transparent)`, marginTop: 16 }}>
+              <span className="mt-0.5 h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: semaforo.color }} />
+              <span className="text-primary">{semaforo.texto}</span>
+            </div>
+          </section>
+
+          <section className="fa-card flex flex-col p-5">
+            <Titulo titulo="Evolución" sub="Tu patrimonio financiero, mes a mes" />
+            {serieHistoria.length >= 2 ? (
+              <div className="mt-4 h-[190px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={serieHistoria} margin={{ top: 6, right: 6, bottom: 0, left: -14 }}>
+                    <defs>
+                      <linearGradient id="gradPatrimonio" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="var(--accent-positive)" stopOpacity={0.35} />
+                        <stop offset="100%" stopColor="var(--accent-positive)" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid stroke="var(--border-color)" strokeDasharray="3 3" vertical={false} />
+                    <XAxis dataKey="mes" tickFormatter={etiquetaMesCorta} tick={{ fill: 'var(--text-muted)', fontSize: 10 }} axisLine={false} tickLine={false} />
+                    <YAxis tickFormatter={(v: number) => (oculto ? '' : fmtK(v))} tick={{ fill: 'var(--text-muted)', fontSize: 10 }} axisLine={false} tickLine={false} />
+                    <Tooltip contentStyle={tooltipStyle} labelFormatter={etiquetaMesCorta} formatter={(v: number) => [oculto ? OCULTO : fmtARS(v), 'Patrimonio']} />
+                    <Area type="monotone" dataKey="total" stroke="var(--accent-positive)" strokeWidth={2.5} fill="url(#gradPatrimonio)" dot={{ r: 3 }} />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            ) : (
+              <div className="flex flex-1 flex-col items-center justify-center py-8 text-center">
+                <LineChart size={28} className="text-muted" />
+                <p className="mt-2 text-sm text-secondary">Guardé la foto de este mes.</p>
+                <p className="text-xs text-muted">Desde el mes que viene vas a ver la curva.</p>
+              </div>
+            )}
+          </section>
+        </div>
+      )}
 
       {/* Formulario */}
       {showForm && (
@@ -516,7 +654,126 @@ export default function BilleterasPage() {
           Ver análisis completo <ArrowRight size={15} />
         </Link>
       </section>
+
+      {transfiriendo && (
+        <Transferir lineas={lineas} cot={cot} onTransferir={transferir} onCerrar={() => setTransfiriendo(false)} />
+      )}
     </div>
+  )
+}
+
+/* ── helpers ─────────────────────────────── */
+
+const MESES_CORTO = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
+const etiquetaMesCorta = (k: string) => `${MESES_CORTO[Number(k.slice(5, 7)) - 1]} '${k.slice(2, 4)}`
+const mesActualClave = () => {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+}
+
+/* ── Transferir entre cuentas ────────────── */
+
+function Transferir({ lineas, cot, onTransferir, onCerrar }: {
+  lineas: LineaSaldo[]
+  cot: Cotizaciones
+  onTransferir: (desde: string, hacia: string, sale: number, llega: number) => Promise<string | null>
+  onCerrar: () => void
+}) {
+  const ordenadas = [...lineas].sort((a, b) => (a.etiqueta || a.app).localeCompare(b.etiqueta || b.app))
+  const [desde, setDesde] = useState(ordenadas.find(l => l.es_disponible)?.id ?? ordenadas[0]?.id ?? '')
+  const [hacia, setHacia] = useState(ordenadas.find(l => l.id !== desde)?.id ?? '')
+  const [sale, setSale] = useState('')
+  const [llega, setLlega] = useState('')
+  const [llegaManual, setLlegaManual] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [enviando, setEnviando] = useState(false)
+
+  const lDesde = lineas.find(l => l.id === desde)
+  const lHacia = lineas.find(l => l.id === hacia)
+  const mismaMoneda = lDesde?.moneda === lHacia?.moneda
+
+  /* lo que llega se calcula solo con la cotización del día (editable) */
+  const sugerido = (() => {
+    const m = Number(sale.replace(',', '.'))
+    if (!lDesde || !lHacia || !m) return ''
+    if (mismaMoneda) return String(m)
+    const enPesos = aPesos({ moneda: lDesde.moneda, monto: m }, cot)
+    const unidad = aPesos({ moneda: lHacia.moneda, monto: 1 }, cot)
+    const r = unidad > 0 ? enPesos / unidad : 0
+    return lHacia.moneda === 'BTC' ? r.toFixed(8) : r.toFixed(2)
+  })()
+  const valorLlega = llegaManual ? llega : sugerido
+
+  const nombre = (l: LineaSaldo) => `${l.etiqueta || l.app} · ${l.nombre} (${fmtNativo(l)})`
+
+  async function confirmar() {
+    const s = Number(sale.replace(',', '.'))
+    const ll = Number(String(valorLlega).replace(',', '.'))
+    if (!desde || !hacia || desde === hacia) return setError('Elegí dos cuentas distintas.')
+    if (!s || s <= 0) return setError('Poné cuánto sale.')
+    if (!ll || ll <= 0) return setError('Poné cuánto llega.')
+    setEnviando(true)
+    const e = await onTransferir(desde, hacia, s, ll)
+    setEnviando(false)
+    if (e) setError(e)
+  }
+
+  const input = 'w-full rounded-lg border bg-field px-3 py-2.5 text-sm text-primary'
+  const label = 'mb-1 block text-xs font-semibold text-secondary'
+
+  return (
+    <Modal titulo="Transferir entre cuentas" onCerrar={onCerrar}>
+      <div className="space-y-4">
+        <div>
+          <label className={label} htmlFor="tr-desde">Sale de</label>
+          <select id="tr-desde" value={desde} onChange={e => { setDesde(e.target.value); if (e.target.value === hacia) setHacia('') }} className={input}>
+            {ordenadas.map(l => <option key={l.id} value={l.id}>{nombre(l)}</option>)}
+          </select>
+        </div>
+        <div className="flex justify-center">
+          <button type="button" aria-label="Invertir"
+            onClick={() => { const d = desde; setDesde(hacia); setHacia(d) }}
+            className="rounded-full border p-2 text-secondary hover:bg-alternate hover:text-primary">
+            <ArrowLeftRight size={16} className="rotate-90" />
+          </button>
+        </div>
+        <div>
+          <label className={label} htmlFor="tr-hacia">Llega a</label>
+          <select id="tr-hacia" value={hacia} onChange={e => setHacia(e.target.value)} className={input}>
+            <option value="">Elegí una cuenta…</option>
+            {ordenadas.filter(l => l.id !== desde).map(l => <option key={l.id} value={l.id}>{nombre(l)}</option>)}
+          </select>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div>
+            <label className={label} htmlFor="tr-sale">Monto que sale ({lDesde?.moneda ?? ''})</label>
+            <input id="tr-sale" type="number" inputMode="decimal" autoFocus value={sale} onChange={e => setSale(e.target.value)} className={input} />
+          </div>
+          <div>
+            <label className={label} htmlFor="tr-llega">Monto que llega ({lHacia?.moneda ?? ''})</label>
+            <input id="tr-llega" type="number" inputMode="decimal" value={valorLlega}
+              onChange={e => { setLlegaManual(true); setLlega(e.target.value) }} className={input} />
+            {!mismaMoneda && lHacia && (
+              <p className="mt-1 text-[11px] text-muted">
+                Calculado con la cotización de hoy. Si te dieron otro cambio, corregilo.
+                {llegaManual && <button type="button" onClick={() => setLlegaManual(false)} className="ml-1 underline">Recalcular</button>}
+              </p>
+            )}
+          </div>
+        </div>
+        {lDesde && Number(sale) > Number(lDesde.monto) && (
+          <p className="text-xs text-negative">Esa cuenta tiene menos de lo que querés mover: va a quedar en negativo.</p>
+        )}
+      </div>
+      {error && <p className="mt-3 text-sm text-negative">{error}</p>}
+      <div className="mt-5 flex gap-2">
+        <button onClick={confirmar} disabled={enviando}
+          className="rounded-lg bg-confirm px-5 py-2.5 text-sm font-semibold text-white hover:bg-confirm-hover disabled:opacity-50">
+          {enviando ? 'Transfiriendo…' : 'Confirmar'}
+        </button>
+        <button onClick={onCerrar} className="rounded-lg px-4 py-2.5 text-sm text-secondary hover:bg-alternate">Cancelar</button>
+      </div>
+    </Modal>
   )
 }
 

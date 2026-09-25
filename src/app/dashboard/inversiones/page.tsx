@@ -1,288 +1,418 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import Link from 'next/link'
+import { Coins, LineChart as IconoLinea, Pencil, Percent, PiggyBank, Plus, RefreshCw, Trash2, TrendingUp, Wallet } from 'lucide-react'
+import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { createClient } from '@/lib/supabase'
+import { aPesos, esLiquida, traerCotizaciones, type Cotizaciones, type LineaSaldo } from '@/lib/patrimonio'
+import { Dona, Kpi, Leyenda, PALETA, Segmentado, Titulo, fmtK, fmtPesos, tooltipStyle, type Porcion } from '@/components/ui/Piezas'
+import { Modal } from '@/components/tarjetas/Modales'
 
-interface Inversion {
-  id: string
-  nombre: string
-  app: string
-  tipo: string
-  moneda: string
-  monto: number
-  tasa_anual: number
-  nivel_riesgo: 'conservador' | 'moderado' | 'alto'
-  etiqueta?: string | null
+type Riesgo = 'conservador' | 'moderado' | 'alto'
+
+const RIESGO: Record<Riesgo, { label: string; tono: string; tint: string; emoji: string }> = {
+  conservador: { label: 'Conservador', tono: 'var(--riesgo-bajo)', tint: 'var(--riesgo-bajo-tint)', emoji: '🟢' },
+  moderado: { label: 'Moderado', tono: 'var(--riesgo-medio)', tint: 'var(--riesgo-medio-tint)', emoji: '🟡' },
+  alto: { label: 'Alto riesgo', tono: 'var(--riesgo-alto)', tint: 'var(--riesgo-alto-tint)', emoji: '🔴' },
 }
 
-function fmtBtc(n: number) {
-  return `₿ ${n.toLocaleString('es-AR', { maximumFractionDigits: 8 })}`
+const TIPOS: Record<string, string> = {
+  efectivo: 'Disponible', ahorro: 'Caja de ahorro', cuenta: 'Cuenta', divisa: 'Dólares',
+  fondo_comun: 'FCI / remunerada', fondo: 'FCI', plazo_fijo: 'Plazo fijo',
+  acciones: 'Acciones', cedear: 'CEDEARs', cripto: 'Cripto',
 }
+const TIPOS_FORM = ['fondo_comun', 'plazo_fijo', 'acciones', 'cedear', 'cripto', 'divisa', 'efectivo']
 
-function fmt(n: number) {
-  if (Math.abs(n) >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`
-  if (Math.abs(n) >= 1_000) return `$${(n / 1_000).toFixed(0)}K`
-  return `$${n.toLocaleString('es-AR', { maximumFractionDigits: 0 })}`
-}
+const riesgoDe = (l: LineaSaldo): Riesgo =>
+  l.nivel_riesgo === 'alto' || l.nivel_riesgo === 'moderado' ? l.nivel_riesgo : 'conservador'
 
-/* Cada nivel de riesgo se identifica por su color, tomado de variables de
-   tema para que siga funcionando en oscuro y en rosa. */
-const RIESGO_CONFIG = {
-  conservador: { label: 'Conservador', tono: 'var(--riesgo-bajo)',  tint: 'var(--riesgo-bajo-tint)',  emoji: '🟢' },
-  moderado:    { label: 'Moderado',    tono: 'var(--riesgo-medio)', tint: 'var(--riesgo-medio-tint)', emoji: '🟡' },
-  alto:        { label: 'Alto riesgo', tono: 'var(--riesgo-alto)',  tint: 'var(--riesgo-alto-tint)',  emoji: '🔴' },
-}
+const fmtNativo = (l: Pick<LineaSaldo, 'moneda' | 'monto'>) =>
+  l.moneda === 'BTC' ? `₿ ${Number(l.monto).toLocaleString('es-AR', { maximumFractionDigits: 8 })}`
+  : l.moneda === 'USD' ? `US$ ${Number(l.monto).toLocaleString('es-AR', { maximumFractionDigits: 2 })}`
+  : fmtPesos(Number(l.monto))
 
-const APPS = ['MercadoPago', 'Naranja X', 'Uala', 'Brubank', 'IOL', 'Binance', 'BingX', 'Lemon', 'Otro']
+const HORIZONTES = [{ key: '3', label: '3 meses' }, { key: '6', label: '6 meses' }, { key: '12', label: '12 meses' }] as const
 
-export default function InversionesPage() {
-  const [inversiones, setInversiones] = useState<Inversion[]>([])
+export default function PortfolioPage() {
+  const [lineas, setLineas] = useState<LineaSaldo[]>([])
+  const [cot, setCot] = useState<Cotizaciones>({ dolar: null, btcUsd: null })
+  const [cotAt, setCotAt] = useState<Date | null>(null)
   const [loading, setLoading] = useState(true)
-  const [dolar, setDolar] = useState<number | null>(null)
-  const [btcUsd, setBtcUsd] = useState<number | null>(null)
-  const [cotizacionesAt, setCotizacionesAt] = useState<Date | null>(null)
-  const [showForm, setShowForm] = useState(false)
-  const [form, setForm] = useState({
-    nombre: '', app: 'MercadoPago', tipo: 'fondo', moneda: 'ARS',
-    monto: '', tasa_anual: '', nivel_riesgo: 'conservador' as 'conservador' | 'moderado' | 'alto',
-  })
+  const [alcance, setAlcance] = useState<'inversiones' | 'todo'>('inversiones')
+  const [horizonte, setHorizonte] = useState<typeof HORIZONTES[number]['key']>('12')
+  const [focoRiesgo, setFocoRiesgo] = useState<string | null>(null)
+  const [focoTipo, setFocoTipo] = useState<string | null>(null)
+  const [editando, setEditando] = useState<LineaSaldo | 'nuevo' | null>(null)
 
-  useEffect(() => { loadData(); fetchCotizaciones() }, [])
-
-  async function loadData() {
+  const cargar = useCallback(async () => {
     const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-    const { data } = await supabase.from('inversiones').select('*').eq('user_id', user.id).order('nivel_riesgo')
-    setInversiones(data || [])
+    const { data } = await supabase.from('inversiones').select('*')
+    setLineas((data ?? []) as LineaSaldo[])
     setLoading(false)
-  }
+  }, [])
 
-  /* Trae USD blue y BTC/USD en paralelo para que el portfolio se actualice
-     solo, sin depender de que alguien cargue el valor a mano cada mes. */
-  async function fetchCotizaciones() {
-    try {
-      const [resDolar, resCrypto] = await Promise.all([
-        fetch('/api/dolar'),
-        fetch('/api/crypto?ids=bitcoin'),
-      ])
-      const [dolarJson, cryptoJson] = await Promise.all([resDolar.json(), resCrypto.json()])
-      setDolar(dolarJson.blue ?? null)
-      setBtcUsd(cryptoJson?.bitcoin?.usd ?? null)
-      setCotizacionesAt(new Date())
-    } catch {}
-  }
+  const actualizarCot = useCallback(() => {
+    traerCotizaciones().then(c => { setCot(c); setCotAt(new Date()) })
+  }, [])
 
-  async function addInversion() {
-    if (!form.nombre || !form.monto) return
-    const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-    await supabase.from('inversiones').insert({
-      user_id: user.id,
-      nombre: form.nombre,
-      app: form.app,
-      tipo: form.tipo,
-      moneda: form.moneda,
-      monto: Number(form.monto),
-      tasa_anual: Number(form.tasa_anual || '0'),
-      nivel_riesgo: form.nivel_riesgo,
-    })
-    setForm({ nombre: '', app: 'MercadoPago', tipo: 'fondo', moneda: 'ARS', monto: '', tasa_anual: '', nivel_riesgo: 'conservador' })
-    setShowForm(false)
-    loadData()
-  }
+  useEffect(() => { cargar(); actualizarCot() }, [cargar, actualizarCot])
 
-  async function deleteInversion(id: string) {
-    const supabase = createClient()
-    await supabase.from('inversiones').delete().eq('id', id)
-    loadData()
-  }
-
-  function toARS(inv: Inversion) {
-    if (inv.moneda === 'BTC' && btcUsd && dolar) return inv.monto * btcUsd * dolar
-    if (inv.moneda === 'USD' && dolar) return inv.monto * dolar
-    return inv.monto
-  }
-
-  const totalARS = inversiones.reduce((s, inv) => s + toARS(inv), 0)
-
-  const byRiesgo = {
-    conservador: inversiones.filter(i => i.nivel_riesgo === 'conservador'),
-    moderado: inversiones.filter(i => i.nivel_riesgo === 'moderado'),
-    alto: inversiones.filter(i => i.nivel_riesgo === 'alto'),
-  }
-
-  if (loading) return (
-    <div className="flex items-center justify-center h-64">
-      <div className="text-muted animate-pulse text-lg">Cargando...</div>
-    </div>
+  const base = useMemo(
+    () => lineas.filter(l => Number(l.monto) !== 0 && (alcance === 'todo' || !esLiquida(l))),
+    [lineas, alcance]
   )
+  const valor = (l: LineaSaldo) => aPesos(l, cot)
+  const tna = (l: LineaSaldo) => Number(l.tasa_anual) || 0
+
+  const total = base.reduce((s, l) => s + valor(l), 0)
+  const rendMes = base.reduce((s, l) => s + valor(l) * (tna(l) / 100 / 12), 0)
+  const tnaPromedio = total > 0 ? base.reduce((s, l) => s + valor(l) * tna(l), 0) / total : 0
+
+  const porRiesgo: Porcion[] = (Object.keys(RIESGO) as Riesgo[]).map(r => ({
+    key: r, label: `${RIESGO[r].emoji} ${RIESGO[r].label}`, color: RIESGO[r].tono,
+    valor: base.filter(l => riesgoDe(l) === r).reduce((s, l) => s + valor(l), 0),
+  })).filter(p => p.valor > 0)
+
+  const porTipo: Porcion[] = Object.entries(
+    base.reduce<Record<string, number>>((acc, l) => {
+      const t = TIPOS[l.tipo] ? l.tipo : 'otro'
+      acc[t] = (acc[t] ?? 0) + valor(l)
+      return acc
+    }, {})
+  )
+    .sort((a, b) => b[1] - a[1])
+    .map(([key, v], i) => ({ key, label: TIPOS[key] ?? 'Otro', valor: v, color: PALETA[i % PALETA.length] }))
+
+  /* proyección con interés compuesto mensual, usando la TNA de cada activo */
+  const meses = Number(horizonte)
+  const proyeccion = Array.from({ length: meses + 1 }, (_, m) => {
+    const d = new Date()
+    d.setMonth(d.getMonth() + m)
+    return {
+      mes: m === 0 ? 'Hoy' : d.toLocaleDateString('es-AR', { month: 'short' }),
+      valor: Math.round(base.reduce((s, l) => s + valor(l) * Math.pow(1 + tna(l) / 100 / 12, m), 0)),
+      sinRendir: Math.round(total),
+    }
+  })
+  const finalProy = proyeccion[proyeccion.length - 1]?.valor ?? 0
+
+  const visibles = base
+    .filter(l => !focoRiesgo || riesgoDe(l) === focoRiesgo)
+    .filter(l => !focoTipo || (TIPOS[l.tipo] ? l.tipo : 'otro') === focoTipo)
+
+  async function borrar(l: LineaSaldo) {
+    if (!window.confirm(`¿Borrar "${l.nombre}"?`)) return
+    const supabase = createClient()
+    await supabase.from('inversiones').delete().eq('id', l.id)
+    setEditando(null)
+    cargar()
+  }
+
+  async function guardar(d: DatosActivo): Promise<string | null> {
+    const supabase = createClient()
+    const fila = {
+      nombre: d.nombre.trim(), app: d.app.trim(), tipo: d.tipo, moneda: d.moneda,
+      monto: Number(d.monto), tasa_anual: Number(d.tasa || 0), nivel_riesgo: d.riesgo,
+    }
+    if (!fila.nombre || !fila.app) return 'Completá el nombre y la app.'
+    if (isNaN(fila.monto)) return 'El monto no es válido.'
+    if (editando && editando !== 'nuevo') {
+      const { error } = await supabase.from('inversiones').update(fila).eq('id', editando.id)
+      if (error) return 'No se pudo guardar.'
+    } else {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return 'Sesión vencida.'
+      const etiqueta = lineas.find(l => l.app === fila.app)?.etiqueta ?? null
+      const { error } = await supabase.from('inversiones').insert({ ...fila, user_id: user.id, etiqueta, es_disponible: false })
+      if (error) return 'No se pudo agregar.'
+    }
+    setEditando(null)
+    cargar()
+    return null
+  }
+
+  if (loading) {
+    return <div className="fa-card p-8 text-center"><p className="text-sm text-secondary">Cargando portfolio…</p></div>
+  }
+
+  const apps = Array.from(new Set(lineas.map(l => l.app))).sort()
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="flex flex-col gap-6">
+      {/* Encabezado */}
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-primary">Portfolio</h1>
-          <p className="text-secondary text-sm">Inversiones y activos</p>
+          <h1 className="text-2xl font-extrabold text-primary">Portfolio</h1>
+          <p className="mt-1 text-sm text-secondary">Cuánto tenés invertido, cuánto rinde y cuánto riesgo estás corriendo.</p>
         </div>
-        <div className="flex items-center gap-3">
-          {dolar && (
-            <div className="text-right bg-card border border-line rounded-xl px-3 py-2">
-              <p className="text-xs text-muted">USD Blue</p>
-              <p className="text-sm font-bold text-info">${dolar.toFixed(0)}</p>
-            </div>
-          )}
-          {btcUsd && (
-            <div className="text-right bg-card border border-line rounded-xl px-3 py-2">
-              <p className="text-xs text-muted">BTC</p>
-              <p className="text-sm font-bold text-info">u$s {btcUsd.toLocaleString('es-AR', { maximumFractionDigits: 0 })}</p>
-            </div>
-          )}
-          <div className="text-right bg-card border border-line rounded-xl px-3 py-2">
-            <p className="text-xs text-muted">Total ARS</p>
-            <p className="text-sm font-bold text-primary">{fmt(totalARS)}</p>
-          </div>
+        <div className="flex flex-wrap items-center gap-2">
+          {cot.dolar && <Chip label="Dólar blue" valor={fmtPesos(cot.dolar)} />}
+          {cot.btcUsd && <Chip label="BTC" valor={`US$ ${Math.round(cot.btcUsd).toLocaleString('es-AR')}`} />}
+          <button onClick={actualizarCot} aria-label="Actualizar cotizaciones" title={cotAt ? `Actualizado ${cotAt.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}` : ''}
+            className="rounded-xl border p-2.5 text-secondary hover:bg-alternate hover:text-primary">
+            <RefreshCw size={15} />
+          </button>
+          <button onClick={() => setEditando('nuevo')}
+            className="flex min-h-[44px] items-center gap-1.5 rounded-xl bg-confirm px-4 py-2 text-sm font-semibold text-white hover:bg-confirm-hover">
+            <Plus size={16} strokeWidth={2.5} /> Agregar activo
+          </button>
         </div>
       </div>
-      {cotizacionesAt && (
-        <p className="text-xs text-muted -mt-4">
-          Cotizaciones actualizadas {cotizacionesAt.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}
-          {' · '}
-          <button onClick={fetchCotizaciones} className="underline hover:text-secondary">actualizar</button>
-        </p>
-      )}
 
-      {/* Add button */}
-      <div className="flex justify-end">
-        <button onClick={() => setShowForm(!showForm)}
-          className="bg-confirm text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-confirm-hover transition-colors">
-          + Agregar activo
-        </button>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <Segmentado
+          opciones={[{ key: 'inversiones', label: 'Solo inversiones' }, { key: 'todo', label: 'Todo (con cuentas)' }] as const}
+          valor={alcance} onCambio={v => { setAlcance(v); setFocoRiesgo(null); setFocoTipo(null) }}
+        />
+        <Link href="/dashboard/billeteras" className="text-xs font-semibold text-secondary underline underline-offset-2 hover:text-primary">
+          Ver por billetera →
+        </Link>
       </div>
 
-      {/* Add form */}
-      {showForm && (
-        <div className="bg-card rounded-2xl border border-line p-5">
-          <h3 className="text-sm font-semibold text-primary mb-4">Nuevo activo de inversión</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            <input placeholder="Nombre (ej. PF Naranja X)" value={form.nombre}
-              onChange={e => setForm(p => ({ ...p, nombre: e.target.value }))}
-              className="border border-line rounded-lg px-3 py-2 text-sm" />
-            <select value={form.app} onChange={e => setForm(p => ({ ...p, app: e.target.value }))}
-              className="border border-line rounded-lg px-3 py-2 text-sm">
-              {APPS.map(a => <option key={a} value={a}>{a}</option>)}
-            </select>
-            <select value={form.nivel_riesgo} onChange={e => setForm(p => ({ ...p, nivel_riesgo: e.target.value as 'conservador' | 'moderado' | 'alto' }))}
-              className="border border-line rounded-lg px-3 py-2 text-sm">
-              <option value="conservador">🟢 Conservador</option>
-              <option value="moderado">🟡 Moderado</option>
-              <option value="alto">🔴 Alto riesgo</option>
-            </select>
-            <input placeholder="Monto" type="number" value={form.monto}
-              onChange={e => setForm(p => ({ ...p, monto: e.target.value }))}
-              className="border border-line rounded-lg px-3 py-2 text-sm" />
-            <select value={form.moneda} onChange={e => setForm(p => ({ ...p, moneda: e.target.value }))}
-              className="border border-line rounded-lg px-3 py-2 text-sm">
-              <option value="ARS">ARS $</option>
-              <option value="USD">USD u$s</option>
-              <option value="BTC">BTC ₿ (cantidad, no dólares)</option>
-            </select>
-            <input placeholder="Tasa anual % (opcional)" type="number" value={form.tasa_anual}
-              onChange={e => setForm(p => ({ ...p, tasa_anual: e.target.value }))}
-              className="border border-line rounded-lg px-3 py-2 text-sm" />
-          </div>
-          <div className="flex gap-2 mt-4">
-            <button onClick={addInversion} className="bg-confirm text-white px-4 py-2 rounded-lg text-sm hover:bg-confirm-hover">Guardar</button>
-            <button onClick={() => setShowForm(false)} className="text-secondary px-4 py-2 rounded-lg text-sm hover:bg-alternate">Cancelar</button>
-          </div>
+      {base.length === 0 ? (
+        <div className="fa-card p-10 text-center">
+          <p className="text-4xl">📈</p>
+          <p className="mt-3 font-medium text-secondary">No hay inversiones cargadas</p>
+          <p className="mt-1 text-sm text-muted">Tocá “Agregar activo” para empezar.</p>
         </div>
-      )}
+      ) : (
+        <>
+          {/* KPIs */}
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <Kpi label="Total" valor={fmtK(total)} icono={<Wallet size={17} />} tono="var(--accent-positive)" sub={`${base.length} activos`} />
+            <Kpi label="Rinde por mes" valor={fmtK(rendMes)} icono={<PiggyBank size={17} />} tono="var(--accent-secondary)" sub="estimado con la TNA" />
+            <Kpi label="Rinde por año" valor={fmtK(rendMes * 12)} icono={<TrendingUp size={17} />} tono="var(--accent-violet)" sub="sin reinvertir" />
+            <Kpi label="TNA promedio" valor={`${tnaPromedio.toFixed(1).replace('.', ',')}%`} icono={<Percent size={17} />} tono="var(--accent-warning)" sub="ponderada por monto" />
+          </div>
 
-      {/* By risk level */}
-      {(['conservador', 'moderado', 'alto'] as const).map(nivel => {
-        const items = byRiesgo[nivel]
-        const cfg = RIESGO_CONFIG[nivel]
-        const subtotal = items.reduce((s, i) => s + toARS(i), 0)
-        const pct = totalARS > 0 ? Math.round((subtotal / totalARS) * 100) : 0
-        const rendMensual = items.reduce((s, i) => s + (toARS(i) * (i.tasa_anual / 100) / 12), 0)
-
-        if (items.length === 0 && !showForm) return null
-
-        return (
-          <div
-            key={nivel}
-            className="rounded-2xl border"
-            style={{ background: cfg.tint, borderColor: cfg.tono }}
-          >
-            <div className="p-5">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <span>{cfg.emoji}</span>
-                  <h2 className="font-semibold" style={{ color: cfg.tono }}>{cfg.label}</h2>
-                  <span
-                    className="text-xs px-2 py-0.5 rounded-full font-semibold"
-                    style={{ background: cfg.tint, color: cfg.tono, border: `1px solid ${cfg.tono}` }}
-                  >
-                    {pct}%
-                  </span>
-                </div>
-                <div className="text-right">
-                  <p className="fa-amount" style={{ color: cfg.tono }}>{fmt(subtotal)}</p>
-                  {rendMensual > 0 && (
-                    <p className="text-xs text-muted">~{fmt(rendMensual)}/mes estimado</p>
-                  )}
-                </div>
+          {/* Gráficos */}
+          <div className="grid gap-5 xl:grid-cols-3">
+            <section className="fa-card p-5">
+              <Titulo titulo="Riesgo" sub="Tocá para filtrar los activos" />
+              <div className="mt-4 flex flex-col items-center gap-3">
+                <Dona datos={porRiesgo} size={150} activo={focoRiesgo} onElegir={k => setFocoRiesgo(f => (f === k ? null : k))}
+                  centro={<><span className="text-[10px] font-semibold uppercase tracking-wide text-secondary">Total</span><span className="fa-amount text-base text-primary">{fmtK(total)}</span></>} />
+                <Leyenda datos={porRiesgo} fmt={fmtK} activo={focoRiesgo} onElegir={k => setFocoRiesgo(f => (f === k ? null : k))} />
               </div>
-              <div
-                className="h-1.5 rounded-full overflow-hidden"
-                style={{ background: 'var(--border-color)' }}
-              >
-                <div
-                  className="h-full rounded-full"
-                  style={{ width: `${pct}%`, background: cfg.tono }}
-                />
-              </div>
-            </div>
+            </section>
 
-            {items.length > 0 && (
-              <div className="border-t border-line divide-y divide-line">
-                {items.map(inv => {
-                  const arsVal = toARS(inv)
-                  const rendM = inv.tasa_anual > 0 ? arsVal * (inv.tasa_anual / 100) / 12 : 0
-                  return (
-                    <div key={inv.id} className="flex items-center justify-between px-5 py-3">
-                      <div>
-                        <p className="text-sm font-medium text-primary">{inv.nombre}</p>
-                        <p className="text-xs text-muted">{inv.etiqueta || inv.app} · {inv.moneda}</p>
+            <section className="fa-card p-5">
+              <Titulo titulo="Tipo de activo" sub="FCI, plazo fijo, cripto, CEDEARs…" />
+              <div className="mt-4 flex flex-col items-center gap-3">
+                <Dona datos={porTipo} size={150} activo={focoTipo} onElegir={k => setFocoTipo(f => (f === k ? null : k))}
+                  centro={<><span className="text-[10px] font-semibold uppercase tracking-wide text-secondary">Tipos</span><span className="fa-amount text-base text-primary">{porTipo.length}</span></>} />
+                <Leyenda datos={porTipo} fmt={fmtK} activo={focoTipo} onElegir={k => setFocoTipo(f => (f === k ? null : k))} max={6} />
+              </div>
+            </section>
+
+            <section className="fa-card flex flex-col p-5">
+              <Titulo titulo="Proyección" sub="Si dejás todo invertido con las tasas actuales"
+                derecha={<Segmentado opciones={HORIZONTES} valor={horizonte} onCambio={setHorizonte} />} />
+              <div className="mt-4 flex items-end justify-between gap-2">
+                <div>
+                  <p className="text-[11px] text-secondary">En {meses} meses tendrías</p>
+                  <p className="fa-amount text-2xl text-primary">{fmtK(finalProy)}</p>
+                </div>
+                <p className="rounded-full px-2.5 py-1 text-xs font-bold text-positive" style={{ background: 'var(--riesgo-bajo-tint)' }}>
+                  +{fmtK(finalProy - total)}
+                </p>
+              </div>
+              <div className="mt-3 h-[150px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={proyeccion} margin={{ top: 4, right: 4, bottom: 0, left: -14 }}>
+                    <defs>
+                      <linearGradient id="gradProy" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="var(--accent-violet)" stopOpacity={0.4} />
+                        <stop offset="100%" stopColor="var(--accent-violet)" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid stroke="var(--border-color)" strokeDasharray="3 3" vertical={false} />
+                    <XAxis dataKey="mes" tick={{ fill: 'var(--text-muted)', fontSize: 10 }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
+                    <YAxis domain={['dataMin', 'dataMax']} tickFormatter={(v: number) => fmtK(v)} tick={{ fill: 'var(--text-muted)', fontSize: 10 }} axisLine={false} tickLine={false} width={56} />
+                    <Tooltip contentStyle={tooltipStyle} formatter={(v: number, n: string) => [fmtPesos(v), n === 'valor' ? 'Con rendimiento' : 'Sin rendir']} />
+                    <Area type="monotone" dataKey="sinRendir" stroke="var(--text-muted)" strokeDasharray="4 4" fill="none" />
+                    <Area type="monotone" dataKey="valor" stroke="var(--accent-violet)" strokeWidth={2.5} fill="url(#gradProy)" />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            </section>
+          </div>
+
+          {/* Activos */}
+          <section className="flex flex-col gap-4 border-t border-line pt-5">
+            <Titulo
+              titulo="Tus activos"
+              sub={focoRiesgo || focoTipo ? 'Filtrado desde los gráficos' : 'Tocá un activo para editarlo'}
+              derecha={(focoRiesgo || focoTipo) ? (
+                <button onClick={() => { setFocoRiesgo(null); setFocoTipo(null) }} className="rounded-full border px-2.5 py-1 text-[11px] text-secondary hover:bg-alternate">
+                  Quitar filtros
+                </button>
+              ) : undefined}
+            />
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              {[...visibles].sort((a, b) => valor(b) - valor(a)).map(l => {
+                const r = RIESGO[riesgoDe(l)]
+                const v = valor(l)
+                const pct = total > 0 ? (v / total) * 100 : 0
+                return (
+                  <button key={l.id} onClick={() => setEditando(l)}
+                    className="fa-card fa-lift group relative flex flex-col overflow-hidden p-4 text-left">
+                    <span aria-hidden="true" className="absolute inset-y-0 left-0 w-1" style={{ background: r.tono }} />
+                    <div className="flex items-start gap-3">
+                      <IconoActivo l={l} />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold text-primary">{l.nombre}</p>
+                        <p className="truncate text-xs text-muted">{l.etiqueta || l.app} · {TIPOS[l.tipo] ?? l.tipo}</p>
                       </div>
-                      <div className="flex items-center gap-3">
-                        <div className="text-right">
-                          <p className="font-bold text-primary">
-                            {inv.moneda === 'BTC' ? fmtBtc(inv.monto) : inv.moneda === 'USD' ? `u$s ${inv.monto.toLocaleString()}` : fmt(inv.monto)}
-                          </p>
-                          {inv.moneda === 'BTC' && btcUsd && dolar && <p className="text-xs text-muted">≈ u$s {(inv.monto * btcUsd).toLocaleString('es-AR', { maximumFractionDigits: 0 })} · {fmt(arsVal)}</p>}
-                          {inv.moneda === 'USD' && dolar && <p className="text-xs text-muted">≈ {fmt(arsVal)}</p>}
-                          {rendM > 0 && <p className="text-xs text-positive">{inv.tasa_anual}% TNA</p>}
-                        </div>
-                        <button onClick={() => deleteInversion(inv.id)} className="text-muted hover:text-negative text-xl leading-none">×</button>
+                      <Pencil size={14} className="shrink-0 text-muted opacity-0 transition-opacity group-hover:opacity-100" />
+                    </div>
+                    <div className="mt-3 flex items-end justify-between gap-2">
+                      <div>
+                        <p className="fa-amount text-lg text-primary">{fmtNativo(l)}</p>
+                        {l.moneda !== 'ARS' && <p className="text-[11px] text-muted">≈ {fmtPesos(v)}</p>}
+                      </div>
+                      <div className="text-right">
+                        {tna(l) > 0 && <p className="text-xs font-semibold text-positive">{tna(l)}% TNA</p>}
+                        {tna(l) > 0 && <p className="text-[11px] text-muted">~{fmtK(v * tna(l) / 100 / 12)}/mes</p>}
                       </div>
                     </div>
-                  )
-                })}
-              </div>
-            )}
-          </div>
-        )
-      })}
+                    <div className="mt-3 flex items-center gap-2">
+                      <div className="h-1.5 flex-1 overflow-hidden rounded-full" style={{ background: 'var(--border-color)' }}>
+                        <div className="h-full rounded-full" style={{ width: `${pct}%`, background: r.tono }} />
+                      </div>
+                      <span className="text-[11px] font-semibold text-muted">{Math.round(pct)}%</span>
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+          </section>
+        </>
+      )}
 
-      {inversiones.length === 0 && !showForm && (
-        <div className="bg-card rounded-2xl p-10 border border-dashed border-line text-center">
-          <p className="text-4xl mb-3">📈</p>
-          <p className="text-secondary font-medium">No hay inversiones cargadas</p>
-          <p className="text-muted text-sm mt-1">Hacé click en "+ Agregar activo" para empezar</p>
-        </div>
+      {editando && (
+        <EditarActivo
+          inicial={editando === 'nuevo' ? undefined : editando}
+          apps={apps}
+          onGuardar={guardar}
+          onBorrar={editando !== 'nuevo' ? () => borrar(editando) : undefined}
+          onCerrar={() => setEditando(null)}
+        />
       )}
     </div>
+  )
+}
+
+function Chip({ label, valor }: { label: string; valor: string }) {
+  return (
+    <div className="rounded-xl border border-line bg-card px-3 py-1.5 text-right">
+      <p className="text-[10px] text-muted">{label}</p>
+      <p className="fa-amount text-sm text-primary">{valor}</p>
+    </div>
+  )
+}
+
+function IconoActivo({ l }: { l: LineaSaldo }) {
+  const base = 'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-sm font-bold'
+  if (l.moneda === 'BTC') return <span className={base} style={{ background: '#F7931A', color: '#fff' }}>₿</span>
+  if (l.tipo === 'cripto') return <span className={base} style={{ background: '#26A17B', color: '#fff' }}>₮</span>
+  if (l.moneda === 'USD') return <span className={base} style={{ background: 'var(--riesgo-bajo-tint)', color: 'var(--accent-positive)' }}>US$</span>
+  if (['acciones', 'cedear'].includes(l.tipo)) return <span className={base} style={{ background: 'var(--bg-alternate)', color: 'var(--accent-violet)' }}><IconoLinea size={16} /></span>
+  return <span className={base} style={{ background: 'var(--bg-alternate)', color: 'var(--accent-secondary)' }}><Coins size={16} /></span>
+}
+
+/* ── Alta / edición de un activo ─────────────────────────────────── */
+
+interface DatosActivo { nombre: string; app: string; tipo: string; moneda: string; monto: string; tasa: string; riesgo: Riesgo }
+
+function EditarActivo({ inicial, apps, onGuardar, onBorrar, onCerrar }: {
+  inicial?: LineaSaldo
+  apps: string[]
+  onGuardar: (d: DatosActivo) => Promise<string | null>
+  onBorrar?: () => void
+  onCerrar: () => void
+}) {
+  const [d, setD] = useState<DatosActivo>({
+    nombre: inicial?.nombre ?? '',
+    app: inicial?.app ?? '',
+    tipo: inicial?.tipo ?? 'fondo_comun',
+    moneda: inicial?.moneda ?? 'ARS',
+    monto: inicial ? String(Number(inicial.monto)) : '',
+    tasa: inicial?.tasa_anual ? String(inicial.tasa_anual) : '',
+    riesgo: inicial ? riesgoDe(inicial) : 'conservador',
+  })
+  const [error, setError] = useState<string | null>(null)
+  const [guardando, setGuardando] = useState(false)
+  const input = 'w-full rounded-lg border bg-field px-3 py-2.5 text-sm text-primary'
+  const label = 'mb-1 block text-xs font-semibold text-secondary'
+
+  async function guardar() {
+    setGuardando(true)
+    const e = await onGuardar(d)
+    setGuardando(false)
+    if (e) setError(e)
+  }
+
+  return (
+    <Modal titulo={inicial ? `Editar ${inicial.nombre}` : 'Nuevo activo'} onCerrar={onCerrar}>
+      <div className="grid grid-cols-2 gap-3">
+        <div className="col-span-2">
+          <label className={label} htmlFor="a-nombre">Nombre</label>
+          <input id="a-nombre" autoFocus value={d.nombre} onChange={e => setD({ ...d, nombre: e.target.value })} placeholder="Ej: Plazo fijo Naranja X" className={input} />
+        </div>
+        <div>
+          <label className={label} htmlFor="a-app">App o broker</label>
+          <input id="a-app" list="apps-portfolio" value={d.app} onChange={e => setD({ ...d, app: e.target.value })} placeholder="Ej: IOL" className={input} />
+          <datalist id="apps-portfolio">{apps.map(a => <option key={a} value={a} />)}</datalist>
+        </div>
+        <div>
+          <label className={label} htmlFor="a-tipo">Tipo</label>
+          <select id="a-tipo" value={d.tipo} onChange={e => setD({ ...d, tipo: e.target.value })} className={input}>
+            {Array.from(new Set([...TIPOS_FORM, d.tipo])).map(t => <option key={t} value={t}>{TIPOS[t] ?? t}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className={label} htmlFor="a-moneda">Moneda</label>
+          <select id="a-moneda" value={d.moneda} onChange={e => setD({ ...d, moneda: e.target.value })} className={input}>
+            <option value="ARS">Pesos</option>
+            <option value="USD">Dólares</option>
+            <option value="BTC">BTC (cantidad)</option>
+          </select>
+        </div>
+        <div>
+          <label className={label} htmlFor="a-monto">Monto</label>
+          <input id="a-monto" type="number" inputMode="decimal" value={d.monto} onChange={e => setD({ ...d, monto: e.target.value })} className={input} />
+        </div>
+        <div>
+          <label className={label} htmlFor="a-tasa">TNA % (opcional)</label>
+          <input id="a-tasa" type="number" inputMode="decimal" value={d.tasa} onChange={e => setD({ ...d, tasa: e.target.value })} className={input} />
+        </div>
+        <div>
+          <span className={label}>Riesgo</span>
+          <div className="flex overflow-hidden rounded-lg border">
+            {(Object.keys(RIESGO) as Riesgo[]).map(r => (
+              <button key={r} type="button" onClick={() => setD({ ...d, riesgo: r })} title={RIESGO[r].label}
+                className="flex-1 py-2.5 text-sm"
+                style={d.riesgo === r ? { background: RIESGO[r].tint, color: RIESGO[r].tono, fontWeight: 700 } : { color: 'var(--text-secondary)' }}>
+                {RIESGO[r].emoji}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+      {error && <p className="mt-3 text-sm text-negative">{error}</p>}
+      <div className="mt-5 flex flex-wrap items-center gap-2">
+        <button onClick={guardar} disabled={guardando} className="rounded-lg bg-confirm px-5 py-2.5 text-sm font-semibold text-white hover:bg-confirm-hover disabled:opacity-50">
+          {guardando ? 'Guardando…' : 'Guardar'}
+        </button>
+        <button onClick={onCerrar} className="rounded-lg px-4 py-2.5 text-sm text-secondary hover:bg-alternate">Cancelar</button>
+        {onBorrar && (
+          <button onClick={onBorrar} className="ml-auto flex items-center gap-1.5 rounded-lg px-3 py-2.5 text-sm text-negative hover:bg-alternate">
+            <Trash2 size={15} /> Borrar
+          </button>
+        )}
+      </div>
+    </Modal>
   )
 }
