@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { extraerCuotas, parsear, parsearVarios } from '@/lib/parser'
+import { detectarMoneda, extraerCuotas, parsear, parsearVarios } from '@/lib/parser'
 import { detectarFormaPago, detectarMedioPago } from '@/lib/tarjetas'
 
 function getToday() {
@@ -49,16 +49,17 @@ Solo registrás transacciones. NO das consejos de inversión.
 MONTOS: "20mil"/"20k" -> 20000 | "2 palos" -> 2000000 | "medio palo" -> 500000
 MEDIOS DE PAGO: no los uses para el nombre ni la categoría (mp, mercado pago, naranja x, uala, brubank, débito, crédito, tarjeta, efectivo). El sistema los detecta aparte.
 CATEGORÍAS: mercado|comida|transporte|farmacia|ocio|ropa|personal|impuesto|tecnologia|regalo|varios
+MONEDA: si el mensaje dice "dólares", "USD" o "u$s", el gasto es en esa moneda ("moneda":"USD"); si no aclara nada, es en pesos ("moneda":"ARS"). Un gasto puntual pagado en dólares sigue siendo gasto_variable, NO inversion (inversion es solo cuando compra/invierte esos dólares para guardarlos).
 
 SECCIONES:
-1. gasto_variable -> gasto puntual (DEFAULT)
+1. gasto_variable -> gasto puntual, en pesos o dólares (DEFAULT)
 2. gasto_fijo -> recurrente mensual (alquiler, expensas, servicios)
 3. ingreso_fijo -> sueldo, jubilación
 4. ingreso_freelance -> changa, proyecto, comisión
-5. inversion -> plazo fijo, cripto, acciones, dólares
+5. inversion -> comprar/guardar plazo fijo, cripto, acciones, dólares para invertir
 
 RESPUESTA: JSON válido sin markdown.
-{"tipo":"gasto_variable","mensaje":"...","datos":{"nombre":"...","monto":0,"categoria":"...","fecha":"${today}","es_gasto_hormiga":false}}
+{"tipo":"gasto_variable","mensaje":"...","datos":{"nombre":"...","monto":0,"categoria":"...","fecha":"${today}","moneda":"ARS","es_gasto_hormiga":false}}
 {"tipo":"gasto_fijo","mensaje":"...","datos":{"nombre":"...","monto":0,"categoria":"servicios","activo":true}}
 {"tipo":"ingreso_fijo","mensaje":"...","datos":{"nombre":"...","monto":0,"activo":true}}
 {"tipo":"ingreso_freelance","mensaje":"...","datos":{"cliente":"...","descripcion":"...","monto_total":0,"fecha":"${today}"}}
@@ -112,6 +113,11 @@ async function handleChat(messages: { role: string; content: string }[]) {
             parsed.mensaje = parsed.mensaje.replace(/\.?\s*$/, '') + ` (con ${medio}).`
           }
         }
+        /* Si la IA no aclaró la moneda (o la contestó mal), se cae al
+           detector local: así el gasto nunca queda "sin moneda". */
+        if (parsed.tipo === 'gasto_variable' && parsed.datos && !parsed.datos.moneda) {
+          parsed.datos.moneda = detectarMoneda(ultimo)
+        }
         return NextResponse.json(parsed)
       }
     } catch { /* fall through */ }
@@ -120,8 +126,9 @@ async function handleChat(messages: { role: string; content: string }[]) {
 }
 
 const PARSE_PROMPT = `Sos un asistente financiero argentino. Devolvé SOLO JSON válido:
-{"nombre":"string (máx 50)","monto":number|null,"categoria":"mercado|comida|transporte|farmacia|ocio|ropa|personal|impuesto|tecnologia|regalo|varios","fecha":"YYYY-MM-DD"}
+{"nombre":"string (máx 50)","monto":number|null,"categoria":"mercado|comida|transporte|farmacia|ocio|ropa|personal|impuesto|tecnologia|regalo|varios","fecha":"YYYY-MM-DD","moneda":"ARS|USD"}
 El nombre describe qué se compró; NO incluyas el medio de pago (mercado pago, naranja x, uala, tarjeta, débito…).
+"moneda" es "USD" solo si el texto dice explícitamente dólares/USD/u$s; si no aclara nada, es "ARS".
 Flores, bombones o algo "para mi novia/mamá" es "regalo".`
 
 /* Medio de pago detectado localmente: la IA no lo devuelve, así que
@@ -142,6 +149,7 @@ function parsearLocal(text: string, today: string) {
     monto: r.datos?.monto ?? null,
     categoria: r.datos?.categoria ?? 'varios',
     fecha: r.datos?.fecha ?? today,
+    moneda: r.datos?.moneda ?? detectarMoneda(text),
     ...medioDe(text),
   }
 }
@@ -162,6 +170,7 @@ async function handleParse(text: string) {
       monto: porCuota ? local.monto : typeof parsed.monto === 'number' ? parsed.monto : local.monto,
       categoria: parsed.categoria || local.categoria || 'varios',
       fecha: parsed.fecha || today,
+      moneda: parsed.moneda === 'USD' || parsed.moneda === 'ARS' ? parsed.moneda : local.moneda,
       ...medioDe(text),
     })
   } catch {

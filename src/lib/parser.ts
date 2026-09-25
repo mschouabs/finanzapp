@@ -207,13 +207,22 @@ export function extraerCuotas(texto: string): { cuotas: number; montoEsPorCuota:
 const RE_GASTO_FIJO = /\b(alquiler|expensas|luz|gas|agua|internet|wifi|cable|abono|prepaga|obra social|seguro|suscripcion|netflix|spotify|disney|hbo|cuota|colegio|gimnasio mensual)\b/
 const RE_INGRESO_FIJO = /\b(sueldo|salario|jubilacion|pension|aguinaldo|mensualidad|quincena)\b/
 const RE_FREELANCE = /\b(freelance|changa|laburito|proyecto|cliente|factura|comision|honorarios|me pago|me pagaron)\b/
-const RE_INVERSION = /\b(plazo fijo|fondo|fci|money market|cripto|bitcoin|btc|ethereum|eth|usdt|dolares|dolar|acciones|cedear|bono|obligacion negociable|\bon\b|oro|invertir|inverti)\b/
+/* "dolar/dolares" sueltos NO alcanzan para clasificar como inversión (si no,
+   "gasté 50 dólares en la cena" quedaba mal clasificado): solo cuenta si
+   además hay un verbo de compra/inversión de esa moneda. */
+const RE_INVERSION = /\b(plazo fijo|fondo|fci|money market|cripto|bitcoin|btc|ethereum|eth|usdt|acciones|cedear|bono|obligacion negociable|\bon\b|oro|invertir|inverti)\b/
+const RE_COMPRA_DOLARES = /\b(compr[eé]|comprar|cambi[eé]|cambiar)\b[\s\S]*\b(dolares?|dólares?|usd|u\$s)\b/
 const RE_INGRESO = /\b(cobre|cobré|cobrar|me pagaron|me pago|me depositaron|deposito|ingreso|gane|entro|factura|vendi|vendí)\b/
+
+/** Detecta si el monto está expresado en dólares ("USD", "u$s", "dólares"). */
+export function detectarMoneda(texto: string): 'ARS' | 'USD' {
+  return /\b(usd|u\$s|dolares?|dólares?)\b/i.test(texto) ? 'USD' : 'ARS'
+}
 
 export function detectarTipo(texto: string): TipoRegistro {
   const t = norm(quitarMediosDePago(texto))
 
-  if (RE_INVERSION.test(t)) return 'inversion'
+  if (RE_INVERSION.test(t) || RE_COMPRA_DOLARES.test(t)) return 'inversion'
   if (RE_INGRESO.test(t) || RE_INGRESO_FIJO.test(t) || RE_FREELANCE.test(t)) {
     if (RE_INGRESO_FIJO.test(t)) return 'ingreso_fijo'
     if (RE_FREELANCE.test(t)) return 'ingreso_freelance'
@@ -404,15 +413,17 @@ export function parsear(texto: string, hoy = new Date()): Resultado {
       const detalleCuotas = cuotas
         ? ` en ${cuotas.cuotas} cuotas de $${Math.round(total / cuotas.cuotas).toLocaleString('es-AR')}`
         : ''
+      const moneda = detectarMoneda(texto)
       return {
         tipo: 'gasto_variable',
         mensaje: medio
-          ? `Listo, ${nombre} por $${fmtTotal}${detalleCuotas} con ${medio}${forma === 'credito' && !cuotas ? ' (crédito)' : ''}.`
-          : `Listo, ${nombre} por $${fmtTotal}${detalleCuotas}.`,
+          ? `Listo, ${nombre} por ${moneda === 'USD' ? 'US$' : '$'}${fmtTotal}${detalleCuotas} con ${medio}${forma === 'credito' && !cuotas ? ' (crédito)' : ''}.`
+          : `Listo, ${nombre} por ${moneda === 'USD' ? 'US$' : '$'}${fmtTotal}${detalleCuotas}.`,
         datos: {
           nombre, monto: total,
           categoria: detectarCategoria(texto),
           fecha,
+          moneda,
           es_gasto_hormiga: total < 5000,
           ...(medio ? { medio_pago: medio, forma_pago: forma } : {}),
           ...(cuotas ? { cuotas: cuotas.cuotas } : {}),

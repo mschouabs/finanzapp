@@ -5,6 +5,7 @@ import { guardarGastoVariable, listarMediosDePago } from '@/lib/movimientos'
 import { LucaAvatar } from './luca/LucaAvatar'
 import type { LucaEstado } from './luca/LucaAvatar'
 import { Mic } from 'lucide-react'
+import { extensionDeAudio, mensajeErrorMicrofono, microfonoDisponible, tipoAudioSoportado } from '@/lib/audio'
 
 interface ParsedExpense {
   nombre: string
@@ -14,6 +15,7 @@ interface ParsedExpense {
   medio_pago?: string
   forma_pago?: 'debito' | 'credito'
   cuotas?: number
+  moneda?: 'ARS' | 'USD'
 }
 
 const FIELDS = [
@@ -36,12 +38,14 @@ export function LucaWidget({ onSaved }: { onSaved?: () => void }) {
   const [transcribiendo, setTranscribiendo] = useState(false)
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const chunksRef = useRef<Blob[]>([])
+  const [micDisponible, setMicDisponible] = useState(true)
 
   const supabase = createClient()
   const [medios, setMedios] = useState<string[]>([])
 
   useEffect(() => {
     listarMediosDePago(supabase).then(setMedios).catch(() => {})
+    setMicDisponible(microfonoDisponible())
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -63,7 +67,8 @@ export function LucaWidget({ onSaved }: { onSaved?: () => void }) {
     }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      const mr = new MediaRecorder(stream, { mimeType: 'audio/webm' })
+      const tipo = tipoAudioSoportado()
+      const mr = tipo ? new MediaRecorder(stream, { mimeType: tipo }) : new MediaRecorder(stream)
       chunksRef.current = []
       mr.ondataavailable = e => { if (e.data.size > 0) chunksRef.current.push(e.data) }
       mr.onstop = async () => {
@@ -71,22 +76,29 @@ export function LucaWidget({ onSaved }: { onSaved?: () => void }) {
         setGrabando(false)
         setTranscribiendo(true)
         try {
-          const blob = new Blob(chunksRef.current, { type: 'audio/webm' })
+          const mime = mr.mimeType || tipo || 'audio/webm'
+          const blob = new Blob(chunksRef.current, { type: mime })
           const fd = new FormData()
-          fd.append('audio', blob, 'audio.webm')
+          fd.append('audio', blob, `audio.${extensionDeAudio(mime)}`)
           const res = await fetch('/api/transcribe', { method: 'POST', body: fd })
           const json = await res.json()
           if (json.text) {
             setInput(json.text)
             setTimeout(() => inputRef.current?.focus(), 50)
+          } else {
+            setError(json.error ? `No pude transcribir: ${json.error}` : 'No pude transcribir el audio. Probá escribirlo.')
           }
-        } catch { /* silencioso */ }
+        } catch {
+          setError('No pude enviar el audio a transcribir. Probá escribirlo.')
+        }
         setTranscribiendo(false)
       }
       mediaRecorderRef.current = mr
       mr.start()
       setGrabando(true)
-    } catch { /* sin permiso */ }
+    } catch (e) {
+      setError(mensajeErrorMicrofono(e))
+    }
   }
 
   const reset = () => {
@@ -133,6 +145,7 @@ export function LucaWidget({ onSaved }: { onSaved?: () => void }) {
         medio_pago: parsed.medio_pago,
         forma_pago: parsed.forma_pago,
         cuotas: parsed.forma_pago === 'credito' ? parsed.cuotas : undefined,
+        moneda: parsed.moneda === 'USD' ? 'USD' : 'ARS',
       })
       if (dbError) throw new Error(dbError)
       setSaved(true)
@@ -185,8 +198,8 @@ export function LucaWidget({ onSaved }: { onSaved?: () => void }) {
         <div className="flex flex-1 gap-2">
           <button
             onClick={toggleVoz}
-            disabled={loading || !!parsed || transcribiendo}
-            title={grabando ? 'Detener grabación' : 'Grabar audio'}
+            disabled={loading || !!parsed || transcribiendo || !micDisponible}
+            title={!micDisponible ? 'Micrófono no disponible en este navegador' : grabando ? 'Detener grabación' : 'Grabar audio'}
             className={`flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-md border transition-colors disabled:opacity-50 ${
               grabando
                 ? 'border-red-500 bg-red-500/10 text-red-500 animate-pulse'
@@ -261,7 +274,7 @@ export function LucaWidget({ onSaved }: { onSaved?: () => void }) {
                     />
                   ) : key === 'monto' ? (
                     <span className="fa-amount">
-                      ${Number(parsed.monto).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                      {parsed.moneda === 'USD' ? 'US$' : '$'}{Number(parsed.monto).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
                     </span>
                   ) : (
                     String(parsed[key])
@@ -269,6 +282,20 @@ export function LucaWidget({ onSaved }: { onSaved?: () => void }) {
                 </dd>
               </div>
             ))}
+            {/* Moneda */}
+            <div className="flex items-center gap-4 border-t py-2.5">
+              <dt className="text-secondary w-24 shrink-0">Moneda:</dt>
+              <dd className="flex flex-1 items-center gap-2 text-primary">
+                <div className="flex overflow-hidden rounded border text-[10px] font-semibold">
+                  {(['ARS', 'USD'] as const).map(m => (
+                    <button key={m} type="button" onClick={() => setParsed(p => p ? { ...p, moneda: m } : p)}
+                      className={`px-3 py-1.5 ${(parsed.moneda ?? 'ARS') === m ? 'bg-confirm text-white' : 'text-secondary hover:bg-card'}`}>
+                      {m === 'ARS' ? 'Pesos' : 'Dólares'}
+                    </button>
+                  ))}
+                </div>
+              </dd>
+            </div>
             {/* Con qué pagaste */}
             <div className="flex items-center gap-4 border-t py-2.5">
               <dt className="text-secondary w-24 shrink-0">Pagado con:</dt>

@@ -8,6 +8,7 @@ import { COLUMNAS_CONSUMO, estadoTarjeta, type Consumo, type TarjetaInfo } from 
 import { traerCotizaciones } from '@/lib/patrimonio'
 import { LucaAvatar } from '@/components/luca/LucaAvatar'
 import type { LucaEstado } from '@/components/luca/LucaAvatar'
+import { extensionDeAudio, mensajeErrorMicrofono, microfonoDisponible, tipoAudioSoportado } from '@/lib/audio'
 
 type TipoRegistro = 'gasto_variable' | 'gasto_fijo' | 'ingreso_fijo' | 'ingreso_freelance' | 'inversion'
 
@@ -62,6 +63,7 @@ export default function LucaChatPage() {
   const [grabando, setGrabando] = useState(false)
   const [transcribiendo, setTranscribiendo] = useState(false)
   const [segundos, setSegundos] = useState(0)
+  const [micDisponible, setMicDisponible] = useState(true)
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
@@ -94,6 +96,8 @@ export default function LucaChatPage() {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [mensajes, loading])
+
+  useEffect(() => { setMicDisponible(microfonoDisponible()) }, [])
 
   const enviar = async () => {
     const texto = input.trim()
@@ -216,6 +220,7 @@ export default function LucaChatPage() {
           medio_pago: msg.datos.medio_pago,
           forma_pago: msg.datos.forma_pago,
           cuotas: msg.datos.cuotas,
+          moneda: msg.datos.moneda === 'USD' ? 'USD' : 'ARS',
         })
         if (r.error) error = new Error(r.error)
       } else if (msg.tabla === 'gasto_fijo') {
@@ -285,7 +290,8 @@ export default function LucaChatPage() {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       chunksRef.current = []
-      const mr = new MediaRecorder(stream, { mimeType: 'audio/webm' })
+      const tipo = tipoAudioSoportado()
+      const mr = tipo ? new MediaRecorder(stream, { mimeType: tipo }) : new MediaRecorder(stream)
       mr.ondataavailable = e => { if (e.data.size > 0) chunksRef.current.push(e.data) }
       mr.onstop = async () => {
         stream.getTracks().forEach(t => t.stop())
@@ -294,16 +300,29 @@ export default function LucaChatPage() {
         setSegundos(0)
         setTranscribiendo(true)
         try {
-          const blob = new Blob(chunksRef.current, { type: 'audio/webm' })
+          const mime = mr.mimeType || tipo || 'audio/webm'
+          const blob = new Blob(chunksRef.current, { type: mime })
           const fd = new FormData()
-          fd.append('audio', blob, 'audio.webm')
+          fd.append('audio', blob, `audio.${extensionDeAudio(mime)}`)
           const res = await fetch('/api/transcribe', { method: 'POST', body: fd })
           const data = await res.json() as { text?: string; error?: string }
           if (data.text) {
             setInput(data.text)
             setTimeout(() => inputRef.current?.focus(), 100)
+          } else {
+            setMensajes(prev => [...prev, {
+              id: getId(), rol: 'luca',
+              texto: `No pude transcribir el audio${data.error ? ` (${data.error})` : ''}. Probá escribirlo.`,
+              timestamp: Date.now(),
+            }])
           }
-        } catch { /* silencioso */ }
+        } catch {
+          setMensajes(prev => [...prev, {
+            id: getId(), rol: 'luca',
+            texto: 'No pude enviar el audio a transcribir. Probá escribirlo.',
+            timestamp: Date.now(),
+          }])
+        }
         setTranscribiendo(false)
       }
       mr.start()
@@ -311,8 +330,12 @@ export default function LucaChatPage() {
       setGrabando(true)
       setSegundos(0)
       timerRef.current = setInterval(() => setSegundos(s => s + 1), 1000)
-    } catch {
-      alert('No se pudo acceder al micrófono.')
+    } catch (e) {
+      setMensajes(prev => [...prev, {
+        id: getId(), rol: 'luca',
+        texto: mensajeErrorMicrofono(e),
+        timestamp: Date.now(),
+      }])
     }
   }
 
@@ -337,7 +360,7 @@ export default function LucaChatPage() {
 
   const monto = (d: DatosRegistro) => d.monto ?? d.monto_total
   const montoStr = (d: DatosRegistro) =>
-    `$${Number(monto(d)).toLocaleString('es-AR', { minimumFractionDigits: 2 })}`
+    `${d.moneda === 'USD' ? 'US$' : '$'}${Number(monto(d)).toLocaleString('es-AR', { minimumFractionDigits: 2 })}`
 
   return (
     <div className="fa-card flex flex-col" style={{ height: 'calc(100vh - 160px)', minHeight: 500 }}>
@@ -392,7 +415,7 @@ export default function LucaChatPage() {
                     )}
 
                     <p className="text-secondary capitalize">
-                      {[msg.datos.categoria, msg.datos.tipo, msg.datos.moneda, msg.datos.nivel_riesgo, msg.datos.fecha]
+                      {[msg.datos.categoria, msg.datos.tipo, msg.datos.moneda === 'USD' ? 'US$' : null, msg.datos.nivel_riesgo, msg.datos.fecha]
                         .filter(Boolean).join(' · ')}
                     </p>
 
@@ -468,8 +491,8 @@ export default function LucaChatPage() {
         <div className="flex gap-2">
           <button
             onClick={toggleVoz}
-            disabled={loading || transcribiendo}
-            title={grabando ? 'Detener grabación' : 'Grabar por voz'}
+            disabled={loading || transcribiendo || !micDisponible}
+            title={!micDisponible ? 'Micrófono no disponible en este navegador' : grabando ? 'Detener grabación' : 'Grabar por voz'}
             className={`px-3 py-2.5 rounded-xl text-sm font-semibold transition-colors disabled:opacity-40 ${
               grabando
                 ? 'bg-red-500 text-white animate-pulse'

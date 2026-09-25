@@ -64,7 +64,7 @@ const fmtFull = (n: number) => '$' + Math.round(n).toLocaleString('es-AR')
 const meses = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
 const mesesCorto = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic']
 const hoyISO = () => new Date().toISOString().split('T')[0]
-const formVacio = () => ({ nombre: '', monto: '', categoria: 'varios', fecha: hoyISO(), es_gasto_hormiga: false, medio: '', forma: 'debito' as 'debito' | 'credito', cuotas: '1' })
+const formVacio = () => ({ nombre: '', monto: '', categoria: 'varios', fecha: hoyISO(), es_gasto_hormiga: false, medio: '', forma: 'debito' as 'debito' | 'credito', cuotas: '1', moneda: 'ARS' as 'ARS' | 'USD' })
 
 const tooltipStyle = {
   background: 'var(--bg-card)', border: '1px solid var(--border-color)',
@@ -195,12 +195,14 @@ export default function GastosPage() {
             medio_pago: json.medio_pago,
             forma_pago: json.forma_pago,
             cuotas: json.cuotas,
+            moneda: json.moneda === 'USD' ? 'USD' : 'ARS',
           })
           if (error) throw new Error(error)
           const con = json.medio_pago
             ? ` con ${json.medio_pago}${json.cuotas > 1 ? ` en ${json.cuotas} cuotas` : json.forma_pago === 'credito' ? ' (crédito)' : ''}`
             : ''
-          setAiMsg({ text: `${getCat(json.categoria || 'varios').emoji} "${json.nombre}" — ${fmtFull(json.monto)}${con} guardado`, ok: true })
+          const montoFmt = json.moneda === 'USD' ? `US$ ${Number(json.monto).toLocaleString('es-AR')}` : fmtFull(json.monto)
+          setAiMsg({ text: `${getCat(json.categoria || 'varios').emoji} "${json.nombre}" — ${montoFmt}${con} guardado`, ok: true })
           setAiText('')
           loadData()
         }
@@ -236,6 +238,7 @@ export default function GastosPage() {
       medio_pago: formManual.medio || null,
       forma_pago: formManual.medio ? formManual.forma : null,
       cuotas: formManual.medio && formManual.forma === 'credito' ? Number(formManual.cuotas) || 1 : 1,
+      moneda: formManual.moneda,
     })
     if (error) { setAiMsg({ text: error, ok: false }); return }
     setShowManual(false)
@@ -720,8 +723,18 @@ export default function GastosPage() {
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <input autoFocus placeholder="¿Qué compraste?" value={formManual.nombre}
                 onChange={e => setFormManual(p => ({ ...p, nombre: e.target.value }))} className={inputCls} />
-              <input placeholder="Monto ($)" type="number" inputMode="decimal" value={formManual.monto}
-                onChange={e => setFormManual(p => ({ ...p, monto: e.target.value }))} className={inputCls} />
+              <div className="flex gap-1.5">
+                <input placeholder={formManual.moneda === 'USD' ? 'Monto (US$)' : 'Monto ($)'} type="number" inputMode="decimal" value={formManual.monto}
+                  onChange={e => setFormManual(p => ({ ...p, monto: e.target.value }))} className={`${inputCls} flex-1`} />
+                <div className="flex shrink-0 overflow-hidden rounded-lg border text-xs font-semibold">
+                  {(['ARS', 'USD'] as const).map(m => (
+                    <button key={m} type="button" onClick={() => setFormManual(p => ({ ...p, moneda: m }))}
+                      className={`px-2.5 ${formManual.moneda === m ? 'bg-confirm text-white' : 'text-secondary hover:bg-card'}`}>
+                      {m === 'ARS' ? '$' : 'US$'}
+                    </button>
+                  ))}
+                </div>
+              </div>
               <select value={formManual.categoria} onChange={e => setFormManual(p => ({ ...p, categoria: e.target.value }))} className={inputCls}>
                 {CATEGORIAS.map(c => <option key={c.key} value={c.key}>{c.emoji} {c.label}</option>)}
               </select>

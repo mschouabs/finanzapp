@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import {
   ArrowDownRight, ArrowLeftRight, ArrowRight, ArrowUpRight, Check, ChevronRight, Coins, Eye, EyeOff,
-  GripVertical, Landmark, LineChart, Pencil, Plus, Trash2, Wallet, X,
+  GripVertical, Landmark, LineChart, Pencil, Percent, PiggyBank, Plus, Trash2, Wallet, X,
 } from 'lucide-react'
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { BarraApilada, Dona, Leyenda, PALETA, Titulo, fmtK, tooltipStyle, type Porcion } from '@/components/ui/Piezas'
@@ -106,7 +106,7 @@ export default function BilleterasPage() {
   const [error, setError] = useState<string | null>(null)
   const [oculto, setOculto] = useState(false)
 
-  const [lineaEdit, setLineaEdit] = useState<{ id: string; nombre: string; monto: string } | null>(null)
+  const [lineaEdit, setLineaEdit] = useState<{ id: string; nombre: string; monto: string; tasa: string } | null>(null)
   const [appEdit, setAppEdit] = useState<{ app: string; nombre: string } | null>(null)
 
   const [showForm, setShowForm] = useState(false)
@@ -167,6 +167,11 @@ export default function BilleterasPage() {
 
   const variacion = anterior ? ((tot.total - anterior) / Math.abs(anterior)) * 100 : null
   const pctLiq = tot.total > 0 ? Math.round((tot.liquido / tot.total) * 100) : 0
+  /* rendimiento de la plata disponible: las cuentas remuneradas (MP, Ualá…)
+     también generan interés sobre el saldo, no solo las inversiones. */
+  const rindeDisponibleMes = lineas
+    .filter(esLiquida)
+    .reduce((s, l) => s + aPesos(l, cot) * (Number(l.tasa_anual) || 0) / 100 / 12, 0)
   const pctInv = 100 - pctLiq
 
   /* distribución por app (todas las cuentas e inversiones) */
@@ -235,10 +240,11 @@ export default function BilleterasPage() {
   async function guardarLinea() {
     if (!lineaEdit) return
     const monto = Number(lineaEdit.monto.replace(',', '.'))
-    if (isNaN(monto) || !lineaEdit.nombre.trim()) return
+    const tasa = lineaEdit.tasa.trim() === '' ? 0 : Number(lineaEdit.tasa.replace(',', '.'))
+    if (isNaN(monto) || isNaN(tasa) || !lineaEdit.nombre.trim()) return
     const supabase = createClient()
     const { error: e } = await supabase.from('inversiones')
-      .update({ monto, nombre: lineaEdit.nombre.trim() }).eq('id', lineaEdit.id)
+      .update({ monto, nombre: lineaEdit.nombre.trim(), tasa_anual: tasa }).eq('id', lineaEdit.id)
     if (e) { setError('No se pudo guardar.'); return }
     setLineaEdit(null)
     cargar()
@@ -367,6 +373,7 @@ export default function BilleterasPage() {
         <div className="mt-3 flex flex-col divide-y divide-line border-t border-line">
           {g.items.map(l => {
             const edit = lineaEdit?.id === l.id
+            const rinde = Number(l.tasa_anual) > 0
             if (edit) {
               return (
                 <div key={l.id} className="flex flex-col gap-2 py-2.5">
@@ -382,18 +389,29 @@ export default function BilleterasPage() {
                     <button onClick={() => setLineaEdit(null)} aria-label="Cancelar" className="rounded p-1.5 text-muted hover:bg-alternate"><X size={16} /></button>
                     <button onClick={() => borrarLinea(l)} aria-label="Borrar" className="rounded p-1.5 text-muted hover:bg-alternate hover:text-negative"><Trash2 size={15} /></button>
                   </div>
+                  <label className="flex items-center gap-1.5 text-xs text-muted">
+                    <Percent size={12} /> TNA (rinde sobre este saldo)
+                    <input type="number" inputMode="decimal" value={lineaEdit.tasa} placeholder="0"
+                      onChange={e => setLineaEdit({ ...lineaEdit, tasa: e.target.value })}
+                      onKeyDown={e => { if (e.key === 'Enter') guardarLinea(); if (e.key === 'Escape') setLineaEdit(null) }}
+                      aria-label="TNA %" className="w-16 rounded border bg-field px-2 py-1 text-right text-xs text-primary" />
+                    %
+                  </label>
                 </div>
               )
             }
             return (
               <button
                 key={l.id}
-                onClick={() => setLineaEdit({ id: l.id, nombre: l.nombre, monto: String(Number(l.monto)) })}
+                onClick={() => setLineaEdit({ id: l.id, nombre: l.nombre, monto: String(Number(l.monto)), tasa: l.tasa_anual ? String(Number(l.tasa_anual)) : '' })}
                 className="group flex w-full items-center gap-2.5 py-2.5 text-left"
               >
                 {inversion && <IconoLinea l={l} />}
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm text-secondary group-hover:text-primary">{l.nombre}</span>
+                  {rinde && !oculto && (
+                    <span className="block text-[11px] font-semibold text-positive">{Number(l.tasa_anual)}% TNA</span>
+                  )}
                 </span>
                 <span className="shrink-0 text-right">
                   <span className={`fa-amount block text-sm ${Number(l.monto) < 0 ? 'text-negative' : 'text-primary'}`}>
@@ -401,6 +419,9 @@ export default function BilleterasPage() {
                   </span>
                   {l.moneda !== 'ARS' && !oculto && (
                     <span className="block text-[11px] text-muted">≈ {fmtARS(aPesos(l, cot))}</span>
+                  )}
+                  {rinde && !oculto && (
+                    <span className="block text-[11px] text-muted">~{fmtK(aPesos(l, cot) * Number(l.tasa_anual) / 100 / 12)}/mes</span>
                   )}
                 </span>
                 <ChevronRight size={15} className="shrink-0 text-muted group-hover:text-primary" />
@@ -472,6 +493,11 @@ export default function BilleterasPage() {
               <p className="text-xs text-secondary">Disponible</p>
               <p className="fa-amount text-xl text-primary">{$(tot.liquido)}</p>
               <p className="text-sm font-semibold text-positive">{pctLiq}%</p>
+              {rindeDisponibleMes > 0 && !oculto && (
+                <p className="mt-0.5 flex items-center gap-1 text-[11px] font-medium text-positive">
+                  <PiggyBank size={11} /> +{fmtK(rindeDisponibleMes)}/mes rindiendo
+                </p>
+              )}
             </div>
             <div className="border-l border-line pl-4">
               <p className="text-xs text-secondary">Invertido</p>

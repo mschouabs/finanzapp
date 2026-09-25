@@ -17,10 +17,19 @@ export async function POST(req: NextRequest) {
   if (!audio) {
     return NextResponse.json({ error: 'Falta el campo audio' }, { status: 400 })
   }
+  if (audio.size === 0) {
+    return NextResponse.json({ error: 'El audio grabado está vacío' }, { status: 400 })
+  }
+
+  /* Whisper necesita que la extensión del archivo coincida con el
+     formato real: Safari/iOS graban en audio/mp4, no en webm. Si se
+     manda "audio.webm" con contenido mp4, Whisper lo rechaza. */
+  const tipo = audio.type || 'audio/webm'
+  const ext = tipo.includes('mp4') ? 'mp4' : tipo.includes('aac') ? 'aac' : tipo.includes('ogg') ? 'ogg' : 'webm'
 
   // Reenviar a Whisper
   const whisperForm = new FormData()
-  whisperForm.append('file', audio, 'audio.webm')
+  whisperForm.append('file', audio, `audio.${ext}`)
   whisperForm.append('model', 'whisper-1')
   whisperForm.append('language', 'es')
 
