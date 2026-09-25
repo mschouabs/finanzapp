@@ -6,6 +6,8 @@ listo para guardar. Es la fuente de verdad de /api/parse-expense
 y el primer intento de /api/luca-chat.
 ═══════════════════════════════════════════════════════════════ */
 
+import { detectarMedioPago } from './tarjetas'
+
 export type TipoRegistro =
   | 'gasto_variable'
   | 'gasto_fijo'
@@ -26,6 +28,8 @@ export interface DatosRegistro {
   tipo?: string
   moneda?: string
   nivel_riesgo?: string
+  /** App o tarjeta con la que se pagó ("MercadoPago", "Naranja X"…). */
+  medio_pago?: string
 }
 
 export interface Resultado {
@@ -55,7 +59,7 @@ const MEDIOS_PAGO = [
 function quitarMediosDePago(t: string) {
   let out = t
   for (const m of MEDIOS_PAGO) {
-    out = out.replace(new RegExp(`\\b(con|por|en|via|usando)?\\s*${m}\\b`, 'gi'), ' ')
+    out = out.replace(new RegExp(`\\b(con|por|en|via|usando|desde)?\\s*(la|el|mi|mis)?\\s*${m}\\b`, 'gi'), ' ')
   }
   return out.replace(/\s{2,}/g, ' ').trim()
 }
@@ -169,7 +173,7 @@ const CATEGORIAS: Array<[string, RegExp]> = [
   ['personal', /\b(peluqueria|barberia|corte de pelo|unas|manicura|pedicura|cosmetica|perfume|maquillaje|spa|masaje|curso|libro|educacion|universidad|facultad|colegio)\b/],
   ['impuesto', /\b(impuesto|afip|monotributo|arba|agip|abl|rentas|ingresos brutos|multa|tasa|patente municipal|ganancias)\b/],
   ['tecnologia', /\b(celular|telefono|notebook|compu|computadora|laptop|tablet|monitor|teclado|mouse|auricular|cable|cargador|software|licencia|apple|samsung|xiaomi)\b/],
-  ['regalo', /\b(regalo|presente|cumpleanos|navidad|reyes|casamiento|baby shower|donacion|aguinaldo para)\b/],
+  ['regalo', /\b(regalo|presente|flores|flor|floreria|ramo|bombones|cumpleanos|navidad|reyes|casamiento|baby shower|donacion|aguinaldo para)\b/],
 ]
 
 export function detectarCategoria(texto: string): string {
@@ -369,16 +373,21 @@ export function parsear(texto: string, hoy = new Date()): Resultado {
         },
       }
 
-    default:
+    default: {
+      const medio = detectarMedioPago(texto)
       return {
         tipo: 'gasto_variable',
-        mensaje: `Listo, ${nombre} por $${fmt}.`,
+        mensaje: medio
+          ? `Listo, ${nombre} por $${fmt} con ${medio}.`
+          : `Listo, ${nombre} por $${fmt}.`,
         datos: {
           nombre, monto,
           categoria: detectarCategoria(texto),
           fecha,
           es_gasto_hormiga: monto < 5000,
+          ...(medio ? { medio_pago: medio } : {}),
         },
       }
+    }
   }
 }

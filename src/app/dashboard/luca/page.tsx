@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { createClient } from '@/lib/supabase'
+import { resolverTarjetaId } from '@/lib/tarjetas'
 import { LucaAvatar } from '@/components/luca/LucaAvatar'
 import type { LucaEstado } from '@/components/luca/LucaAvatar'
 
@@ -20,6 +21,7 @@ interface DatosRegistro {
   tipo?: string
   moneda?: string
   nivel_riesgo?: string
+  medio_pago?: string
 }
 
 interface Mensaje {
@@ -176,9 +178,13 @@ export default function LucaChatPage() {
       let error
 
       if (msg.tabla === 'gasto_variable') {
+        /* Si Luca detectó con qué app/tarjeta se pagó, el gasto queda
+           asociado a esa tarjeta (y se crea si todavía no existe). */
+        const tarjeta_id = await resolverTarjetaId(supabase, uid, msg.datos.medio_pago)
         const { error: e } = await supabase.from('gastos_variables').insert({
           user_id: uid, nombre: msg.datos.nombre, monto: msg.datos.monto,
           categoria: msg.datos.categoria, fecha: msg.datos.fecha, es_gasto_hormiga: false,
+          tarjeta_id,
         })
         error = e
       } else if (msg.tabla === 'gasto_fijo') {
@@ -358,6 +364,10 @@ export default function LucaChatPage() {
                       {[msg.datos.categoria, msg.datos.tipo, msg.datos.moneda, msg.datos.nivel_riesgo, msg.datos.fecha]
                         .filter(Boolean).join(' · ')}
                     </p>
+
+                    {msg.datos.medio_pago && (
+                      <p className="text-secondary">💳 Pagado con <span className="font-semibold text-primary">{msg.datos.medio_pago}</span></p>
+                    )}
 
                     <button
                       onClick={() => guardarRegistro(msg)}

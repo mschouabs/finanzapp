@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { parsear, parsearVarios } from '@/lib/parser'
+import { detectarMedioPago } from '@/lib/tarjetas'
 
 function getToday() {
   return new Date().toISOString().split('T')[0]
@@ -46,7 +47,7 @@ function buildChatPrompt(today: string) {
 Solo registrás transacciones. NO das consejos de inversión.
 
 MONTOS: "20mil"/"20k" -> 20000 | "2 palos" -> 2000000 | "medio palo" -> 500000
-MEDIOS DE PAGO (IGNORAR): mp, débito, crédito, tarjeta, efectivo, uala, brubank.
+MEDIOS DE PAGO: no los uses para el nombre ni la categoría (mp, mercado pago, naranja x, uala, brubank, débito, crédito, tarjeta, efectivo). El sistema los detecta aparte.
 CATEGORÍAS: mercado|comida|transporte|farmacia|ocio|ropa|personal|impuesto|tecnologia|regalo|varios
 
 SECCIONES:
@@ -101,7 +102,18 @@ async function handleChat(messages: { role: string; content: string }[]) {
   if (inicio !== -1 && fin > inicio) {
     try {
       const parsed = JSON.parse(cleaned.slice(inicio, fin + 1))
-      if (parsed?.tipo) return NextResponse.json(parsed)
+      if (parsed?.tipo) {
+        /* La IA no se ocupa del medio de pago: lo agrega el detector
+           local para que el gasto quede asociado a la tarjeta/app. */
+        const medio = detectarMedioPago(ultimo)
+        if (parsed.tipo === 'gasto_variable' && medio) {
+          parsed.datos = { ...(parsed.datos ?? {}), medio_pago: medio }
+          if (typeof parsed.mensaje === 'string' && !parsed.mensaje.includes(medio)) {
+            parsed.mensaje = parsed.mensaje.replace(/\.?\s*$/, '') + ` (con ${medio}).`
+          }
+        }
+        return NextResponse.json(parsed)
+      }
     } catch { /* fall through */ }
   }
   return NextResponse.json({ tipo: 'texto', mensaje: text || local.mensaje })
