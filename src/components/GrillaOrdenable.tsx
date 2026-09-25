@@ -57,37 +57,45 @@ export function GrillaOrdenable({ ids, onReordenar, render, className }: Props) 
     posiciones.current = nuevas
   }, [lista, arrastrando])
 
-  useEffect(() => {
-    if (!arrastrando) return
+  /* Los listeners se enganchan en el mismo momento en que apretás la
+     manija (no en un efecto posterior), así un arrastre rápido no se
+     pierde el primer movimiento. */
+  const onReordenarRef = useRef(onReordenar)
+  onReordenarRef.current = onReordenar
+  const claveRef = useRef(clave)
+  claveRef.current = clave
+
+  const iniciar = (id: string) => {
+    setArrastrando(id)
 
     const mover = (e: PointerEvent) => {
       const el = document.elementFromPoint(e.clientX, e.clientY)?.closest<HTMLElement>('[data-orden-id]')
       const destino = el?.dataset.ordenId
-      if (!el || !destino || destino === arrastrando || !contenedor.current?.contains(el)) return
+      if (!el || !destino || destino === id || !contenedor.current?.contains(el)) return
       setLista(prev => {
-        const sin = prev.filter(x => x !== arrastrando)
-        const i = prev.indexOf(destino)
-        const desde = prev.indexOf(arrastrando)
+        const desde = prev.indexOf(id)
+        const hasta = prev.indexOf(destino)
+        if (desde === -1 || hasta === -1) return prev
+        const nueva = prev.filter(x => x !== id)
         /* si venís de antes, caés después del destino, y viceversa */
-        const idx = sin.indexOf(destino) + (desde < i ? 1 : 0)
-        sin.splice(idx, 0, arrastrando)
-        return sin
+        nueva.splice(nueva.indexOf(destino) + (desde < hasta ? 1 : 0), 0, id)
+        return nueva
       })
     }
     const soltar = () => {
-      setArrastrando(null)
-      if (listaRef.current.join('|') !== clave) onReordenar(listaRef.current)
-    }
-
-    window.addEventListener('pointermove', mover)
-    window.addEventListener('pointerup', soltar)
-    window.addEventListener('pointercancel', soltar)
-    return () => {
       window.removeEventListener('pointermove', mover)
       window.removeEventListener('pointerup', soltar)
       window.removeEventListener('pointercancel', soltar)
+      setArrastrando(null)
+      /* esperamos al próximo frame para leer el orden ya actualizado */
+      requestAnimationFrame(() => {
+        if (listaRef.current.join('|') !== claveRef.current) onReordenarRef.current(listaRef.current)
+      })
     }
-  }, [arrastrando, clave, onReordenar])
+    window.addEventListener('pointermove', mover)
+    window.addEventListener('pointerup', soltar)
+    window.addEventListener('pointercancel', soltar)
+  }
 
   return (
     <div ref={contenedor} className={className}>
@@ -97,7 +105,7 @@ export function GrillaOrdenable({ ids, onReordenar, render, className }: Props) 
           onPointerDown: e => {
             if (e.button !== 0) return
             e.preventDefault()
-            setArrastrando(id)
+            iniciar(id)
           },
           style: { touchAction: 'none', cursor: activo ? 'grabbing' : 'grab' },
           'aria-label': 'Arrastrar para reordenar',
