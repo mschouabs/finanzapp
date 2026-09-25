@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { LucaMensaje } from '@/components/luca/LucaMensaje'
 import { detectarCategoria } from '@/lib/parser'
+import { guardarGastoVariable } from '@/lib/movimientos'
 import { COLORES_MARCA, MARCAS, type Tarjeta } from '@/lib/tarjetas'
 
 /* ── helpers ─────────────────────────────── */
@@ -28,6 +29,7 @@ interface GastoMes {
   fecha: string
   categoria: string
   tarjeta_id: string | null
+  forma_pago: string | null
 }
 
 /* Tarjetas que quedaron guardadas en el navegador antes de que
@@ -87,13 +89,15 @@ export default function TarjetasPage() {
     const { desde, hasta } = rangoMesActual()
     const { data: gs, error: e2 } = await supabase
       .from('gastos_variables')
-      .select('id, nombre, monto, fecha, categoria, tarjeta_id')
+      .select('id, nombre, monto, fecha, categoria, tarjeta_id, forma_pago')
       .gte('fecha', desde)
       .lte('fecha', hasta)
       .order('fecha', { ascending: false })
 
     if (e1 || e2) setError('No se pudieron cargar las tarjetas. Probá recargar la página.')
-    setTarjetas((ts ?? []) as Tarjeta[])
+    /* Las cuentas que solo se usan con débito (ej: Ualá) viven en
+       Billeteras; acá van las que tienen tarjeta de crédito. */
+    setTarjetas(((ts ?? []) as Tarjeta[]).filter(t => t.tipo === 'tarjeta'))
     setGastosMes((gs ?? []) as GastoMes[])
     setLoading(false)
   }, [])
@@ -103,8 +107,11 @@ export default function TarjetasPage() {
   /* Un gasto es de la tarjeta si apunta a ella por id, o (datos viejos)
      si su categoría es "CC: {nombre}". */
   function gastosDeTarjeta(t: Tarjeta): GastoMes[] {
+    /* Solo consumos a crédito: lo pagado con débito sale del saldo de
+       la billetera y se ve en Billeteras, no en el resumen de la tarjeta. */
     return gastosMes.filter(g =>
-      g.tarjeta_id === t.id || (!g.tarjeta_id && g.categoria === `CC: ${t.nombre}`),
+      (g.tarjeta_id === t.id && g.forma_pago !== 'debito') ||
+      (!g.tarjeta_id && g.categoria === `CC: ${t.nombre}`),
     )
   }
 
@@ -146,14 +153,13 @@ export default function TarjetasPage() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
     const nombre = gastoForm.nombre.trim()
-    const { error: e } = await supabase.from('gastos_variables').insert({
-      user_id: user.id,
+    const { error: e } = await guardarGastoVariable(supabase, user.id, {
       nombre,
       monto: parseFloat(gastoForm.monto),
       fecha: gastoForm.fecha,
       categoria: detectarCategoria(nombre),
-      tarjeta_id: t.id,
-      es_gasto_hormiga: false,
+      medio_pago: t.nombre,
+      forma_pago: 'credito',
     })
     if (e) { setError('No se pudo registrar el gasto.'); return }
     setGastoTarjeta(null)
@@ -181,10 +187,10 @@ export default function TarjetasPage() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
         <div>
           <h1 style={{ fontSize: 24, fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>
-            💳 Tarjetas y cuentas
+            💳 Tarjetas de crédito
           </h1>
           <p style={{ color: 'var(--text-secondary)', margin: '4px 0 0', fontSize: 14 }}>
-            Gastos del mes por tarjeta o app{tarjetas.length > 0 && ` · Total ${fmt(totalMes)}`}
+            Consumos del mes a crédito{tarjetas.length > 0 && ` · Total ${fmt(totalMes)}`}
           </p>
         </div>
         <button
@@ -269,7 +275,7 @@ export default function TarjetasPage() {
             accion={{ label: '+ Agregar tarjeta', onClick: () => setShowForm(true) }}
           >
             Agregá tus tarjetas para ver cuánto consumiste con cada una este mes.
-            También podés decirle a Luca &quot;gasté 10 lucas con Ualá&quot; y la crea sola.
+            También podés decirle a Luca &quot;gasté 10 lucas con la visa&quot; y la crea sola.
           </LucaMensaje>
         </div>
       ) : (

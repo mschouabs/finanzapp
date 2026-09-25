@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { parsear, parsearVarios } from '@/lib/parser'
-import { detectarMedioPago } from '@/lib/tarjetas'
+import { detectarFormaPago, detectarMedioPago } from '@/lib/tarjetas'
 
 function getToday() {
   return new Date().toISOString().split('T')[0]
@@ -107,7 +107,11 @@ async function handleChat(messages: { role: string; content: string }[]) {
            local para que el gasto quede asociado a la tarjeta/app. */
         const medio = detectarMedioPago(ultimo)
         if (parsed.tipo === 'gasto_variable' && medio) {
-          parsed.datos = { ...(parsed.datos ?? {}), medio_pago: medio }
+          parsed.datos = {
+            ...(parsed.datos ?? {}),
+            medio_pago: medio,
+            forma_pago: detectarFormaPago(ultimo, medio),
+          }
           if (typeof parsed.mensaje === 'string' && !parsed.mensaje.includes(medio)) {
             parsed.mensaje = parsed.mensaje.replace(/\.?\s*$/, '') + ` (con ${medio}).`
           }
@@ -120,7 +124,16 @@ async function handleChat(messages: { role: string; content: string }[]) {
 }
 
 const PARSE_PROMPT = `Sos un asistente financiero argentino. Devolvé SOLO JSON válido:
-{"nombre":"string (máx 50)","monto":number|null,"categoria":"mercado|comida|transporte|farmacia|ocio|ropa|personal|impuesto|tecnologia|regalo|varios","fecha":"YYYY-MM-DD"}`
+{"nombre":"string (máx 50)","monto":number|null,"categoria":"mercado|comida|transporte|farmacia|ocio|ropa|personal|impuesto|tecnologia|regalo|varios","fecha":"YYYY-MM-DD"}
+El nombre describe qué se compró; NO incluyas el medio de pago (mercado pago, naranja x, uala, tarjeta, débito…).
+Flores, bombones o algo "para mi novia/mamá" es "regalo".`
+
+/* Medio de pago detectado localmente: la IA no lo devuelve, así que
+   se agrega siempre a la respuesta de /api/ai {text}. */
+function medioDe(text: string) {
+  const medio = detectarMedioPago(text)
+  return medio ? { medio_pago: medio, forma_pago: detectarFormaPago(text, medio) } : {}
+}
 
 function parsearLocal(text: string, today: string) {
   const r = parsear(text, new Date(today + 'T12:00:00'))
@@ -129,6 +142,7 @@ function parsearLocal(text: string, today: string) {
     monto: r.datos?.monto ?? null,
     categoria: r.datos?.categoria ?? 'varios',
     fecha: r.datos?.fecha ?? today,
+    ...medioDe(text),
   }
 }
 
@@ -142,9 +156,10 @@ async function handleParse(text: string) {
     const parsed = JSON.parse(cleanJson(raw))
     return NextResponse.json({
       nombre: parsed.nombre || local.nombre,
-      monto: typeof parsed.monto === 'number' ? parsed.monto : null,
-      categoria: parsed.categoria || 'varios',
+      monto: typeof parsed.monto === 'number' ? parsed.monto : local.monto,
+      categoria: parsed.categoria || local.categoria || 'varios',
       fecha: parsed.fecha || today,
+      ...medioDe(text),
     })
   } catch {
     return NextResponse.json(local)

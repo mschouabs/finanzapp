@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { createClient } from '@/lib/supabase'
-import { resolverTarjetaId } from '@/lib/tarjetas'
+import { guardarGastoVariable } from '@/lib/movimientos'
 import { LucaAvatar } from '@/components/luca/LucaAvatar'
 import type { LucaEstado } from '@/components/luca/LucaAvatar'
 
@@ -22,6 +22,7 @@ interface DatosRegistro {
   moneda?: string
   nivel_riesgo?: string
   medio_pago?: string
+  forma_pago?: 'debito' | 'credito'
 }
 
 interface Mensaje {
@@ -180,13 +181,15 @@ export default function LucaChatPage() {
       if (msg.tabla === 'gasto_variable') {
         /* Si Luca detectó con qué app/tarjeta se pagó, el gasto queda
            asociado a esa tarjeta (y se crea si todavía no existe). */
-        const tarjeta_id = await resolverTarjetaId(supabase, uid, msg.datos.medio_pago)
-        const { error: e } = await supabase.from('gastos_variables').insert({
-          user_id: uid, nombre: msg.datos.nombre, monto: msg.datos.monto,
-          categoria: msg.datos.categoria, fecha: msg.datos.fecha, es_gasto_hormiga: false,
-          tarjeta_id,
+        const r = await guardarGastoVariable(supabase, uid, {
+          nombre: msg.datos.nombre ?? 'Gasto',
+          monto: Number(msg.datos.monto),
+          categoria: msg.datos.categoria ?? 'varios',
+          fecha: msg.datos.fecha ?? new Date().toISOString().split('T')[0],
+          medio_pago: msg.datos.medio_pago,
+          forma_pago: msg.datos.forma_pago,
         })
-        error = e
+        if (r.error) error = new Error(r.error)
       } else if (msg.tabla === 'gasto_fijo') {
         const { error: e } = await supabase.from('gastos_fijos').insert({
           user_id: uid, nombre: msg.datos.nombre, monto: msg.datos.monto,
@@ -366,7 +369,10 @@ export default function LucaChatPage() {
                     </p>
 
                     {msg.datos.medio_pago && (
-                      <p className="text-secondary">💳 Pagado con <span className="font-semibold text-primary">{msg.datos.medio_pago}</span></p>
+                      <p className="text-secondary">
+                        💳 Pagado con <span className="font-semibold text-primary">{msg.datos.medio_pago}</span>
+                        {' · '}{msg.datos.forma_pago === 'credito' ? 'a crédito (va al resumen)' : 'débito (se descuenta del saldo)'}
+                      </p>
                     )}
 
                     <button

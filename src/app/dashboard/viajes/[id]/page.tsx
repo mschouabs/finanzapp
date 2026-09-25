@@ -19,6 +19,7 @@ import {
   fmtMonedaOriginal,
   fmtRango,
   getCategoriaViaje,
+  sugerirCategoriaViaje,
   getMoneda,
   type Viaje,
   type ViajeGasto,
@@ -32,6 +33,8 @@ const formVacio = () => ({
   moneda: 'ARS',
   tipo_cambio: '1',
   categoria: 'varios',
+  /* última categoría sugerida automáticamente (no se guarda) */
+  categoriaSugerida: 'varios',
   fecha: hoyISO(),
   notas: '',
 })
@@ -138,6 +141,7 @@ export default function ViajeDetallePage() {
       moneda: g.moneda,
       tipo_cambio: String(g.tipo_cambio),
       categoria: g.categoria,
+      categoriaSugerida: '',
       fecha: g.fecha,
       notas: g.notas ?? '',
     })
@@ -440,7 +444,19 @@ export default function ViajeDetallePage() {
                 id="g-concepto"
                 className={input}
                 value={form.concepto}
-                onChange={e => setForm(f => ({ ...f, concepto: e.target.value }))}
+                onChange={e => {
+                  const concepto = e.target.value
+                  /* Sugiere la categoría mientras la persona no haya
+                     elegido una a mano (sigue en "varios"). */
+                  setForm(f => ({
+                    ...f,
+                    concepto,
+                    categoria: f.categoria === 'varios' || f.categoria === f.categoriaSugerida
+                      ? (sugerirCategoriaViaje(concepto) ?? 'varios')
+                      : f.categoria,
+                    categoriaSugerida: sugerirCategoriaViaje(concepto) ?? 'varios',
+                  }))
+                }}
                 placeholder="Cena en Copacabana"
                 autoFocus
               />

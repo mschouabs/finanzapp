@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
-import { resolverTarjetaId } from '@/lib/tarjetas'
+import { guardarGastoVariable } from '@/lib/movimientos'
 import { createAdminClient } from '@/lib/supabaseAdmin'
 
 /* Webhook de WhatsApp (Twilio). Un mensaje de texto llega, se interpreta
@@ -70,13 +70,11 @@ export async function POST(req: NextRequest) {
   let error
 
   if (data.tipo === 'gasto_variable') {
-    const tarjeta_id = await resolverTarjetaId(supabase, uid, d.medio_pago)
-    const { error: e } = await supabase.from('gastos_variables').insert({
-      user_id: uid, nombre: d.nombre, monto: d.monto,
-      categoria: d.categoria, fecha: d.fecha, es_gasto_hormiga: false,
-      tarjeta_id,
+    const r = await guardarGastoVariable(supabase, uid, {
+      nombre: d.nombre, monto: Number(d.monto), categoria: d.categoria,
+      fecha: d.fecha, medio_pago: d.medio_pago, forma_pago: d.forma_pago,
     })
-    error = e
+    if (r.error) error = { message: r.error }
   } else if (data.tipo === 'gasto_fijo') {
     const { error: e } = await supabase.from('gastos_fijos').insert({
       user_id: uid, nombre: d.nombre, monto: d.monto,

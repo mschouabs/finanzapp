@@ -2,7 +2,12 @@
 
 import { useEffect, useState } from 'react'
 import { ArrowDownRight, ArrowUpRight, PiggyBank, TrendingDown, TrendingUp } from 'lucide-react'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
+import {
+  calcularPatrimonio, mesAnteriorClave, mesClave as claveMes, traerCotizaciones,
+  type LineaSaldo,
+} from '@/lib/patrimonio'
 import { LucaWidget } from '@/components/LucaWidget'
 import { LucaMensaje } from '@/components/luca/LucaMensaje'
 import type { LucaEstado } from '@/components/luca/LucaAvatar'
@@ -16,6 +21,14 @@ const fmt = (n: number) => '$' + n.toLocaleString('es-AR', { minimumFractionDigi
 
 const COLORS = ['#32D158', '#63A9FF', '#A855F7', '#F5C451', '#FF5873', '#22C55E', '#79C0FF', '#DF7897']
 
+interface Patrimonio {
+  total: number
+  liquido: number
+  invertido: number
+  /** total guardado del mes anterior, si existe */
+  anterior: number | null
+}
+
 interface DashboardData {
   totalIngresos: number
   totalGastos: number
@@ -27,14 +40,43 @@ interface DashboardData {
 export default function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
+  const [patrimonio, setPatrimonio] = useState<Patrimonio | null>(null)
 
   useEffect(() => {
     cargar()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  /* Patrimonio: suma de todos los saldos (billeteras + inversiones) en
+     pesos. Cada vez que se abre el Resumen se guarda la foto del mes,
+     así el mes que viene se puede comparar contra este. */
+  async function cargarPatrimonio() {
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    const [{ data: ls }, cot, { data: previo }] = await Promise.all([
+      supabase.from('inversiones').select('*'),
+      traerCotizaciones(),
+      supabase.from('patrimonio_mensual').select('total_ars').eq('mes', mesAnteriorClave()).maybeSingle(),
+    ])
+    const p = calcularPatrimonio((ls ?? []) as LineaSaldo[], cot)
+    setPatrimonio({ ...p, anterior: previo ? Number(previo.total_ars) : null })
+
+    if ((ls ?? []).length > 0) {
+      await supabase.from('patrimonio_mensual').upsert(
+        {
+          user_id: user.id, mes: claveMes(), total_ars: Math.round(p.total),
+          detalle: { liquido: Math.round(p.liquido), invertido: Math.round(p.invertido), dolar: cot.dolar, btc_usd: cot.btcUsd },
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'user_id,mes' },
+      )
+    }
+  }
+
   async function cargar() {
     setLoading(true)
+    cargarPatrimonio().catch(() => {})
     const supabase = createClient()
 
     const [{ data: gv }, { data: gf }, { data: iff }, { data: inf }, { data: secs }, { data: vg }] =
@@ -199,6 +241,9 @@ export default function DashboardPage() {
         <h1 className="text-2xl font-extrabold text-primary">{saludar()} 👋</h1>
         <p className="mt-1 text-sm text-secondary">Este es tu panorama financiero actual.</p>
       </header>
+
+      {/* patrimonio total */}
+      {patrimonio && patrimonio.total !== 0 && <TarjetaPatrimonio p={patrimonio} />}
 
       {/* balance + tasa de ahorro */}
       <div className="grid gap-5 lg:grid-cols-[1fr_320px]">
@@ -379,6 +424,61 @@ function saludar() {
 }
 
 /* ── piezas ──────────────────────────────────────── */
+
+const MESES_NOMBRE = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre']
+
+function TarjetaPatrimonio({ p }: { p: Patrimonio }) {
+  const hoy = new Date()
+  const mesAnt = MESES_NOMBRE[(hoy.getMonth() + 11) % 12]
+  const mesSig = MESES_NOMBRE[(hoy.getMonth() + 1) % 12]
+  const diff = p.anterior !== null ? p.total - p.anterior : null
+  const pct = diff !== null && p.anterior ? Math.round((diff / Math.abs(p.anterior)) * 1000) / 10 : null
+  const sube = (diff ?? 0) >= 0
+  const tono = sube ? 'var(--accent-positive)' : 'var(--accent-negative)'
+
+  return (
+    <section className="fa-card p-5">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h2 className="text-sm font-semibold text-secondary">Patrimonio total</h2>
+          <p className="fa-amount mt-1 text-4xl text-primary">{fmt(Math.round(p.total))}</p>
+          {diff !== null ? (
+            <p className="mt-1.5 flex flex-wrap items-center gap-1 text-sm">
+              {sube ? <ArrowUpRight size={16} style={{ color: tono }} /> : <ArrowDownRight size={16} style={{ color: tono }} />}
+              <span className="font-semibold" style={{ color: tono }}>
+                {sube ? '+' : '-'}{fmt(Math.abs(Math.round(diff)))}{pct !== null ? ` (${sube ? '+' : ''}${pct}%)` : ''}
+              </span>
+              <span className="text-secondary">
+                vs. fin de {mesAnt} — {sube ? 'tenés más que el mes pasado 🎉' : 'tenés menos que el mes pasado'}
+              </span>
+            </p>
+          ) : (
+            <p className="mt-1.5 text-xs text-secondary">
+              Guardé la foto de este mes. A partir de {mesSig} te muestro si tenés más o menos que el mes anterior.
+            </p>
+          )}
+        </div>
+        <div className="flex gap-6">
+          <div>
+            <p className="text-xs text-secondary">🏦 Disponible</p>
+            <p className="fa-amount text-lg text-primary">{fmt(Math.round(p.liquido))}</p>
+          </div>
+          <div>
+            <p className="text-xs text-secondary">📈 Invertido</p>
+            <p className="fa-amount text-lg text-primary">{fmt(Math.round(p.invertido))}</p>
+          </div>
+        </div>
+      </div>
+      <div className="mt-4 flex h-2 overflow-hidden rounded-full" style={{ background: 'var(--border-color)' }}>
+        <div style={{ width: `${p.total > 0 ? (p.liquido / p.total) * 100 : 0}%`, background: 'var(--accent-secondary)' }} />
+        <div style={{ width: `${p.total > 0 ? (p.invertido / p.total) * 100 : 0}%`, background: 'var(--accent-positive)' }} />
+      </div>
+      <Link href="/dashboard/billeteras" className="mt-3 inline-block text-xs font-semibold text-secondary underline underline-offset-2 hover:text-primary">
+        Ver billeteras →
+      </Link>
+    </section>
+  )
+}
 
 function Mini({ icono, tono, label, valor }: { icono: React.ReactNode; tono: string; label: string; valor: string }) {
   return (

@@ -1,6 +1,7 @@
 'use client'
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { createClient } from '@/lib/supabase'
+import { guardarGastoVariable, listarMediosDePago } from '@/lib/movimientos'
 import { LucaAvatar } from './luca/LucaAvatar'
 import type { LucaEstado } from './luca/LucaAvatar'
 import { Mic } from 'lucide-react'
@@ -10,6 +11,8 @@ interface ParsedExpense {
   monto: number
   categoria: string
   fecha: string
+  medio_pago?: string
+  forma_pago?: 'debito' | 'credito'
 }
 
 const FIELDS = [
@@ -34,6 +37,12 @@ export function LucaWidget({ onSaved }: { onSaved?: () => void }) {
   const chunksRef = useRef<Blob[]>([])
 
   const supabase = createClient()
+  const [medios, setMedios] = useState<string[]>([])
+
+  useEffect(() => {
+    listarMediosDePago(supabase).then(setMedios).catch(() => {})
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Estado del avatar según el estado del widget
   const lucaEstado: LucaEstado = saved
@@ -114,15 +123,16 @@ export function LucaWidget({ onSaved }: { onSaved?: () => void }) {
     setError('')
     try {
       const { data: { user } } = await supabase.auth.getUser()
-      const { error: dbError } = await supabase.from('gastos_variables').insert({
-        user_id: user?.id,
+      if (!user) throw new Error('sin sesión')
+      const { error: dbError } = await guardarGastoVariable(supabase, user.id, {
         nombre: parsed.nombre,
-        monto: parsed.monto,
+        monto: Number(parsed.monto),
         categoria: parsed.categoria,
         fecha: parsed.fecha,
-        es_gasto_hormiga: false,
+        medio_pago: parsed.medio_pago,
+        forma_pago: parsed.forma_pago,
       })
-      if (dbError) throw dbError
+      if (dbError) throw new Error(dbError)
       setSaved(true)
       onSaved?.()
       setTimeout(() => {
@@ -257,7 +267,47 @@ export function LucaWidget({ onSaved }: { onSaved?: () => void }) {
                 </dd>
               </div>
             ))}
+            {/* Con qué pagaste */}
+            <div className="flex items-center gap-4 border-t py-2.5">
+              <dt className="text-secondary w-24 shrink-0">Pagado con:</dt>
+              <dd className="flex flex-1 flex-wrap items-center gap-2 text-primary">
+                <select
+                  value={parsed.medio_pago ?? ''}
+                  onChange={e => setParsed(p => p ? {
+                    ...p,
+                    medio_pago: e.target.value || undefined,
+                    forma_pago: e.target.value ? (p.forma_pago ?? 'debito') : undefined,
+                  } : p)}
+                  className="rounded border bg-field px-2 py-1.5 text-xs text-primary"
+                >
+                  <option value="">Efectivo / sin especificar</option>
+                  {Array.from(new Set([...(parsed.medio_pago ? [parsed.medio_pago] : []), ...medios])).map(m => (
+                    <option key={m} value={m}>{m}</option>
+                  ))}
+                </select>
+                {parsed.medio_pago && (
+                  <div className="flex overflow-hidden rounded border text-[10px] font-semibold">
+                    {(['debito', 'credito'] as const).map(f => (
+                      <button
+                        key={f}
+                        type="button"
+                        onClick={() => setParsed(p => p ? { ...p, forma_pago: f } : p)}
+                        className={`px-2 py-1.5 ${(parsed.forma_pago ?? 'debito') === f ? 'bg-confirm text-white' : 'text-secondary hover:bg-card'}`}
+                      >
+                        {f === 'debito' ? 'Débito / saldo' : 'Crédito'}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </dd>
+            </div>
           </dl>
+
+          {parsed.medio_pago && (parsed.forma_pago ?? 'debito') === 'debito' && (
+            <p className="mt-2 text-[11px] text-secondary">
+              Se descuenta del saldo disponible de {parsed.medio_pago}.
+            </p>
+          )}
 
           <div className="flex gap-2 mt-4">
             <button

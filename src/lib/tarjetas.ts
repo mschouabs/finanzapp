@@ -63,6 +63,25 @@ export function detectarMedioPago(texto: string): string | null {
   return null
 }
 
+/* Tarjetas "puras": si pagaste con esto, fue a crédito sí o sí. */
+const SOLO_CREDITO = new Set(['Visa', 'Mastercard', 'AMEX'])
+
+export type FormaPago = 'debito' | 'credito'
+
+/**
+ * ¿Crédito o débito? "con la tarjeta", "en 3 cuotas", "a crédito" -> crédito.
+ * Si no lo aclara y se pagó con una app (MercadoPago, Ualá…), es débito:
+ * sale del saldo disponible de esa billetera.
+ */
+export function detectarFormaPago(texto: string, medio: string | null): FormaPago | undefined {
+  if (!medio) return undefined
+  const t = normalizar(texto)
+  if (/\bdebito\b/.test(t)) return 'debito'            // "tarjeta de débito"
+  if (/\b(credito|tarjeta|cuotas?|plan z)\b/.test(t)) return 'credito'
+  if (/\b(transferencia|transferi|qr|disponible|saldo)\b/.test(t)) return 'debito'
+  return SOLO_CREDITO.has(medio) ? 'credito' : 'debito'
+}
+
 export function marcaDeMedio(nombre: string): string {
   return MEDIOS.find(m => m.nombre === nombre)?.marca ?? 'Otra'
 }

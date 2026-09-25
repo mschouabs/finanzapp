@@ -8,7 +8,8 @@ import { ThemeSelector } from '@/components/ThemeSelector'
 const navItems = [
   { href: '/dashboard', label: 'Resumen', emoji: '📊' },
   { href: '/dashboard/ingresos-gastos', label: 'Trabajos', emoji: '💼' },
-  { href: '/dashboard/gastos-variables', label: 'Gastos & CC', emoji: '🛒' },
+  { href: '/dashboard/gastos-variables', label: 'Movimientos', emoji: '🛒' },
+  { href: '/dashboard/billeteras', label: 'Billeteras', emoji: '👛' },
   { href: '/dashboard/inversiones', label: 'Portfolio', emoji: '📈' },
   { href: '/dashboard/metas', label: 'Metas', emoji: '🎯' },
   { href: '/dashboard/historial', label: 'Historial', emoji: '📋' },

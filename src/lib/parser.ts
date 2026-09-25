@@ -6,7 +6,7 @@ listo para guardar. Es la fuente de verdad de /api/parse-expense
 y el primer intento de /api/luca-chat.
 ═══════════════════════════════════════════════════════════════ */
 
-import { detectarMedioPago } from './tarjetas'
+import { detectarFormaPago, detectarMedioPago } from './tarjetas'
 
 export type TipoRegistro =
   | 'gasto_variable'
@@ -30,6 +30,8 @@ export interface DatosRegistro {
   nivel_riesgo?: string
   /** App o tarjeta con la que se pagó ("MercadoPago", "Naranja X"…). */
   medio_pago?: string
+  /** 'debito' sale del saldo de la billetera, 'credito' va al resumen. */
+  forma_pago?: 'debito' | 'credito'
 }
 
 export interface Resultado {
@@ -317,7 +319,7 @@ export function extraerNombre(texto: string): string {
   s = s.replace(/\s{2,}/g, ' ').trim()
   s = s.replace(RELLENO, '').trim()
   s = s.replace(/^(en|de|por|un|una|el|la|los|las|para)\s+/i, '').trim()
-  s = s.replace(/\s+(en|de|por|con)$/i, '').trim()
+  s = s.replace(/(\s+(en|de|por|con|la|el|mi))+$/i, '').trim()
 
   if (!s) return 'Gasto'
   return s.charAt(0).toUpperCase() + s.slice(1, 60)
@@ -375,17 +377,18 @@ export function parsear(texto: string, hoy = new Date()): Resultado {
 
     default: {
       const medio = detectarMedioPago(texto)
+      const forma = detectarFormaPago(texto, medio)
       return {
         tipo: 'gasto_variable',
         mensaje: medio
-          ? `Listo, ${nombre} por $${fmt} con ${medio}.`
+          ? `Listo, ${nombre} por $${fmt} con ${medio}${forma === 'credito' ? ' (crédito)' : ''}.`
           : `Listo, ${nombre} por $${fmt}.`,
         datos: {
           nombre, monto,
           categoria: detectarCategoria(texto),
           fecha,
           es_gasto_hormiga: monto < 5000,
-          ...(medio ? { medio_pago: medio } : {}),
+          ...(medio ? { medio_pago: medio, forma_pago: forma } : {}),
         },
       }
     }

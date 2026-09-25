@@ -71,17 +71,55 @@ export interface CategoriaViaje {
 }
 
 export const CATEGORIAS_VIAJE: CategoriaViaje[] = [
-  { key: 'alojamiento', label: 'Alojamiento', emoji: '🏨', color: 'var(--accent-secondary)' },
-  { key: 'transporte',  label: 'Transporte',  emoji: '✈️', color: 'var(--accent-violet)' },
-  { key: 'comida',      label: 'Comida',      emoji: '🍽️', color: 'var(--accent-warning)' },
-  { key: 'actividades', label: 'Actividades', emoji: '🎟️', color: 'var(--accent-positive)' },
-  { key: 'compras',     label: 'Compras',     emoji: '🛍️', color: 'var(--accent-negative)' },
-  { key: 'salud',       label: 'Salud',       emoji: '💊', color: 'var(--riesgo-medio)' },
-  { key: 'varios',      label: 'Varios',      emoji: '📦', color: 'var(--text-muted)' },
+  { key: 'alojamiento',     label: 'Alojamiento',     emoji: '🏨', color: 'var(--accent-secondary)' },
+  { key: 'vuelos',          label: 'Vuelos',          emoji: '✈️', color: 'var(--accent-violet)' },
+  { key: 'transporte',      label: 'Transporte',      emoji: '🚕', color: '#8B5CF6' },
+  { key: 'gastronomia',     label: 'Comida y bebida', emoji: '🍽️', color: 'var(--accent-warning)' },
+  { key: 'supermercado',    label: 'Supermercado',    emoji: '🛒', color: '#F59E0B' },
+  { key: 'salidas',         label: 'Bares y salidas', emoji: '🍻', color: '#EC4899' },
+  { key: 'actividades',     label: 'Actividades',     emoji: '🎟️', color: 'var(--accent-positive)' },
+  { key: 'entretenimiento', label: 'Entretenimiento', emoji: '🎳', color: '#14B8A6' },
+  { key: 'compras',         label: 'Compras',         emoji: '🛍️', color: 'var(--accent-negative)' },
+  { key: 'ropa',            label: 'Ropa',            emoji: '👕', color: '#F97316' },
+  { key: 'libros',          label: 'Libros',          emoji: '📚', color: '#0EA5E9' },
+  { key: 'regalos',         label: 'Regalos',         emoji: '🎁', color: '#E11D48' },
+  { key: 'salud',           label: 'Salud',           emoji: '💊', color: 'var(--riesgo-medio)' },
+  { key: 'tramites',        label: 'Seguros y trámites', emoji: '🛂', color: '#64748B' },
+  { key: 'varios',          label: 'Varios',          emoji: '📦', color: 'var(--text-muted)' },
 ]
 
-export const getCategoriaViaje = (key: string) =>
-  CATEGORIAS_VIAJE.find(c => c.key === key) ?? CATEGORIAS_VIAJE[CATEGORIAS_VIAJE.length - 1]
+/* Claves viejas que se guardaron con otro nombre. */
+const ALIAS_CATEGORIA: Record<string, string> = { comida: 'gastronomia', ocio: 'salidas' }
+
+export const getCategoriaViaje = (key: string) => {
+  const k = ALIAS_CATEGORIA[key] ?? key
+  return CATEGORIAS_VIAJE.find(c => c.key === k) ?? CATEGORIAS_VIAJE[CATEGORIAS_VIAJE.length - 1]
+}
+
+/* Sugiere la categoría a partir del concepto ("Uber al aeropuerto" ->
+   transporte). Se usa al escribir el concepto en el formulario. */
+const SUGERENCIAS: Array<[string, RegExp]> = [
+  ['alojamiento', /\b(airbnb|hotel|hostel|hostal|alojamiento|booking|posada|cabana|departamento)\b/],
+  ['vuelos', /\b(vuelo|vuelos|avion|pasaje aereo|aerolineas|flybondi|jetsmart|latam|gol|azul|equipaje|valija extra)\b/],
+  ['transporte', /\b(uber|taxi|cabify|didi|remis|bus|colectivo|micro|tren|subte|metro|monopatin|bici|nafta|peaje|traslado|transfer|alquiler de auto|estacionamiento)\b/],
+  ['supermercado', /\b(super|supermercado|mercado|almacen|kiosco|carrefour|pao de acucar|minimercado)\b/],
+  ['salidas', /\b(bar|cerveza|birra|trago|tragos|boliche|pub|vino|caipirinha|fernet)\b/],
+  ['gastronomia', /\b(almuerzo|cena|desayuno|merienda|cafe|comida|restaurant|restaurante|resto|helado|pizza|hamburguesa|sushi|parrilla|snack|agua|gaseosa)\b/],
+  ['entretenimiento', /\b(bowling|cine|teatro|show|recital|concierto|juego|parque|karting)\b/],
+  ['actividades', /\b(museo|entrada|entradas|excursion|tour|visita|paseo|clase|ski|lift|pase)\b/],
+  ['ropa', /\b(ropa|jean|remera|campera|zapatillas|buzo|calvin klein|zara|nike|adidas|short|malla)\b/],
+  ['libros', /\b(libro|libros|libreria)\b/],
+  ['regalos', /\b(regalo|regalos|souvenir|souvenirs|recuerdo)\b/],
+  ['salud', /\b(farmacia|remedio|medico|hospital|seguro medico)\b/],
+  ['tramites', /\b(seguro|asistencia al viajero|visa|pasaporte|migraciones|tasa)\b/],
+  ['compras', /\b(compra|compras|shopping|tienda|outlet)\b/],
+]
+
+export function sugerirCategoriaViaje(concepto: string): string | null {
+  const t = concepto.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+  for (const [key, re] of SUGERENCIAS) if (re.test(t)) return key
+  return null
+}
 
 /* ── Formato ────────────────────────────────────────────────────── */
 
