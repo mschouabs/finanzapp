@@ -10,6 +10,15 @@ const fmt = (n: number) =>
 
 const MES_ACTUAL = new Date().toISOString().slice(0, 7) // "2026-08"
 
+/** Primer y último día del mes actual, en formato YYYY-MM-DD. */
+function rangoMesActual(): { desde: string; hasta: string } {
+  const hoy = new Date()
+  const desde = `${MES_ACTUAL}-01`
+  const ultimoDia = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0).getDate()
+  const hasta = `${MES_ACTUAL}-${String(ultimoDia).padStart(2, '0')}`
+  return { desde, hasta }
+}
+
 /* ── tipos ───────────────────────────────── */
 interface Tarjeta {
   id: string
@@ -79,10 +88,12 @@ export default function TarjetasPage() {
   async function cargarGastos() {
     setLoading(true)
     const supabase = createClient()
+    const { desde, hasta } = rangoMesActual()
     const { data } = await supabase
       .from('gastos_variables')
       .select('id, nombre, monto, fecha, categoria')
-      .like('fecha', MES_ACTUAL + '%')
+      .gte('fecha', desde)
+      .lte('fecha', hasta)
     setGastosMes(data || [])
     setLoading(false)
   }

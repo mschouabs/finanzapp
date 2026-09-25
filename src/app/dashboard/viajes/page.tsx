@@ -6,10 +6,8 @@ import { Plus, MapPin, Calendar } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { ViajeModal } from '@/components/ViajeModal'
 import {
-  ETIQUETA_ESTADO,
   colorPresupuesto,
   duracionDias,
-  estadoViaje,
   fmtCorto,
   fmtRango,
   type Viaje,
@@ -21,7 +19,6 @@ export default function ViajesPage() {
   const [gastado, setGastado] = useState<Record<string, number>>({})
   const [loading, setLoading] = useState(true)
   const [modal, setModal] = useState(false)
-  const [verArchivados, setVerArchivados] = useState(false)
 
   const cargar = useCallback(async () => {
     setLoading(true)
@@ -57,9 +54,8 @@ export default function ViajesPage() {
 
   useEffect(() => { cargar() }, [cargar])
 
-  const visibles = viajes.filter(v => (verArchivados ? v.archivado : !v.archivado))
+  const visibles = viajes
   const totalGastado = visibles.reduce((s, v) => s + (gastado[v.id] ?? 0), 0)
-  const hayArchivados = viajes.some(v => v.archivado)
 
   if (loading) {
     return (
@@ -77,7 +73,6 @@ export default function ViajesPage() {
           <h1 className="text-lg font-extrabold text-primary">✈️ Viajes</h1>
           <p className="mt-1 text-xs text-secondary">
             {visibles.length} {visibles.length === 1 ? 'viaje' : 'viajes'}
-            {verArchivados && ' archivados'}
           </p>
         </div>
         <div className="text-right">
@@ -97,14 +92,6 @@ export default function ViajesPage() {
           <Plus size={15} strokeWidth={2.5} />
           Nuevo viaje
         </button>
-        {hayArchivados && (
-          <button
-            onClick={() => setVerArchivados(v => !v)}
-            className="min-h-[44px] rounded-md border px-4 py-2 text-xs font-semibold text-secondary hover:bg-alternate"
-          >
-            {verArchivados ? 'Ver activos' : 'Ver archivados'}
-          </button>
-        )}
       </div>
 
       {/* Lista */}
@@ -112,28 +99,28 @@ export default function ViajesPage() {
         <div className="fa-card p-10 text-center">
           <div className="text-3xl">🗺️</div>
           <p className="mt-3 text-sm font-semibold text-primary">
-            {verArchivados ? 'No hay viajes archivados' : 'Todavía no cargaste ningún viaje'}
+            Todavía no cargaste ningún viaje
           </p>
-          {!verArchivados && (
-            <p className="mx-auto mt-2 max-w-sm text-xs leading-relaxed text-secondary">
-              Creá un viaje y después cargá cada gasto en la moneda en que lo pagaste.
-              FinanzApp lo convierte a pesos para que veas el total real.
-            </p>
-          )}
+          <p className="mx-auto mt-2 max-w-sm text-xs leading-relaxed text-secondary">
+            Creá un viaje y después cargá cada gasto en la moneda en que lo pagaste.
+            FinanzApp lo convierte a pesos para que veas el total real.
+          </p>
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2">
           {visibles.map(v => {
             const total = gastado[v.id] ?? 0
             const pct = v.presupuesto ? (total / v.presupuesto) * 100 : 0
-            const estado = ETIQUETA_ESTADO[estadoViaje(v)]
             const dias = duracionDias(v)
+            const estadoColor = v.archivado ? 'var(--text-muted)' : 'var(--accent-positive)'
+            const estadoLabel = v.archivado ? 'REALIZADO' : 'ACTIVO'
 
             return (
               <Link
                 key={v.id}
                 href={`/dashboard/viajes/${v.id}`}
                 className="fa-card block p-5 transition-shadow hover:shadow-card-hover"
+                style={v.archivado ? { opacity: 0.75 } : undefined}
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex min-w-0 items-center gap-3">
@@ -151,11 +138,11 @@ export default function ViajesPage() {
                   <span
                     className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold"
                     style={{
-                      color: estado.color,
-                      background: `color-mix(in srgb, ${estado.color} 14%, transparent)`,
+                      color: estadoColor,
+                      background: `color-mix(in srgb, ${estadoColor} 14%, transparent)`,
                     }}
                   >
-                    {estado.label}
+                    {estadoLabel}
                   </span>
                 </div>
 
