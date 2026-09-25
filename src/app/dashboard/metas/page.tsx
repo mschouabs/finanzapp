@@ -45,7 +45,9 @@ export default function MetasPage() {
   const [totalInversiones, setTotalInversiones] = useState(0)
   const [rendMensual, setRendMensual] = useState(0)
 
-  // Meta configs (editable)
+  // Meta configs (editable) — se guardan en este dispositivo para que no
+  // se pierdan al recargar la página.
+  const METAS_KEY = 'finanzapp_metas'
   const [metaAhorro, setMetaAhorro] = useState(50) // % objetivo
   const [metaCompraUSD, setMetaCompraUSD] = useState(20000) // USD
   const [metaCompraLabel, setMetaCompraLabel] = useState('Auto')
@@ -55,7 +57,26 @@ export default function MetasPage() {
   const [tempCompraUSD, setTempCompraUSD] = useState('20000')
   const [tempCompraLabel, setTempCompraLabel] = useState('Auto')
 
-  useEffect(() => { loadData(); fetchDolar() }, [])
+  useEffect(() => {
+    loadData()
+    fetchDolar()
+    try {
+      const guardado = JSON.parse(localStorage.getItem(METAS_KEY) || 'null')
+      if (guardado) {
+        if (typeof guardado.metaAhorro === 'number') { setMetaAhorro(guardado.metaAhorro); setTempAhorro(String(guardado.metaAhorro)) }
+        if (typeof guardado.metaCompraUSD === 'number') { setMetaCompraUSD(guardado.metaCompraUSD); setTempCompraUSD(String(guardado.metaCompraUSD)) }
+        if (typeof guardado.metaCompraLabel === 'string') { setMetaCompraLabel(guardado.metaCompraLabel); setTempCompraLabel(guardado.metaCompraLabel) }
+      }
+    } catch { /* sin storage */ }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  function guardarMetas(cambios: Partial<{ metaAhorro: number; metaCompraUSD: number; metaCompraLabel: string }>) {
+    try {
+      const actual = JSON.parse(localStorage.getItem(METAS_KEY) || '{}')
+      localStorage.setItem(METAS_KEY, JSON.stringify({ metaAhorro, metaCompraUSD, metaCompraLabel, ...actual, ...cambios }))
+    } catch { /* sin storage */ }
+  }
 
   async function loadData() {
     const supabase = createClient()
@@ -147,7 +168,7 @@ export default function MetasPage() {
             <input type="number" value={tempAhorro} onChange={e => setTempAhorro(e.target.value)}
               className="border border-line rounded-lg px-3 py-1.5 text-sm w-24" placeholder="% objetivo" />
             <span className="text-sm text-secondary">%</span>
-            <button onClick={() => { setMetaAhorro(Number(tempAhorro)); setEditingAhorro(false) }}
+            <button onClick={() => { const v = Number(tempAhorro); setMetaAhorro(v); guardarMetas({ metaAhorro: v }); setEditingAhorro(false) }}
               className="bg-confirm text-white px-3 py-1.5 rounded-lg text-sm">Guardar</button>
           </div>
         )}
@@ -199,7 +220,7 @@ export default function MetasPage() {
               className="border border-line rounded-lg px-3 py-1.5 text-sm" placeholder="Nombre (ej. Auto)" />
             <input type="number" value={tempCompraUSD} onChange={e => setTempCompraUSD(e.target.value)}
               className="border border-line rounded-lg px-3 py-1.5 text-sm w-32" placeholder="USD" />
-            <button onClick={() => { setMetaCompraUSD(Number(tempCompraUSD)); setMetaCompraLabel(tempCompraLabel); setEditingCompra(false) }}
+            <button onClick={() => { const v = Number(tempCompraUSD); setMetaCompraUSD(v); setMetaCompraLabel(tempCompraLabel); guardarMetas({ metaCompraUSD: v, metaCompraLabel: tempCompraLabel }); setEditingCompra(false) }}
               className="bg-confirm text-white px-3 py-1.5 rounded-lg text-sm">Guardar</button>
           </div>
         )}

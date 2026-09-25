@@ -299,7 +299,12 @@ export default function BilleterasPage() {
           )}
         </div>
 
-        <p className="fa-amount mt-3 text-2xl text-primary">{$(g.total)}</p>
+        <div className="mt-3 flex items-baseline gap-2">
+          <p className="fa-amount text-2xl text-primary">{$(g.total)}</p>
+          {tot.total > 0 && !oculto && (
+            <span className="text-xs font-medium text-muted">{Math.round((g.total / tot.total) * 100)}% del total</span>
+          )}
+        </div>
 
         {/* líneas */}
         <div className="mt-3 flex flex-col divide-y divide-line border-t border-line">

@@ -13,12 +13,17 @@ import {
   type Viaje,
 } from '@/lib/viajes'
 
+type Filtro = 'todos' | 'activos' | 'realizados'
+type Orden = 'recientes' | 'gasto' | 'alfabetico'
+
 export default function ViajesPage() {
   const [viajes, setViajes] = useState<Viaje[]>([])
   /** Gastado por viaje, ya normalizado a ARS por la base. */
   const [gastado, setGastado] = useState<Record<string, number>>({})
   const [loading, setLoading] = useState(true)
   const [modal, setModal] = useState(false)
+  const [filtro, setFiltro] = useState<Filtro>('todos')
+  const [orden, setOrden] = useState<Orden>('recientes')
 
   const cargar = useCallback(async () => {
     setLoading(true)
@@ -54,7 +59,16 @@ export default function ViajesPage() {
 
   useEffect(() => { cargar() }, [cargar])
 
-  const visibles = viajes
+  const filtrados = viajes.filter(v => {
+    if (filtro === 'activos') return !v.archivado
+    if (filtro === 'realizados') return !!v.archivado
+    return true
+  })
+  const visibles = [...filtrados].sort((a, b) => {
+    if (orden === 'gasto') return (gastado[b.id] ?? 0) - (gastado[a.id] ?? 0)
+    if (orden === 'alfabetico') return a.nombre.localeCompare(b.nombre)
+    return 0 // 'recientes': ya vienen ordenados así desde la consulta
+  })
   const totalGastado = visibles.reduce((s, v) => s + (gastado[v.id] ?? 0), 0)
 
   if (loading) {
@@ -84,7 +98,7 @@ export default function ViajesPage() {
       </div>
 
       {/* Acciones */}
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <button
           onClick={() => setModal(true)}
           className="flex min-h-[44px] items-center gap-1.5 rounded-md bg-confirm px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-confirm-hover"
@@ -92,6 +106,25 @@ export default function ViajesPage() {
           <Plus size={15} strokeWidth={2.5} />
           Nuevo viaje
         </button>
+        {viajes.length > 1 && (
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex gap-1 rounded-lg bg-alternate p-1">
+              {(['todos', 'activos', 'realizados'] as const).map(f => (
+                <button key={f} onClick={() => setFiltro(f)}
+                  className="rounded-md px-2.5 py-1.5 text-xs font-semibold capitalize"
+                  style={filtro === f ? { background: 'var(--bg-card)', color: 'var(--text-primary)' } : { color: 'var(--text-secondary)' }}>
+                  {f}
+                </button>
+              ))}
+            </div>
+            <select value={orden} onChange={e => setOrden(e.target.value as Orden)}
+              className="rounded-lg border bg-field px-2.5 py-1.5 text-xs text-secondary">
+              <option value="recientes">Más recientes</option>
+              <option value="gasto">Mayor gasto</option>
+              <option value="alfabetico">Alfabético</option>
+            </select>
+          </div>
+        )}
       </div>
 
       {/* Lista */}
@@ -99,11 +132,11 @@ export default function ViajesPage() {
         <div className="fa-card p-10 text-center">
           <div className="text-3xl">🗺️</div>
           <p className="mt-3 text-sm font-semibold text-primary">
-            Todavía no cargaste ningún viaje
+            {viajes.length === 0 ? 'Todavía no cargaste ningún viaje' : 'Sin viajes para este filtro'}
           </p>
           <p className="mx-auto mt-2 max-w-sm text-xs leading-relaxed text-secondary">
-            Creá un viaje y después cargá cada gasto en la moneda en que lo pagaste.
-            FinanzApp lo convierte a pesos para que veas el total real.
+            {viajes.length === 0 ? <>Creá un viaje y después cargá cada gasto en la moneda en que lo pagaste.
+            FinanzApp lo convierte a pesos para que veas el total real.</> : 'Probá con otro filtro.'}
           </p>
         </div>
       ) : (
