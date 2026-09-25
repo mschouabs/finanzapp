@@ -32,6 +32,8 @@ export interface DatosRegistro {
   medio_pago?: string
   /** 'debito' sale del saldo de la billetera, 'credito' va al resumen. */
   forma_pago?: 'debito' | 'credito'
+  /** Cantidad de cuotas (compras con tarjeta). */
+  cuotas?: number
 }
 
 export interface Resultado {
@@ -186,6 +188,20 @@ export function detectarCategoria(texto: string): string {
   return 'varios'
 }
 
+/* ── Cuotas ─────────────────────────────────────────────────────
+   "en 3 cuotas", "6 cuotas sin interés", "en doce cuotas".
+   Si dice "3 cuotas de 20 lucas", el monto dicho es por cuota.      */
+
+export function extraerCuotas(texto: string): { cuotas: number; montoEsPorCuota: boolean } | null {
+  const t = norm(texto)
+  const m = t.match(/\b(\d{1,2}|[a-z]+)\s+cuotas?\b/)
+  if (!m) return null
+  const n = /^\d+$/.test(m[1]) ? Number(m[1]) : PALABRAS_NUMERO[m[1]]
+  if (!n || n < 2 || n > 48) return null
+  const porCuota = new RegExp(`\\b${m[1]}\\s+cuotas?\\s+(sin interes\\s+)?de\\b`).test(t)
+  return { cuotas: n, montoEsPorCuota: porCuota }
+}
+
 /* ── Tipo de registro ───────────────────────────────────────── */
 
 const RE_GASTO_FIJO = /\b(alquiler|expensas|luz|gas|agua|internet|wifi|cable|abono|prepaga|obra social|seguro|suscripcion|netflix|spotify|disney|hbo|cuota|colegio|gimnasio mensual)\b/
@@ -300,8 +316,11 @@ export function extraerFecha(texto: string, hoy = new Date()): string {
 
 const RELLENO = /^(gaste|gasté|pague|pagué|compre|compré|cobre|cobré|puse|saque|saqué|me\s+(salio|salió|costo|costó|pagaron|pago|depositaron)|se\s+me\s+fueron|invert[ií]|cargue|cargué|anota|anotame|registra|registrame)\s*/i
 
+const RE_FRASE_CUOTAS =
+  /\b(en\s+)?(\d{1,2}|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce|quince|veinte)\s+cuotas?(\s+sin\s+inter[eé]s)?(\s+de\b)?/gi
+
 export function extraerNombre(texto: string): string {
-  let s = quitarMediosDePago(texto)
+  let s = quitarMediosDePago(texto.replace(RE_FRASE_CUOTAS, ' '))
 
   // sacar montos y monedas
   s = s
@@ -377,18 +396,26 @@ export function parsear(texto: string, hoy = new Date()): Resultado {
 
     default: {
       const medio = detectarMedioPago(texto)
-      const forma = detectarFormaPago(texto, medio)
+      const cuotas = extraerCuotas(texto)
+      const forma = cuotas ? 'credito' : detectarFormaPago(texto, medio)
+      /* "3 cuotas de 20 lucas" -> la compra total es 60 lucas */
+      const total = cuotas?.montoEsPorCuota ? monto * cuotas.cuotas : monto
+      const fmtTotal = total.toLocaleString('es-AR')
+      const detalleCuotas = cuotas
+        ? ` en ${cuotas.cuotas} cuotas de $${Math.round(total / cuotas.cuotas).toLocaleString('es-AR')}`
+        : ''
       return {
         tipo: 'gasto_variable',
         mensaje: medio
-          ? `Listo, ${nombre} por $${fmt} con ${medio}${forma === 'credito' ? ' (crédito)' : ''}.`
-          : `Listo, ${nombre} por $${fmt}.`,
+          ? `Listo, ${nombre} por $${fmtTotal}${detalleCuotas} con ${medio}${forma === 'credito' && !cuotas ? ' (crédito)' : ''}.`
+          : `Listo, ${nombre} por $${fmtTotal}${detalleCuotas}.`,
         datos: {
-          nombre, monto,
+          nombre, monto: total,
           categoria: detectarCategoria(texto),
           fecha,
-          es_gasto_hormiga: monto < 5000,
+          es_gasto_hormiga: total < 5000,
           ...(medio ? { medio_pago: medio, forma_pago: forma } : {}),
+          ...(cuotas ? { cuotas: cuotas.cuotas } : {}),
         },
       }
     }

@@ -13,6 +13,7 @@ interface ParsedExpense {
   fecha: string
   medio_pago?: string
   forma_pago?: 'debito' | 'credito'
+  cuotas?: number
 }
 
 const FIELDS = [
@@ -131,6 +132,7 @@ export function LucaWidget({ onSaved }: { onSaved?: () => void }) {
         fecha: parsed.fecha,
         medio_pago: parsed.medio_pago,
         forma_pago: parsed.forma_pago,
+        cuotas: parsed.forma_pago === 'credito' ? parsed.cuotas : undefined,
       })
       if (dbError) throw new Error(dbError)
       setSaved(true)
@@ -302,6 +304,22 @@ export function LucaWidget({ onSaved }: { onSaved?: () => void }) {
               </dd>
             </div>
           </dl>
+
+          {parsed.medio_pago && parsed.forma_pago === 'credito' && (
+            <div className="mt-2 flex items-center gap-2 text-[11px] text-secondary">
+              <span>Cuotas:</span>
+              <input
+                type="number" min={1} max={48}
+                value={parsed.cuotas ?? 1}
+                onChange={e => setParsed(p => p ? { ...p, cuotas: Math.max(1, Number(e.target.value) || 1) } : p)}
+                className="w-16 rounded border bg-field px-2 py-1 text-xs text-primary"
+                aria-label="Cantidad de cuotas"
+              />
+              {(parsed.cuotas ?? 1) > 1 && (
+                <span>de ${Math.round(Number(parsed.monto) / (parsed.cuotas ?? 1)).toLocaleString('es-AR')} cada una</span>
+              )}
+            </div>
+          )}
 
           {parsed.medio_pago && (parsed.forma_pago ?? 'debito') === 'debito' && (
             <p className="mt-2 text-[11px] text-secondary">

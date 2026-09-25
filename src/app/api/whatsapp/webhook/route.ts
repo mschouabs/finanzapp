@@ -72,7 +72,7 @@ export async function POST(req: NextRequest) {
   if (data.tipo === 'gasto_variable') {
     const r = await guardarGastoVariable(supabase, uid, {
       nombre: d.nombre, monto: Number(d.monto), categoria: d.categoria,
-      fecha: d.fecha, medio_pago: d.medio_pago, forma_pago: d.forma_pago,
+      fecha: d.fecha, medio_pago: d.medio_pago, forma_pago: d.forma_pago, cuotas: d.cuotas,
     })
     if (r.error) error = { message: r.error }
   } else if (data.tipo === 'gasto_fijo') {

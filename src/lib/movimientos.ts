@@ -8,6 +8,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { normalizar, resolverTarjetaId, type FormaPago } from './tarjetas'
+import { aISO, fechasDeResumen, resumenDeCompra, sumarMeses } from './ciclos'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Cliente = SupabaseClient<any, any, any>
@@ -21,7 +22,25 @@ export interface NuevoGasto {
   /** Nombre de la app/tarjeta ("MercadoPago"). */
   medio_pago?: string | null
   forma_pago?: FormaPago | null
+  /** Compras con tarjeta: en cuántas cuotas (monto = total de la compra). */
+  cuotas?: number | null
+  /** 'ARS' por defecto. Los consumos en dólares con tarjeta van en 'USD'. */
+  moneda?: 'ARS' | 'USD'
 }
+
+/** Gasto en pesos: los consumos en dólares se pasan con la cotización. */
+export function montoEnPesos(g: { monto: number; moneda?: string | null }, dolar: number | null) {
+  const m = Number(g.monto) || 0
+  return g.moneda === 'USD' ? m * (dolar ?? 1560) : m
+}
+
+const nuevoId = () =>
+  typeof crypto !== 'undefined' && 'randomUUID' in crypto
+    ? crypto.randomUUID()
+    : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+        const r = (Math.random() * 16) | 0
+        return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16)
+      })
 
 const mismaApp = (a: string, b: string) => {
   const x = normalizar(a).replace(/\s+/g, '')
@@ -35,8 +54,15 @@ const mismaApp = (a: string, b: string) => {
  * (va a quedar en negativo hasta que cargues el saldo real).
  */
 export async function resolverLineaDisponible(
-  supabase: Cliente, userId: string, app: string,
+  supabase: Cliente, userId: string, app: string, moneda: 'ARS' | 'USD' = 'ARS',
 ): Promise<string | null> {
+  if (moneda === 'USD') {
+    /* dólares: la línea en USD de esa app, si existe */
+    const { data } = await supabase.from('inversiones').select('id, app, tipo')
+      .eq('user_id', userId).eq('moneda', 'USD')
+    const l = (data ?? []).find(x => mismaApp(x.app as string, app) && x.tipo !== 'cripto')
+    return (l?.id as string) ?? null
+  }
   const { data } = await supabase
     .from('inversiones')
     .select('id, app, moneda, es_disponible')
@@ -62,23 +88,59 @@ export async function guardarGastoVariable(
   supabase: Cliente, userId: string, g: NuevoGasto,
 ): Promise<{ error: string | null }> {
   const medio = g.medio_pago || null
-  const forma: FormaPago | null = medio ? (g.forma_pago ?? 'debito') : null
+  const cuotas = Math.max(1, Math.round(Number(g.cuotas) || 1))
+  /* en cuotas es siempre crédito */
+  const forma: FormaPago | null = medio ? (cuotas > 1 ? 'credito' : (g.forma_pago ?? 'debito')) : null
+  const moneda = g.moneda ?? 'ARS'
 
   const tarjeta_id = await resolverTarjetaId(supabase, userId, medio)
   const billetera_linea_id =
-    medio && forma === 'debito' ? await resolverLineaDisponible(supabase, userId, medio) : null
+    medio && forma === 'debito' ? await resolverLineaDisponible(supabase, userId, medio, moneda) : null
 
-  const { error } = await supabase.from('gastos_variables').insert({
+  const base = {
     user_id: userId,
     nombre: g.nombre,
-    monto: g.monto,
+    moneda,
     categoria: g.categoria || 'varios',
-    fecha: g.fecha,
     es_gasto_hormiga: g.es_gasto_hormiga ?? false,
     tarjeta_id,
     forma_pago: forma,
-    billetera_linea_id,
-  })
+  }
+
+  let filas: Record<string, unknown>[]
+  if (forma === 'credito' && tarjeta_id) {
+    /* Compra con tarjeta: cada cuota va al resumen que le toca */
+    const { data: t } = await supabase
+      .from('tarjetas_cuentas').select('cierre, vencimiento').eq('id', tarjeta_id).single()
+    const dias = { cierre: t?.cierre ?? null, vencimiento: t?.vencimiento ?? null }
+    const primero = resumenDeCompra(g.fecha, dias)
+    const total = Number(g.monto)
+    const cuota = Math.round((total / cuotas) * 100) / 100
+    const compra_id = cuotas > 1 ? nuevoId() : null
+    filas = Array.from({ length: cuotas }, (_, i) => {
+      const resumen = sumarMeses(primero, i)
+      /* la última cuota absorbe el redondeo */
+      const monto = i === cuotas - 1 ? Math.round((total - cuota * (cuotas - 1)) * 100) / 100 : cuota
+      return {
+        ...base,
+        monto,
+        /* la primera cuota queda en la fecha de compra; las demás, en el
+           vencimiento de su resumen (cuando la vas a pagar) */
+        fecha: i === 0 ? g.fecha : aISO(fechasDeResumen(resumen, dias).vencimiento),
+        fecha_compra: g.fecha,
+        resumen,
+        pagado: false,
+        compra_id,
+        cuota_numero: i + 1,
+        cuotas_total: cuotas,
+        monto_total: total,
+      }
+    })
+  } else {
+    filas = [{ ...base, monto: g.monto, fecha: g.fecha, billetera_linea_id }]
+  }
+
+  const { error } = await supabase.from('gastos_variables').insert(filas)
   if (error) return { error: error.message }
 
   /* Si pagaste a crédito con una app que teníamos solo como cuenta,
@@ -96,16 +158,76 @@ export async function guardarGastoVariable(
   return { error: null }
 }
 
-/** Borra el gasto y, si había salido de una billetera, devuelve la plata. */
+/**
+ * Borra el gasto y, si había salido de una billetera, devuelve la plata.
+ * Si es una cuota, `compraCompleta` borra todas las cuotas de esa compra.
+ */
 export async function borrarGastoVariable(
   supabase: Cliente,
-  gasto: { id: string; monto: number; billetera_linea_id?: string | null },
+  gasto: { id: string; monto: number; billetera_linea_id?: string | null; compra_id?: string | null },
+  compraCompleta = false,
 ) {
+  if (compraCompleta && gasto.compra_id) {
+    await supabase.from('gastos_variables').delete().eq('compra_id', gasto.compra_id)
+    return
+  }
   await supabase.from('gastos_variables').delete().eq('id', gasto.id)
   if (gasto.billetera_linea_id) {
     await supabase.rpc('ajustar_saldo', {
       p_id: gasto.billetera_linea_id, p_delta: Number(gasto.monto),
     })
+  }
+}
+
+/* ── Pago de resúmenes ─────────────────────────────────────────── */
+
+export interface ConsumoTarjeta {
+  id: string
+  monto: number
+  moneda: string | null
+  pagado: boolean | null
+  pago_linea_id: string | null
+}
+
+/**
+ * Paga los consumos pendientes de un resumen: descuenta los pesos de
+ * `lineaARS` y los dólares de `lineaUSD`, y marca todo como pagado
+ * recordando de dónde salió (para poder deshacerlo).
+ */
+export async function pagarConsumos(
+  supabase: Cliente, consumos: ConsumoTarjeta[], lineaARS: string | null, lineaUSD: string | null,
+): Promise<{ error: string | null }> {
+  const pendientes = consumos.filter(c => !c.pagado)
+  const ars = pendientes.filter(c => c.moneda !== 'USD')
+  const usd = pendientes.filter(c => c.moneda === 'USD')
+  if (ars.length && !lineaARS) return { error: 'Elegí de qué cuenta salen los pesos.' }
+  if (usd.length && !lineaUSD) return { error: 'Elegí de qué cuenta salen los dólares.' }
+
+  for (const [grupo, linea] of [[ars, lineaARS], [usd, lineaUSD]] as const) {
+    if (!grupo.length || !linea) continue
+    const total = grupo.reduce((s, c) => s + Number(c.monto), 0)
+    const { error: e1 } = await supabase.rpc('ajustar_saldo', { p_id: linea, p_delta: -total })
+    if (e1) return { error: e1.message }
+    const { error: e2 } = await supabase.from('gastos_variables')
+      .update({ pagado: true, pago_linea_id: linea }).in('id', grupo.map(c => c.id))
+    if (e2) return { error: e2.message }
+  }
+  return { error: null }
+}
+
+/** Deshace un pago: la plata vuelve a la cuenta y los consumos quedan pendientes. */
+export async function deshacerPago(supabase: Cliente, consumos: ConsumoTarjeta[]) {
+  const porLinea = new Map<string, number>()
+  for (const c of consumos) {
+    if (!c.pagado || !c.pago_linea_id) continue
+    porLinea.set(c.pago_linea_id, (porLinea.get(c.pago_linea_id) ?? 0) + Number(c.monto))
+  }
+  for (const [linea, total] of porLinea) {
+    await supabase.rpc('ajustar_saldo', { p_id: linea, p_delta: total })
+  }
+  const ids = consumos.filter(c => c.pagado && c.pago_linea_id).map(c => c.id)
+  if (ids.length) {
+    await supabase.from('gastos_variables').update({ pagado: false, pago_linea_id: null }).in('id', ids)
   }
 }
 

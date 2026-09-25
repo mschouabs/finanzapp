@@ -7,7 +7,8 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
 } from 'recharts'
 import { createClient } from '@/lib/supabase'
-import { borrarGastoVariable, guardarGastoVariable, listarMediosDePago } from '@/lib/movimientos'
+import { borrarGastoVariable, guardarGastoVariable, listarMediosDePago, montoEnPesos } from '@/lib/movimientos'
+import { traerCotizaciones } from '@/lib/patrimonio'
 
 interface GastoVariable {
   id: string
@@ -19,6 +20,11 @@ interface GastoVariable {
   tarjeta_id: string | null
   forma_pago: 'debito' | 'credito' | null
   billetera_linea_id: string | null
+  moneda: string | null
+  compra_id: string | null
+  cuota_numero: number | null
+  cuotas_total: number | null
+  monto_total: number | null
 }
 
 interface GastoFijo {
@@ -57,7 +63,7 @@ const fmtFull = (n: number) => '$' + Math.round(n).toLocaleString('es-AR')
 
 const meses = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
 const hoyISO = () => new Date().toISOString().split('T')[0]
-const formVacio = () => ({ nombre: '', monto: '', categoria: 'varios', fecha: hoyISO(), es_gasto_hormiga: false, medio: '', forma: 'debito' as 'debito' | 'credito' })
+const formVacio = () => ({ nombre: '', monto: '', categoria: 'varios', fecha: hoyISO(), es_gasto_hormiga: false, medio: '', forma: 'debito' as 'debito' | 'credito', cuotas: '1' })
 
 const tooltipStyle = {
   background: 'var(--bg-card)', border: '1px solid var(--border-color)',
@@ -75,6 +81,11 @@ export default function GastosPage() {
     return { year: now.getFullYear(), month: now.getMonth() + 1 }
   })
   const [filtroCat, setFiltroCat] = useState<string | null>(null)
+  const [dolar, setDolar] = useState<number | null>(null)
+  /* monto en pesos (los consumos en dólares se convierten) */
+  const ars = (g: GastoVariable) => montoEnPesos(g, dolar)
+
+  useEffect(() => { traerCotizaciones().then(c => setDolar(c.dolar)) }, [])
 
   // Carga en lenguaje natural
   const [aiText, setAiText] = useState('')
@@ -141,9 +152,12 @@ export default function GastosPage() {
             fecha: json.fecha || hoyISO(),
             medio_pago: json.medio_pago,
             forma_pago: json.forma_pago,
+            cuotas: json.cuotas,
           })
           if (error) throw new Error(error)
-          const con = json.medio_pago ? ` con ${json.medio_pago}${json.forma_pago === 'credito' ? ' (crédito)' : ''}` : ''
+          const con = json.medio_pago
+            ? ` con ${json.medio_pago}${json.cuotas > 1 ? ` en ${json.cuotas} cuotas` : json.forma_pago === 'credito' ? ' (crédito)' : ''}`
+            : ''
           setAiMsg({ text: `${getCat(json.categoria || 'varios').emoji} "${json.nombre}" — ${fmtFull(json.monto)}${con} guardado`, ok: true })
           setAiText('')
           loadData()
@@ -179,6 +193,7 @@ export default function GastosPage() {
       es_gasto_hormiga: formManual.es_gasto_hormiga,
       medio_pago: formManual.medio || null,
       forma_pago: formManual.medio ? formManual.forma : null,
+      cuotas: formManual.medio && formManual.forma === 'credito' ? Number(formManual.cuotas) || 1 : 1,
     })
     if (error) { setAiMsg({ text: error, ok: false }); return }
     setShowManual(false)
@@ -207,7 +222,13 @@ export default function GastosPage() {
 
   async function deleteVar(g: GastoVariable) {
     const supabase = createClient()
-    await borrarGastoVariable(supabase, g)
+    let completa = false
+    if (g.compra_id && (g.cuotas_total ?? 1) > 1) {
+      /* es una cuota: se borra la compra entera o nada */
+      if (!window.confirm(`"${g.nombre}" es la cuota ${g.cuota_numero}/${g.cuotas_total}. ¿Borrar la compra completa (todas las cuotas)?`)) return
+      completa = true
+    }
+    await borrarGastoVariable(supabase, g, completa)
     loadData()
   }
 
@@ -226,11 +247,12 @@ export default function GastosPage() {
   /* ── datos para los gráficos ─────────────────────────────── */
   const porCategoria = useMemo(() => {
     const m: Record<string, number> = {}
-    for (const g of gastosVar) m[g.categoria] = (m[g.categoria] || 0) + Number(g.monto)
+    for (const g of gastosVar) m[g.categoria] = (m[g.categoria] || 0) + ars(g)
     return Object.entries(m)
       .map(([key, value]) => ({ key, name: getCat(key).label, value, color: getCat(key).color, emoji: getCat(key).emoji }))
       .sort((a, b) => b.value - a.value)
-  }, [gastosVar])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gastosVar, dolar])
 
   const porDia = useMemo(() => {
     const dias = new Date(mes.year, mes.month, 0).getDate()
@@ -238,10 +260,11 @@ export default function GastosPage() {
     for (const g of gastosVar) {
       if (filtroCat && g.categoria !== filtroCat) continue
       const d = Number(g.fecha.split('-')[2])
-      if (arr[d - 1]) arr[d - 1].monto += Number(g.monto)
+      if (arr[d - 1]) arr[d - 1].monto += ars(g)
     }
     return arr
-  }, [gastosVar, mes, filtroCat])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gastosVar, mes, filtroCat, dolar])
 
   const porMedio = useMemo(() => {
     const m: Record<string, number> = {}
@@ -250,10 +273,11 @@ export default function GastosPage() {
       const nombre = g.tarjeta_id && tarjetas[g.tarjeta_id]
         ? `${tarjetas[g.tarjeta_id]}${g.forma_pago === 'credito' ? ' (crédito)' : ''}`
         : 'Efectivo / sin especificar'
-      m[nombre] = (m[nombre] || 0) + Number(g.monto)
+      m[nombre] = (m[nombre] || 0) + ars(g)
     }
     return Object.entries(m).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value)
-  }, [gastosVar, tarjetas, filtroCat])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gastosVar, tarjetas, filtroCat, dolar])
 
   const visibles = filtroCat ? gastosVar.filter(g => g.categoria === filtroCat) : gastosVar
   const grouped = visibles.reduce<Record<string, GastoVariable[]>>((acc, g) => {
@@ -263,8 +287,8 @@ export default function GastosPage() {
   }, {})
 
   const gastosHormiga = gastosVar.filter(g => g.es_gasto_hormiga)
-  const totalVar = gastosVar.reduce((s, g) => s + Number(g.monto), 0)
-  const totalVisibles = visibles.reduce((s, g) => s + Number(g.monto), 0)
+  const totalVar = gastosVar.reduce((s, g) => s + ars(g), 0)
+  const totalVisibles = visibles.reduce((s, g) => s + ars(g), 0)
   const totalFijos = gastosFijos.reduce((s, g) => s + Number(g.monto), 0)
 
   const prevMes = () => setMes(prev => prev.month === 1 ? { year: prev.year - 1, month: 12 } : { ...prev, month: prev.month - 1 })
@@ -471,6 +495,17 @@ export default function GastosPage() {
                   ))}
                 </div>
               )}
+              {formManual.medio && formManual.forma === 'credito' && (
+                <label className="flex items-center gap-2 text-sm text-secondary">
+                  Cuotas
+                  <input type="number" min={1} max={48} value={formManual.cuotas}
+                    onChange={e => setFormManual(p => ({ ...p, cuotas: e.target.value }))}
+                    className={`${inputCls} w-20`} />
+                  {Number(formManual.cuotas) > 1 && Number(formManual.monto) > 0 && (
+                    <span className="text-xs">de {fmtFull(Number(formManual.monto) / Number(formManual.cuotas))}</span>
+                  )}
+                </label>
+              )}
             </div>
             <label className="flex items-center gap-2 mt-3 text-sm text-secondary cursor-pointer">
               <input type="checkbox" checked={formManual.es_gasto_hormiga}
@@ -494,7 +529,7 @@ export default function GastosPage() {
         ) : (
           <div className="divide-y divide-line">
             {Object.entries(grouped).map(([fecha, gastos]) => {
-              const total = gastos.reduce((s, g) => s + Number(g.monto), 0)
+              const total = gastos.reduce((s, g) => s + ars(g), 0)
               const [, mm, dd] = fecha.split('-')
               return (
                 <div key={fecha}>
@@ -516,12 +551,19 @@ export default function GastosPage() {
                                   💳 {medio}{g.forma_pago === 'credito' ? ' · crédito' : g.forma_pago === 'debito' ? ' · débito' : ''}
                                 </span>
                               )}
+                              {(g.cuotas_total ?? 1) > 1 && (
+                                <span className="rounded bg-alternate px-1.5 py-0.5 text-[10px] font-medium text-secondary">
+                                  cuota {g.cuota_numero}/{g.cuotas_total}
+                                </span>
+                              )}
                               {g.es_gasto_hormiga && <span className="text-xs text-orange-500">🐜 hormiga</span>}
                             </div>
                           </div>
                         </div>
                         <div className="flex shrink-0 items-center gap-2">
-                          <span className="font-medium text-primary">{fmtFull(Number(g.monto))}</span>
+                          <span className="font-medium text-primary">
+                            {g.moneda === 'USD' ? `US$ ${Number(g.monto).toLocaleString('es-AR')}` : fmtFull(Number(g.monto))}
+                          </span>
                           <button onClick={() => deleteVar(g)} aria-label={`Borrar ${g.nombre}`} className="text-muted hover:text-negative text-xl leading-none">×</button>
                         </div>
                       </div>
@@ -595,7 +637,7 @@ export default function GastosPage() {
         <div className="rounded-2xl border p-5" style={{ background: 'var(--riesgo-medio-tint)', borderColor: 'var(--riesgo-medio)' }}>
           <h3 className="mb-2 text-sm font-semibold" style={{ color: 'var(--riesgo-medio)' }}>🐜 Gastos hormiga del mes</h3>
           <p className="text-sm text-primary">
-            {gastosHormiga.length} gastos chicos suman <strong>{fmtFull(gastosHormiga.reduce((s, g) => s + Number(g.monto), 0))}</strong>
+            {gastosHormiga.length} gastos chicos suman <strong>{fmtFull(gastosHormiga.reduce((s, g) => s + ars(g), 0))}</strong>
           </p>
         </div>
       )}

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { parsear, parsearVarios } from '@/lib/parser'
+import { extraerCuotas, parsear, parsearVarios } from '@/lib/parser'
 import { detectarFormaPago, detectarMedioPago } from '@/lib/tarjetas'
 
 function getToday() {
@@ -107,11 +107,7 @@ async function handleChat(messages: { role: string; content: string }[]) {
            local para que el gasto quede asociado a la tarjeta/app. */
         const medio = detectarMedioPago(ultimo)
         if (parsed.tipo === 'gasto_variable' && medio) {
-          parsed.datos = {
-            ...(parsed.datos ?? {}),
-            medio_pago: medio,
-            forma_pago: detectarFormaPago(ultimo, medio),
-          }
+          parsed.datos = { ...(parsed.datos ?? {}), ...medioDe(ultimo) }
           if (typeof parsed.mensaje === 'string' && !parsed.mensaje.includes(medio)) {
             parsed.mensaje = parsed.mensaje.replace(/\.?\s*$/, '') + ` (con ${medio}).`
           }
@@ -132,7 +128,11 @@ Flores, bombones o algo "para mi novia/mamá" es "regalo".`
    se agrega siempre a la respuesta de /api/ai {text}. */
 function medioDe(text: string) {
   const medio = detectarMedioPago(text)
-  return medio ? { medio_pago: medio, forma_pago: detectarFormaPago(text, medio) } : {}
+  const cuotas = extraerCuotas(text)
+  return {
+    ...(medio ? { medio_pago: medio, forma_pago: cuotas ? 'credito' : detectarFormaPago(text, medio) } : {}),
+    ...(cuotas ? { cuotas: cuotas.cuotas } : {}),
+  }
 }
 
 function parsearLocal(text: string, today: string) {
@@ -154,9 +154,12 @@ async function handleParse(text: string) {
   if (!raw) return NextResponse.json(local)
   try {
     const parsed = JSON.parse(cleanJson(raw))
+    /* con "N cuotas de $X" la IA suele devolver el monto de la cuota:
+       el total lo calcula el parser local */
+    const porCuota = extraerCuotas(text)?.montoEsPorCuota
     return NextResponse.json({
       nombre: parsed.nombre || local.nombre,
-      monto: typeof parsed.monto === 'number' ? parsed.monto : local.monto,
+      monto: porCuota ? local.monto : typeof parsed.monto === 'number' ? parsed.monto : local.monto,
       categoria: parsed.categoria || local.categoria || 'varios',
       fecha: parsed.fecha || today,
       ...medioDe(text),

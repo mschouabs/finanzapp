@@ -8,6 +8,11 @@ import {
   calcularPatrimonio, mesAnteriorClave, mesClave as claveMes, traerCotizaciones,
   type LineaSaldo,
 } from '@/lib/patrimonio'
+import {
+  COLUMNAS_CONSUMO, avisosDeVencimiento, estadoTarjeta,
+  type AvisoVencimiento, type Consumo, type TarjetaInfo,
+} from '@/lib/resumenes'
+import { fmtDiaMes } from '@/lib/ciclos'
 import { LucaWidget } from '@/components/LucaWidget'
 import { LucaMensaje } from '@/components/luca/LucaMensaje'
 import type { LucaEstado } from '@/components/luca/LucaAvatar'
@@ -25,7 +30,9 @@ interface Patrimonio {
   total: number
   liquido: number
   invertido: number
-  /** total guardado del mes anterior, si existe */
+  /** lo que debés en tarjetas (resúmenes + cuotas futuras) */
+  deuda: number
+  /** patrimonio neto (total - deuda) guardado del mes anterior, si existe */
   anterior: number | null
 }
 
@@ -41,6 +48,7 @@ export default function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
   const [patrimonio, setPatrimonio] = useState<Patrimonio | null>(null)
+  const [avisos, setAvisos] = useState<AvisoVencimiento[]>([])
 
   useEffect(() => {
     cargar()
@@ -54,19 +62,33 @@ export default function DashboardPage() {
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
-    const [{ data: ls }, cot, { data: previo }] = await Promise.all([
+    const [{ data: ls }, cot, { data: previo }, { data: ts }, { data: cs }] = await Promise.all([
       supabase.from('inversiones').select('*'),
       traerCotizaciones(),
-      supabase.from('patrimonio_mensual').select('total_ars').eq('mes', mesAnteriorClave()).maybeSingle(),
+      supabase.from('patrimonio_mensual').select('total_ars, detalle').eq('mes', mesAnteriorClave()).maybeSingle(),
+      supabase.from('tarjetas_cuentas').select('*').eq('tipo', 'tarjeta'),
+      supabase.from('gastos_variables').select(COLUMNAS_CONSUMO).eq('forma_pago', 'credito').eq('pagado', false),
     ])
     const p = calcularPatrimonio((ls ?? []) as LineaSaldo[], cot)
-    setPatrimonio({ ...p, anterior: previo ? Number(previo.total_ars) : null })
+    const dolar = cot.dolar ?? 1560
+    const estados = ((ts ?? []) as TarjetaInfo[]).map(t => estadoTarjeta(t, (cs ?? []) as Consumo[], dolar))
+    const deuda = estados.reduce((s, e) => s + e.deuda, 0)
+    setAvisos(avisosDeVencimiento(estados, dolar, 7))
+    /* la comparación es de patrimonio neto; los meses viejos sin ese dato usan el total */
+    const prevNeto = previo
+      ? Number((previo.detalle as { neto?: number } | null)?.neto ?? previo.total_ars)
+      : null
+    setPatrimonio({ ...p, deuda, anterior: prevNeto })
 
     if ((ls ?? []).length > 0) {
       await supabase.from('patrimonio_mensual').upsert(
         {
           user_id: user.id, mes: claveMes(), total_ars: Math.round(p.total),
-          detalle: { liquido: Math.round(p.liquido), invertido: Math.round(p.invertido), dolar: cot.dolar, btc_usd: cot.btcUsd },
+          detalle: {
+            liquido: Math.round(p.liquido), invertido: Math.round(p.invertido),
+            deuda_tarjetas: Math.round(deuda), neto: Math.round(p.total - deuda),
+            dolar: cot.dolar, btc_usd: cot.btcUsd,
+          },
           updated_at: new Date().toISOString(),
         },
         { onConflict: 'user_id,mes' },
@@ -78,6 +100,7 @@ export default function DashboardPage() {
     setLoading(true)
     cargarPatrimonio().catch(() => {})
     const supabase = createClient()
+    const dolarRef = (await traerCotizaciones()).dolar ?? 1560
 
     const [{ data: gv }, { data: gf }, { data: iff }, { data: inf }, { data: secs }, { data: vg }] =
       await Promise.all([
@@ -134,6 +157,8 @@ export default function DashboardPage() {
     const mesActual = mesClave(now)
     const enMesClave = (r: Record<string, unknown>, key: string) =>
       ((r.fecha as string) || (r.created_at as string) || '').startsWith(key)
+    /* consumos en dólares (tarjeta) se pasan a pesos con el blue del archivo si no hay cotización */
+    const montoGv = (r: Record<string, unknown>) => ((r.monto as number) || 0) * (r.moneda === 'USD' ? dolarRef : 1)
 
     const iffActivos = activos(iff)
     const gfActivos = activos(gf)
@@ -147,7 +172,7 @@ export default function DashboardPage() {
       (inf || []).filter(r => enMesClave(r, mesActual)), montoFreelance
     )
     const variablesMes = suma(
-      (gv || []).filter(r => enMesClave(r, mesActual)), r => (r.monto as number) || 0
+      (gv || []).filter(r => enMesClave(r, mesActual)), montoGv
     )
 
     /* Los gastos de viaje son gastos reales del mes: entran al total
@@ -171,7 +196,7 @@ export default function DashboardPage() {
     const catMap: Record<string, number> = {}
     ;(gv || []).filter(r => enMesClave(r, mesActual)).forEach(r => {
       const cat = (r.categoria as string) || 'Sin categoría'
-      catMap[cat] = (catMap[cat] || 0) + ((r.monto as number) || 0)
+      catMap[cat] = (catMap[cat] || 0) + montoGv(r)
     })
     if (gastosFijosMes > 0) catMap['Fijos'] = (catMap['Fijos'] || 0) + gastosFijosMes
     if (viajesMes > 0) catMap['Viajes'] = (catMap['Viajes'] || 0) + viajesMes
@@ -208,7 +233,7 @@ export default function DashboardPage() {
         sumaSecciones('ingreso', r => enMesClave(r, key)),
       gastos:
         gastosFijosMes +
-        suma((gv || []).filter(r => enMesClave(r, key)), r => (r.monto as number) || 0) +
+        suma((gv || []).filter(r => enMesClave(r, key)), montoGv) +
         viajesEnMes(key) +
         sumaSecciones('gasto', r => enMesClave(r, key)),
     }))
@@ -241,6 +266,25 @@ export default function DashboardPage() {
         <h1 className="text-2xl font-extrabold text-primary">{saludar()} 👋</h1>
         <p className="mt-1 text-sm text-secondary">Este es tu panorama financiero actual.</p>
       </header>
+
+      {/* vencimientos de tarjeta */}
+      {avisos.length > 0 && (
+        <div className="flex flex-col gap-2">
+          {avisos.map(a => (
+            <Link key={a.tarjeta.id + a.resumen.clave} href="/dashboard/tarjetas"
+              className="flex flex-wrap items-center gap-2 rounded-xl border p-3 text-sm hover:bg-alternate"
+              style={{ borderColor: a.dias < 0 ? 'var(--accent-negative)' : 'var(--accent-warning, #F5C451)' }}>
+              <span>{a.dias < 0 ? '⚠️' : '📅'}</span>
+              <span className="flex-1 text-primary">
+                {a.dias < 0
+                  ? <>El resumen de <b>{a.tarjeta.nombre}</b> venció hace {-a.dias} días: {fmt(Math.round(a.monto))}</>
+                  : <><b>{a.tarjeta.nombre}</b> vence {a.dias === 0 ? 'hoy' : `en ${a.dias} ${a.dias === 1 ? 'día' : 'días'}`} ({fmtDiaMes(a.resumen.vencimiento)}): {fmt(Math.round(a.monto))}</>}
+              </span>
+              <span className="text-xs font-semibold text-secondary">Pagar →</span>
+            </Link>
+          ))}
+        </div>
+      )}
 
       {/* patrimonio total */}
       {patrimonio && patrimonio.total !== 0 && <TarjetaPatrimonio p={patrimonio} />}
@@ -431,7 +475,8 @@ function TarjetaPatrimonio({ p }: { p: Patrimonio }) {
   const hoy = new Date()
   const mesAnt = MESES_NOMBRE[(hoy.getMonth() + 11) % 12]
   const mesSig = MESES_NOMBRE[(hoy.getMonth() + 1) % 12]
-  const diff = p.anterior !== null ? p.total - p.anterior : null
+  const neto = p.total - p.deuda
+  const diff = p.anterior !== null ? neto - p.anterior : null
   const pct = diff !== null && p.anterior ? Math.round((diff / Math.abs(p.anterior)) * 1000) / 10 : null
   const sube = (diff ?? 0) >= 0
   const tono = sube ? 'var(--accent-positive)' : 'var(--accent-negative)'
@@ -440,8 +485,13 @@ function TarjetaPatrimonio({ p }: { p: Patrimonio }) {
     <section className="fa-card p-5">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h2 className="text-sm font-semibold text-secondary">Patrimonio total</h2>
-          <p className="fa-amount mt-1 text-4xl text-primary">{fmt(Math.round(p.total))}</p>
+          <h2 className="text-sm font-semibold text-secondary">Patrimonio neto</h2>
+          <p className="fa-amount mt-1 text-4xl text-primary">{fmt(Math.round(neto))}</p>
+          {p.deuda > 0 && (
+            <p className="mt-0.5 text-xs text-secondary">
+              {fmt(Math.round(p.total))} en tus cuentas − {fmt(Math.round(p.deuda))} que debés en tarjetas
+            </p>
+          )}
           {diff !== null ? (
             <p className="mt-1.5 flex flex-wrap items-center gap-1 text-sm">
               {sube ? <ArrowUpRight size={16} style={{ color: tono }} /> : <ArrowDownRight size={16} style={{ color: tono }} />}
@@ -467,15 +517,28 @@ function TarjetaPatrimonio({ p }: { p: Patrimonio }) {
             <p className="text-xs text-secondary">📈 Invertido</p>
             <p className="fa-amount text-lg text-primary">{fmt(Math.round(p.invertido))}</p>
           </div>
+          {p.deuda > 0 && (
+            <div>
+              <p className="text-xs text-secondary">💳 Deuda tarjetas</p>
+              <p className="fa-amount text-lg text-negative">−{fmt(Math.round(p.deuda))}</p>
+            </div>
+          )}
         </div>
       </div>
       <div className="mt-4 flex h-2 overflow-hidden rounded-full" style={{ background: 'var(--border-color)' }}>
         <div style={{ width: `${p.total > 0 ? (p.liquido / p.total) * 100 : 0}%`, background: 'var(--accent-secondary)' }} />
         <div style={{ width: `${p.total > 0 ? (p.invertido / p.total) * 100 : 0}%`, background: 'var(--accent-positive)' }} />
       </div>
-      <Link href="/dashboard/billeteras" className="mt-3 inline-block text-xs font-semibold text-secondary underline underline-offset-2 hover:text-primary">
-        Ver billeteras →
-      </Link>
+      <div className="mt-3 flex gap-4">
+        <Link href="/dashboard/billeteras" className="text-xs font-semibold text-secondary underline underline-offset-2 hover:text-primary">
+          Ver billeteras →
+        </Link>
+        {p.deuda > 0 && (
+          <Link href="/dashboard/tarjetas" className="text-xs font-semibold text-secondary underline underline-offset-2 hover:text-primary">
+            Ver tarjetas →
+          </Link>
+        )}
+      </div>
     </section>
   )
 }

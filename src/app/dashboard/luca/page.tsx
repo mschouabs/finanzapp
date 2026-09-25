@@ -3,6 +3,9 @@
 import { useState, useRef, useEffect } from 'react'
 import { createClient } from '@/lib/supabase'
 import { guardarGastoVariable } from '@/lib/movimientos'
+import { esPreguntaDeTarjetas, responderSobreTarjetas } from '@/lib/lucaTarjetas'
+import { COLUMNAS_CONSUMO, estadoTarjeta, type Consumo, type TarjetaInfo } from '@/lib/resumenes'
+import { traerCotizaciones } from '@/lib/patrimonio'
 import { LucaAvatar } from '@/components/luca/LucaAvatar'
 import type { LucaEstado } from '@/components/luca/LucaAvatar'
 
@@ -23,6 +26,7 @@ interface DatosRegistro {
   nivel_riesgo?: string
   medio_pago?: string
   forma_pago?: 'debito' | 'credito'
+  cuotas?: number
 }
 
 interface Mensaje {
@@ -100,6 +104,29 @@ export default function LucaChatPage() {
     setInput('')
     setLoading(true)
     setLucaEstado('thinking')
+
+    /* Preguntas sobre tarjetas ("¿cuánto debo de la naranja?"): se
+       responden con los datos reales, sin pasar por la IA. */
+    if (esPreguntaDeTarjetas(texto)) {
+      try {
+        const [{ data: ts }, { data: cs }, cot] = await Promise.all([
+          supabase.from('tarjetas_cuentas').select('*').eq('tipo', 'tarjeta'),
+          supabase.from('gastos_variables').select(COLUMNAS_CONSUMO).eq('forma_pago', 'credito'),
+          traerCotizaciones(),
+        ])
+        const dolar = cot.dolar ?? 1560
+        const consumos = (cs ?? []) as Consumo[]
+        const estados = ((ts ?? []) as TarjetaInfo[]).map(t => estadoTarjeta(t, consumos, dolar))
+        const respuesta = responderSobreTarjetas(texto, estados, consumos, dolar)
+        if (respuesta) {
+          setMensajes(prev => [...prev, { id: getId(), rol: 'luca', texto: respuesta, timestamp: Date.now() }])
+          setLoading(false)
+          setLucaEstado('idle')
+          inputRef.current?.focus()
+          return
+        }
+      } catch { /* si falla, sigue el flujo normal */ }
+    }
 
     const historialAPI = [...mensajes, userMsg]
       .slice(-10)
@@ -188,6 +215,7 @@ export default function LucaChatPage() {
           fecha: msg.datos.fecha ?? new Date().toISOString().split('T')[0],
           medio_pago: msg.datos.medio_pago,
           forma_pago: msg.datos.forma_pago,
+          cuotas: msg.datos.cuotas,
         })
         if (r.error) error = new Error(r.error)
       } else if (msg.tabla === 'gasto_fijo') {
@@ -342,7 +370,7 @@ export default function LucaChatPage() {
                 </div>
               )}
               <div>
-                <div className={`px-3 py-2.5 rounded-2xl text-xs leading-relaxed ${
+                <div className={`whitespace-pre-line px-3 py-2.5 rounded-2xl text-xs leading-relaxed ${
                   msg.rol === 'user'
                     ? 'bg-confirm text-white rounded-tr-sm'
                     : 'bg-alternate text-primary rounded-tl-sm'
@@ -371,7 +399,9 @@ export default function LucaChatPage() {
                     {msg.datos.medio_pago && (
                       <p className="text-secondary">
                         💳 Pagado con <span className="font-semibold text-primary">{msg.datos.medio_pago}</span>
-                        {' · '}{msg.datos.forma_pago === 'credito' ? 'a crédito (va al resumen)' : 'débito (se descuenta del saldo)'}
+                        {' · '}{msg.datos.cuotas && msg.datos.cuotas > 1
+                          ? `en ${msg.datos.cuotas} cuotas de $${Math.round(Number(msg.datos.monto) / msg.datos.cuotas).toLocaleString('es-AR')}`
+                          : msg.datos.forma_pago === 'credito' ? 'a crédito (va al resumen)' : 'débito (se descuenta del saldo)'}
                       </p>
                     )}
 
