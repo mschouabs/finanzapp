@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { parsear } from '@/lib/parser'
+import { parsear, parsearVarios } from '@/lib/parser'
 
 function getToday() {
   return new Date().toISOString().split('T')[0]
@@ -9,6 +9,7 @@ async function callAnthropic(
   system: string,
   messages: { role: string; content: string }[],
   maxTokens = 500,
+  model = 'claude-haiku-4-5-20251001',
 ): Promise<string | null> {
   const apiKey = process.env.ANTHROPIC_API_KEY
   if (!apiKey) return null
@@ -21,7 +22,7 @@ async function callAnthropic(
         'content-type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'claude-3-5-haiku-20241022',
+        model,
         max_tokens: maxTokens,
         temperature: 0.2,
         system,
@@ -67,10 +68,32 @@ HOY: ${today}`
 
 async function handleChat(messages: { role: string; content: string }[]) {
   const ultimo: string = messages[messages.length - 1]?.content ?? ''
+
+  /* Varios movimientos en un solo mensaje ("gasté 5mil en super y
+     3mil en nafta") -> se resuelven 100% local, sin llamar a la IA. */
+  const varios = parsearVarios(ultimo)
+  if (varios) {
+    return NextResponse.json({
+      tipo: 'multiple',
+      mensaje: `Encontré ${varios.length} movimientos, revisalos:`,
+      registros: varios,
+    })
+  }
+
   const local = parsear(ultimo)
-  if (local.tipo !== 'texto') return NextResponse.json(local)
+
+  /* La IA solo interviene cuando el parser local no pudo clasificar
+     nada (tipo === 'texto') o cuando clasificó como gasto pero no
+     reconoció la categoría (quedó en "varios", señal de que el texto
+     tenía jerga o una frase que las reglas no cubren). El resto de
+     los mensajes se resuelve 100% local, sin costo ni red. */
+  const necesitaAyuda =
+    local.tipo === 'texto' ||
+    (local.tipo === 'gasto_variable' && local.datos?.categoria === 'varios')
+  if (!necesitaAyuda) return NextResponse.json(local)
+
   const today = getToday()
-  const text = await callAnthropic(buildChatPrompt(today), messages)
+  const text = await callAnthropic(buildChatPrompt(today), messages, 500, 'claude-sonnet-5')
   if (!text) return NextResponse.json(local)
   const cleaned = cleanJson(text)
   const inicio = cleaned.indexOf('{')
