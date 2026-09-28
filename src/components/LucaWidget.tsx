@@ -273,7 +273,7 @@ export function LucaWidget({ onSaved }: { onSaved?: () => void }) {
                       className="w-full px-2 py-1.5 rounded border bg-field text-primary text-xs"
                     />
                   ) : key === 'monto' ? (
-                    <span className="fa-amount">
+                    <span className="fa-num-sm">
                       {parsed.moneda === 'USD' ? 'US$' : '$'}{Number(parsed.monto).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
                     </span>
                   ) : (

@@ -497,7 +497,7 @@ export default function LucaChatPage() {
                     {msg.datos.descripcion && <p className="text-secondary">{msg.datos.descripcion}</p>}
 
                     {monto(msg.datos) != null && (
-                      <p className="font-semibold text-primary fa-amount text-sm">{montoStr(msg.datos)}</p>
+                      <p className="fa-num-sm text-primary">{montoStr(msg.datos)}</p>
                     )}
 
                     <p className="text-secondary capitalize">
