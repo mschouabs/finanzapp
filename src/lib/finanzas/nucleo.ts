@@ -19,8 +19,8 @@
      por el mes de la compra (sin el "mes vacío" que generaba guardar la
      2ª cuota en la fecha de vencimiento de su resumen).
    · Gastos en dólares: se pasan a pesos con la cotización del día.
-   · Sueldos: el mes en curso usa lo cobrado (monto_cobrado); los meses
-     anteriores usan el monto nominal, porque "cobrado" no se reinicia.
+   · Sueldos: lo cobrado (monto_cobrado) cuenta solo en el mes en que se
+     cobró (cobrado_mes); el resto de los meses, el monto nominal.
    · Gastos fijos: cuentan desde el mes en que se cargaron.
    El primer usuario de este núcleo es el nuevo Resumen (preview).      */
 
@@ -82,7 +82,11 @@ export interface GastoVar {
 }
 
 export interface GastoFijo { id: string; nombre: string; monto: number; categoria: string; debitado: boolean; created_at: string }
-export interface IngresoFijo { id: string; nombre: string; monto: number; monto_cobrado: number | null; created_at: string }
+export interface IngresoFijo {
+  id: string; nombre: string; monto: number; monto_cobrado: number | null; created_at: string
+  /** mes del cobro registrado (undefined: la base todavía no tiene la columna) */
+  cobrado_mes?: string | null
+}
 export interface Freelance { id: string; titulo: string; monto: number; fecha: string; created_at: string }
 export interface GastoViaje { id: string; viaje: string; concepto: string; categoria: string; monto: number; fecha: string }
 export interface RegistroSeccion { id: string; seccion: string; tipo: 'ingreso' | 'gasto'; monto: number; fecha: string; texto: string }
@@ -181,6 +185,7 @@ export async function cargarSnapshot(supabase: Cliente, hoy = new Date()): Promi
     ingresosFijos: ((rIngFijos.data ?? []) as Fila[]).filter(activo).map(r => ({
       id: str(r.id), nombre: str(r.nombre) || 'Ingreso fijo', monto: num(r.monto),
       monto_cobrado: r.monto_cobrado == null ? null : num(r.monto_cobrado), created_at: str(r.created_at),
+      ...('cobrado_mes' in r ? { cobrado_mes: (r.cobrado_mes as string | null) ?? null } : {}),
     })),
     freelance: ((rFree.data ?? []) as Fila[]).filter(r => str(r.fecha)).map(r => ({
       id: str(r.id),
@@ -212,7 +217,8 @@ export async function cargarSnapshot(supabase: Cliente, hoy = new Date()): Promi
       }
     }),
     /* si la tabla de metas no existe, simplemente no hay metas */
-    metas: rMetas.error ? [] : ((rMetas.data ?? []) as Fila[]).map(m => ({
+    metas: rMetas.error ? [] : ((rMetas.data ?? []) as Fila[])
+      .sort((a, b) => (a.orden == null ? 9999 : num(a.orden)) - (b.orden == null ? 9999 : num(b.orden))).map(m => ({
       id: str(m.id), nombre: str(m.nombre), emoji: (m.emoji as string | null) ?? null,
       objetivo: num(m.monto_objetivo), moneda: str(m.moneda) || 'ARS', aportado: num(m.aportado),
       billetera_app: (m.billetera_app as string | null) ?? null,
@@ -325,7 +331,11 @@ export function flujoDelMes(s: Snapshot, mes: string): Flujo {
   const vigente = (created: string) => !created || created.slice(0, 10) <= finMes
 
   const ingFijos = s.ingresosFijos.filter(i => vigente(i.created_at))
-    .reduce((a, i) => a + (mes === actual ? (i.monto_cobrado ?? i.monto) : i.monto), 0)
+    .reduce((a, i) => {
+      /* lo cobrado vale solo para el mes en que se cobró */
+      const mesCobro = i.cobrado_mes === undefined ? actual : i.cobrado_mes
+      return a + (mes === mesCobro ? (i.monto_cobrado ?? i.monto) : i.monto)
+    }, 0)
   const extra = s.freelance.filter(f => mesDeISO(f.fecha) === mes).reduce((a, f) => a + f.monto, 0)
   const secIng = s.registros.filter(r => r.tipo === 'ingreso' && mesDeISO(r.fecha) === mes).reduce((a, r) => a + r.monto, 0)
 
@@ -649,8 +659,14 @@ export interface ProgresoMeta { id: string; nombre: string; emoji: string; pct: 
 export function progresoMetas(s: Snapshot): ProgresoMeta[] {
   const saldoApp = new Map<string, number>()
   for (const l of s.lineas) saldoApp.set(l.app, (saldoApp.get(l.app) ?? 0) + aPesos(l, s.cot))
+  /* misma regla que Metas: varias metas en una billetera se reparten el saldo en orden */
   return s.metas.filter(m => m.objetivo > 0).map(m => {
-    const pesos = m.billetera_app ? saldoApp.get(m.billetera_app) ?? 0 : null
+    let pesos: number | null = null
+    if (m.billetera_app) {
+      const disponible = Math.max(saldoApp.get(m.billetera_app) ?? 0, 0)
+      pesos = Math.min(disponible, m.objetivo * (m.moneda === 'USD' ? s.dolar : 1))
+      saldoApp.set(m.billetera_app, disponible - pesos)
+    }
     const actual = pesos === null ? m.aportado : m.moneda === 'USD' ? pesos / s.dolar : pesos
     return { id: m.id, nombre: m.nombre, emoji: m.emoji || '🎯', pct: (actual / m.objetivo) * 100, actual, objetivo: m.objetivo, moneda: m.moneda }
   }).sort((a, b) => b.pct - a.pct)

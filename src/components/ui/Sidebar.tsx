@@ -14,6 +14,7 @@ import { SeccionModal } from '@/components/SeccionModal'
 import { AgregarMovimientoModal } from '@/components/AgregarMovimientoModal'
 import { LucaAvatar } from '@/components/luca/LucaAvatar'
 import type { Seccion } from '@/lib/secciones'
+import { EVENTO_DATOS } from '@/lib/eventos'
 
 /* Navegación agrupada por función, no por orden alfabético: así la
    sidebar responde "¿qué tipo de cosa es esto?" de un vistazo.
@@ -360,7 +361,12 @@ export default function Sidebar({ userName }: { userName?: string }) {
       {showAgregar && (
         <AgregarMovimientoModal
           onClose={() => setShowAgregar(false)}
-          onSaved={() => router.refresh()}
+          onSaved={() => {
+            /* router.refresh() no recarga datos traídos en el cliente: avisamos
+               a la pantalla abierta que vuelva a pedirlos */
+            window.dispatchEvent(new Event(EVENTO_DATOS))
+            router.refresh()
+          }}
         />
       )}
     </>

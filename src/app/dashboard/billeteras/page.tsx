@@ -17,6 +17,7 @@ import {
 } from '@/lib/patrimonio'
 import { GrillaOrdenable, type HandleProps } from '@/components/GrillaOrdenable'
 import { LucaAvatar } from '@/components/luca/LucaAvatar'
+import { hoyISO } from '@/lib/fechas'
 
 /* ── formato ─────────────────────────────── */
 const OCULTO = '••••••'
@@ -281,7 +282,7 @@ export default function BilleterasPage() {
         descripcion: 'Ajuste de saldo en Billeteras',
         monto_total: preguntaSaldo.diferencia,
         monto_cobrado: preguntaSaldo.diferencia,
-        fecha: new Date().toISOString().split('T')[0],
+        fecha: hoyISO(),
       })
     }
     setPreguntaSaldo(null)

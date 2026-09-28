@@ -6,6 +6,8 @@ import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAx
 import { createClient } from '@/lib/supabase'
 import { Kpi, SkeletonPagina, Titulo, fmtK, tooltipStyle } from '@/components/ui/Piezas'
 import { LucaMensaje } from '@/components/luca/LucaMensaje'
+import { hoyISO, mesActualISO } from '@/lib/fechas'
+import { cobradoDelMes, guardarIngresoFijo } from '@/lib/ingresos'
 
 interface IngresoFijo {
   id: string
@@ -32,7 +34,7 @@ function fmt(n: number) {
 
 const MESES_CORTO = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
 
-const formVacioFreelance = () => ({ cliente: '', descripcion: '', monto_total: '', monto_cobrado: '', fecha: new Date().toISOString().split('T')[0] })
+const formVacioFreelance = () => ({ cliente: '', descripcion: '', monto_total: '', monto_cobrado: '', fecha: hoyISO() })
 
 export default function TrabajosPage() {
   const [fijos, setFijos] = useState<IngresoFijo[]>([])
@@ -78,9 +80,9 @@ export default function TrabajosPage() {
       : fijos.find(f => f.nombre.trim().toLowerCase() === formFijo.nombre.trim().toLowerCase())
 
     if (existente) {
-      await supabase.from('ingresos_fijos').update({ nombre: formFijo.nombre, monto, monto_cobrado }).eq('id', existente.id)
+      await guardarIngresoFijo(supabase, { nombre: formFijo.nombre, monto, monto_cobrado }, existente.id)
     } else {
-      await supabase.from('ingresos_fijos').insert({
+      await guardarIngresoFijo(supabase, {
         user_id: user.id, nombre: formFijo.nombre, monto, monto_cobrado, activo: true,
       })
     }
@@ -141,13 +143,13 @@ export default function TrabajosPage() {
     loadData()
   }
 
-  const totalFijos = fijos.reduce((s, f) => s + (f.monto_cobrado ?? f.monto), 0)
+  const totalFijos = fijos.reduce((s, f) => s + cobradoDelMes(f as unknown as Record<string, unknown>), 0)
   const totalFreelanceCobrado = freelance.reduce((s, f) => s + f.monto_cobrado, 0)
   const totalFreelancePendiente = freelance.reduce((s, f) => s + Math.max(f.monto_total - f.monto_cobrado, 0), 0)
 
   /* el encabezado dice "del mes": los fijos son recurrentes, el freelance
      sólo cuenta si se cobró en el mes en curso */
-  const mesActual = new Date().toISOString().slice(0, 7)
+  const mesActual = mesActualISO()
   const freelanceDelMes = freelance
     .filter(f => (f.fecha || '').startsWith(mesActual))
     .reduce((s, f) => s + f.monto_cobrado, 0)
@@ -270,7 +272,7 @@ export default function TrabajosPage() {
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {fijos.map(f => {
-              const cobrado = f.monto_cobrado ?? f.monto
+              const cobrado = cobradoDelMes(f as unknown as Record<string, unknown>)
               const diff = cobrado - f.monto
               return (
                 <div key={f.id} className="fa-card fa-lift group relative flex flex-col p-4">

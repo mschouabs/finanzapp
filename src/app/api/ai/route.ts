@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { detectarMoneda, extraerCuotas, parsear, parsearVarios } from '@/lib/parser'
 import { detectarFormaPago, detectarMedioPago } from '@/lib/tarjetas'
+import { hoyArgentina } from '@/lib/fechas'
 
 function getToday() {
-  return new Date().toISOString().split('T')[0]
+  return hoyArgentina()
 }
 
 async function callAnthropic(

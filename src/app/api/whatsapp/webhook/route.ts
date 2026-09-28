@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
 import { guardarGastoVariable } from '@/lib/movimientos'
 import { createAdminClient } from '@/lib/supabaseAdmin'
+import { guardarIngresoFijo } from '@/lib/ingresos'
 
 /* Webhook de WhatsApp (Twilio). Un mensaje de texto llega, se interpreta
    con el mismo cerebro de Luca (/api/ai) y si es una transaccion valida
@@ -68,13 +69,17 @@ export async function POST(req: NextRequest) {
   const supabase = createAdminClient()
   const d = data.datos ?? {}
   let error
+  let aviso: string | null = null
 
   if (data.tipo === 'gasto_variable') {
     const r = await guardarGastoVariable(supabase, uid, {
       nombre: d.nombre, monto: Number(d.monto), categoria: d.categoria,
       fecha: d.fecha, medio_pago: d.medio_pago, forma_pago: d.forma_pago, cuotas: d.cuotas,
+      moneda: d.moneda === 'USD' ? 'USD' : 'ARS',
     })
-    if (r.error) error = { message: r.error }
+    /* guardado con aviso ≠ no guardado (si no, el usuario reintenta y lo duplica) */
+    if (r.error && !r.guardado) error = { message: r.error }
+    else aviso = r.error ?? r.avisoSaldoNegativo ?? null
   } else if (data.tipo === 'gasto_fijo') {
     const { error: e } = await supabase.from('gastos_fijos').insert({
       user_id: uid, nombre: d.nombre, monto: d.monto,
@@ -89,12 +94,10 @@ export async function POST(req: NextRequest) {
       .eq('activo', true)
       .ilike('nombre', d.nombre ?? '')
     if (existentes && existentes.length > 0) {
-      const { error: e } = await supabase.from('ingresos_fijos')
-        .update({ monto_cobrado: d.monto })
-        .eq('id', existentes[0].id)
+      const { error: e } = await guardarIngresoFijo(supabase, { monto_cobrado: d.monto }, existentes[0].id)
       error = e
     } else {
-      const { error: e } = await supabase.from('ingresos_fijos').insert({
+      const { error: e } = await guardarIngresoFijo(supabase, {
         user_id: uid, nombre: d.nombre, monto: d.monto,
         monto_cobrado: d.monto, activo: true,
       })
@@ -119,7 +122,7 @@ export async function POST(req: NextRequest) {
     return twiml('Uy, no pude guardarlo. Proba de nuevo en un rato.')
   }
 
-  return twiml(`✅ ${data.mensaje}`)
+  return twiml(`✅ ${data.mensaje}${aviso ? `\n⚠️ ${aviso}` : ''}`)
 }
 
 export async function GET() {

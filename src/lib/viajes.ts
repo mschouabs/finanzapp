@@ -2,6 +2,7 @@
    Un viaje agrupa gastos que pueden estar en distintas monedas.
    Cada gasto guarda el importe original y el tipo de cambio usado,
    y la base calcula `monto_ars` para que todo sea comparable.      */
+import { hoyISO } from './fechas'
 
 export interface Viaje {
   id: string
@@ -167,7 +168,7 @@ export type EstadoViaje = 'proximo' | 'en_curso' | 'terminado' | 'sin_fecha'
 
 export function estadoViaje(v: Viaje): EstadoViaje {
   if (!v.fecha_inicio && !v.fecha_fin) return 'sin_fecha'
-  const hoy = new Date().toISOString().split('T')[0]
+  const hoy = hoyISO()
   if (v.fecha_inicio && hoy < v.fecha_inicio) return 'proximo'
   if (v.fecha_fin && hoy > v.fecha_fin) return 'terminado'
   return 'en_curso'

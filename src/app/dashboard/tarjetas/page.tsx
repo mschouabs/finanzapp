@@ -18,8 +18,8 @@ import { LucaMensaje } from '@/components/luca/LucaMensaje'
 import { AnilloLimite, TarjetaVisual, colorTarjeta, fmt, fmtCorto } from '@/components/tarjetas/TarjetaVisual'
 import { EditarTarjeta, PagarResumen, type DatosTarjeta } from '@/components/tarjetas/Modales'
 import { DetalleTarjeta } from '@/components/tarjetas/DetalleTarjeta'
+import { hoyISO } from '@/lib/fechas'
 
-const hoyISO = () => new Date().toISOString().slice(0, 10)
 const tooltipStyle = {
   background: 'var(--bg-card)', border: '1px solid var(--border-color)',
   borderRadius: 10, fontSize: 12, color: 'var(--text-primary)',
@@ -333,7 +333,7 @@ export default function TarjetasPage() {
               valor={proximo?.aPagar ? fmt(enPesos({ ars: proximo.aPagar.totales.pendArs, usd: proximo.aPagar.totales.pendUsd }, dolar)) : 'Nada'}
               detalle={proximo?.aPagar ? `${proximo.tarjeta.nombre} · ${fmtDiaMes(proximo.aPagar.vencimiento)}` : 'estás al día'} />
             <Kpi label="Compras en cuotas" valor={String(cuotas.length)}
-              detalle={cuotas.length ? `quedan ${fmtCorto(cuotas.reduce((s, c) => s + c.restante, 0))}` : 'ninguna activa'} />
+              detalle={cuotas.length ? `quedan ${fmtCorto(cuotas.reduce((s, c) => s + (c.moneda === 'USD' ? c.restante * dolar : c.restante), 0))}` : 'ninguna activa'} />
           </div>
 
           {/* insight de Luca */}

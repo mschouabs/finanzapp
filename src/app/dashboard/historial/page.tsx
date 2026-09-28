@@ -7,6 +7,9 @@ import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAx
 import { createClient } from '@/lib/supabase'
 import { traerCotizaciones } from '@/lib/patrimonio'
 import { Kpi, Segmentado, SkeletonPagina, Titulo, fmtK, fmtPesos, tooltipStyle } from '@/components/ui/Piezas'
+import { hoyISO } from '@/lib/fechas'
+import { cobradoDelMes } from '@/lib/ingresos'
+import { editarGastoVariable } from '@/lib/movimientos'
 
 /* ── Historial ────────────────────────────────────────────────────
    Todo lo que entró y salió, en un solo lugar: gastos variables (con
@@ -68,7 +71,6 @@ const MESES_C = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 
 const etiquetaMes = (k: string) => `${MESES[Number(k.slice(5, 7)) - 1]} ${k.slice(0, 4)}`
 const etiquetaMesCorta = (k: string) => `${MESES_C[Number(k.slice(5, 7)) - 1]} '${k.slice(2, 4)}`
 const claveMes = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-const hoyISO = () => new Date().toISOString().slice(0, 10)
 const esIngreso = (t: Tipo) => t.startsWith('ingreso')
 const PAGINA = 80
 
@@ -127,8 +129,9 @@ export default function HistorialPage() {
     }
 
     /* los fijos se repiten todos los meses desde que los cargaste */
-    const expandirFijo = (r: Fila, tipo: Tipo, monto: number, pref: string): Movimiento[] =>
-      mesesDesde(str(r.created_at).slice(0, 7) || claveMes(new Date())).map(m => ({
+    const expandirFijo = (r: Fila, tipo: Tipo, montoDe: (mes: string) => number, pref: string): Movimiento[] =>
+      mesesDesde(str(r.created_at).slice(0, 7) || claveMes(new Date())).map(m => ({ monto: montoDe(m), m }))
+      .map(({ monto, m }) => ({
         id: `${pref}-${str(r.id)}-${m}`, origenId: str(r.id), tipo,
         descripcion: str(r.nombre) || str(r.descripcion) || TIPO[tipo].label,
         monto, moneda: 'ARS', montoOriginal: monto, fecha: `${m}-01`,
@@ -148,8 +151,8 @@ export default function HistorialPage() {
           cuota: cuotasTotal > 1 ? `${num(r.cuota_numero)}/${cuotasTotal}` : undefined,
         }
       }),
-      ...activos(gf as Fila[] | null).flatMap(r => expandirFijo(r, 'gasto-fijo', num(r.monto), 'gf')),
-      ...activos(iff as Fila[] | null).flatMap(r => expandirFijo(r, 'ingreso-fijo', num(r.monto_cobrado ?? r.monto), 'iff')),
+      ...activos(gf as Fila[] | null).flatMap(r => expandirFijo(r, 'gasto-fijo', () => num(r.monto), 'gf')),
+      ...activos(iff as Fila[] | null).flatMap(r => expandirFijo(r, 'ingreso-fijo', m => cobradoDelMes(r, m), 'iff')),
       ...((inf ?? []) as Fila[]).map(r => {
         const m = num(r.monto_cobrado ?? r.monto_total ?? r.monto)
         return {
@@ -259,9 +262,9 @@ export default function HistorialPage() {
     if (!edit.nombre.trim() || !Number(edit.monto)) return
     setGuardando(true)
     const supabase = createClient()
-    await supabase.from('gastos_variables').update({
+    await editarGastoVariable(supabase, m.origenId, {
       nombre: edit.nombre.trim(), monto: Number(edit.monto), categoria: edit.categoria || 'varios', fecha: edit.fecha,
-    }).eq('id', m.origenId)
+    })
     setGuardando(false)
     setAbierto(null)
     cargar()

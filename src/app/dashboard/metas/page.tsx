@@ -8,6 +8,7 @@ import { GrillaOrdenable, type HandleProps } from '@/components/GrillaOrdenable'
 import { AnilloProgreso, SkeletonPagina, fmtK, fmtPesos } from '@/components/ui/Piezas'
 import { Modal } from '@/components/tarjetas/Modales'
 import { LucaMensaje } from '@/components/luca/LucaMensaje'
+import { cobradoDelMes } from '@/lib/ingresos'
 
 /* ── Metas ────────────────────────────────────────────────────────
    Arriba, dos metas "automáticas" que salen de tus números (cuánto
@@ -67,7 +68,7 @@ export default function MetasPage() {
 
     const [c, { data: iff }, { data: inf }, { data: gf }, { data: gv }, { data: vg }, { data: inv }, metasRes] = await Promise.all([
       traerCotizaciones(),
-      supabase.from('ingresos_fijos').select('monto, monto_cobrado, activo'),
+      supabase.from('ingresos_fijos').select('*'),
       supabase.from('ingresos_freelance').select('*').gte('fecha', desde).lte('fecha', hasta),
       supabase.from('gastos_fijos').select('monto, activo'),
       supabase.from('gastos_variables').select('monto, moneda').gte('fecha', desde).lte('fecha', hasta),
@@ -82,7 +83,7 @@ export default function MetasPage() {
     const num = (v: unknown) => Number(v) || 0
     const activos = (rows: Fila[] | null) => (rows ?? []).filter(r => r.activo !== false)
     setIngresos(
-      activos(iff as Fila[]).reduce((s, r) => s + num(r.monto_cobrado ?? r.monto), 0) +
+      activos(iff as Fila[]).reduce((s, r) => s + cobradoDelMes(r), 0) +
       ((inf ?? []) as Fila[]).reduce((s, r) => s + num(r.monto_cobrado ?? r.monto_total ?? r.monto), 0)
     )
     setFijos(activos(gf as Fila[]).reduce((s, r) => s + num(r.monto), 0))
@@ -126,10 +127,27 @@ export default function MetasPage() {
   const apps = Object.keys(saldoApp).sort()
   const nombreApp = (app: string) => lineas.find(l => l.app === app && l.etiqueta)?.etiqueta || app
 
+  /* Si varias metas usan la misma billetera, el saldo se reparte en el
+     orden de las metas (la primera se llena hasta su objetivo y el resto
+     pasa a la siguiente). Antes cada meta contaba el saldo entero. */
+  const asignadoPorMeta = useMemo(() => {
+    const restante: Record<string, number> = { ...saldoApp }
+    const out: Record<string, number> = {}
+    for (const m of metas) {
+      if (!m.billetera_app) continue
+      const disponible = Math.max(restante[m.billetera_app] ?? 0, 0)
+      const objetivoPesos = (Number(m.monto_objetivo) || 0) * (m.moneda === 'USD' ? dolar : 1)
+      const toma = Math.min(disponible, objetivoPesos)
+      out[m.id] = toma
+      restante[m.billetera_app] = disponible - toma
+    }
+    return out
+  }, [metas, saldoApp, dolar])
+
   /** Cuánto lleva juntado una meta, en su moneda. */
   const actualDe = (m: Meta) => {
     if (m.billetera_app) {
-      const pesos = saldoApp[m.billetera_app] ?? 0
+      const pesos = asignadoPorMeta[m.id] ?? 0
       return m.moneda === 'USD' ? pesos / dolar : pesos
     }
     return Number(m.aportado) || 0

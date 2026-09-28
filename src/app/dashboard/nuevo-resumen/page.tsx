@@ -40,6 +40,7 @@ import { Categorias, FlujoPeriodo, ListaActividad, ListaCompromisos } from '@/co
 import { CapturaLuca, LucaInsights, type GastoDetectado } from '@/components/resumen/Luca'
 import { GraficoMensual, type Modo, type PuntoMes } from '@/components/resumen/GraficoMensual'
 import { AccionRapida, type AccionTipo } from '@/components/resumen/AccionRapida'
+import { useAlCambiarDatos } from '@/lib/eventos'
 
 const MODOS = [
   { key: 'balance', label: 'Balance' },
@@ -94,6 +95,7 @@ export default function NuevoResumenPage() {
   }, [])
 
   useEffect(() => { cargar() }, [cargar])
+  useAlCambiarDatos(useCallback(() => { cargar(true) }, [cargar]))
 
   /* ── todo lo derivado sale del núcleo ─────────────────────────── */
   const d = useMemo(() => {

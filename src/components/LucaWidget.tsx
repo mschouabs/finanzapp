@@ -137,7 +137,7 @@ export function LucaWidget({ onSaved }: { onSaved?: () => void }) {
     try {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error('sin sesión')
-      const { error: dbError } = await guardarGastoVariable(supabase, user.id, {
+      const { error: dbError, guardado } = await guardarGastoVariable(supabase, user.id, {
         nombre: parsed.nombre,
         monto: Number(parsed.monto),
         categoria: parsed.categoria,
@@ -147,7 +147,10 @@ export function LucaWidget({ onSaved }: { onSaved?: () => void }) {
         cuotas: parsed.forma_pago === 'credito' ? parsed.cuotas : undefined,
         moneda: parsed.moneda === 'USD' ? 'USD' : 'ARS',
       })
-      if (dbError) throw new Error(dbError)
+      /* si se guardó pero falló el descuento del saldo, NO es un error de
+         guardado: antes se mostraba así y al reintentar se duplicaba */
+      if (dbError && !guardado) throw new Error(dbError)
+      if (dbError) setError(`Guardado. Ojo: ${dbError}`)
       setSaved(true)
       onSaved?.()
       setTimeout(() => {

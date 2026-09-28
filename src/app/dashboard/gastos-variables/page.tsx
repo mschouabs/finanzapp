@@ -7,10 +7,12 @@ import {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Legend,
 } from 'recharts'
 import { createClient } from '@/lib/supabase'
-import { borrarGastoVariable, guardarGastoVariable, listarMediosDePago, montoEnPesos } from '@/lib/movimientos'
+import { borrarGastoVariable, editarGastoVariable, guardarGastoVariable, listarMediosDePago, montoEnPesos } from '@/lib/movimientos'
 import { traerCotizaciones } from '@/lib/patrimonio'
 import { SkeletonPagina } from '@/components/ui/Piezas'
 import { LucaMensaje } from '@/components/luca/LucaMensaje'
+import { hoyISO } from '@/lib/fechas'
+import { EVENTO_DATOS } from '@/lib/eventos'
 
 interface GastoVariable {
   id: string
@@ -65,7 +67,6 @@ const fmtFull = (n: number) => '$' + Math.round(n).toLocaleString('es-AR')
 
 const meses = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
 const mesesCorto = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic']
-const hoyISO = () => new Date().toISOString().split('T')[0]
 const formVacio = () => ({ nombre: '', monto: '', categoria: 'varios', fecha: hoyISO(), es_gasto_hormiga: false, medio: '', forma: 'debito' as 'debito' | 'credito', cuotas: '1', moneda: 'ARS' as 'ARS' | 'USD' })
 
 const tooltipStyle = {
@@ -119,6 +120,14 @@ export default function GastosPage() {
   const [dolar, setDolar] = useState<number | null>(null)
   /* monto en pesos (los consumos en dólares se convierten) */
   const ars = (g: GastoVariable) => montoEnPesos(g, dolar)
+
+  /* si se guardó algo desde el menú (botón Nuevo), recargar */
+  useEffect(() => {
+    const h = () => { loadData() }
+    window.addEventListener(EVENTO_DATOS, h)
+    return () => window.removeEventListener(EVENTO_DATOS, h)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   useEffect(() => { traerCotizaciones().then(c => setDolar(c.dolar)) }, [])
 
@@ -299,13 +308,13 @@ export default function GastosPage() {
   async function guardarEdicion(id: string) {
     if (!formEdit.nombre || !formEdit.monto) return
     const supabase = createClient()
-    await supabase.from('gastos_variables').update({
+    await editarGastoVariable(supabase, id, {
       nombre: formEdit.nombre.trim(),
       monto: Number(formEdit.monto),
       categoria: formEdit.categoria,
       fecha: formEdit.fecha,
       es_gasto_hormiga: formEdit.es_gasto_hormiga,
-    }).eq('id', id)
+    })
     setEditandoId(null)
     loadData()
   }
@@ -424,6 +433,14 @@ export default function GastosPage() {
   const variacionVsAnterior = totalVarAnt > 0 ? Math.round(((totalVar - totalVarAnt) / totalVarAnt) * 100) : null
   const totalVisibles = visibles.reduce((s, g) => s + ars(g), 0)
   const totalFijos = gastosFijos.reduce((s, g) => s + Number(g.monto), 0)
+  /* en rangos de varios meses los fijos se cuentan una vez por mes
+     (antes se sumaba un solo mes aunque el rango fuera de 3 o 12) */
+  const mesesEnRango = (() => {
+    const [y1, m1] = rango.desde.slice(0, 7).split('-').map(Number)
+    const [y2, m2] = rango.hasta.slice(0, 7).split('-').map(Number)
+    return Math.max(1, (y2 - y1) * 12 + (m2 - m1) + 1)
+  })()
+  const fijosDelPeriodo = totalFijos * mesesEnRango
 
   const prevMes = () => setRango(r => {
     const d = new Date(r.year, r.month - 2, 1)
@@ -487,8 +504,8 @@ export default function GastosPage() {
       {/* Resumen rápido */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         <Kpi label="Variables" valor={fmtFull(totalVar)} />
-        <Kpi label="Fijos" valor={fmtFull(totalFijos)} />
-        <Kpi label="Total del período" valor={fmtFull(totalVar + totalFijos)} fuerte />
+        <Kpi label={mesesEnRango > 1 ? `Fijos (${mesesEnRango} meses)` : 'Fijos'} valor={fmtFull(fijosDelPeriodo)} />
+        <Kpi label="Total del período" valor={fmtFull(totalVar + fijosDelPeriodo)} fuerte />
       </div>
 
       {/* Luca: insight real, calculado con los mismos datos del período */}

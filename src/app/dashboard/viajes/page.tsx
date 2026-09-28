@@ -12,6 +12,7 @@ import { Kpi, PALETA, Segmentado, SkeletonPagina, Titulo, fmtK, tooltipStyle } f
 import {
   colorPresupuesto, duracionDias, estadoViaje, fmtARS, fmtCorto, fmtRango, type Viaje,
 } from '@/lib/viajes'
+import { hoyISO } from '@/lib/fechas'
 
 type ViajeOrd = Viaje & { orden?: number | null }
 type Filtro = 'todos' | 'activos' | 'realizados'
@@ -20,7 +21,6 @@ interface GastoMin { viaje_id: string; monto_ars: number | null; fecha: string |
 
 const ORDEN_KEY = 'viajes_orden'
 const DIA = 86_400_000
-const hoyISO = () => new Date().toISOString().split('T')[0]
 const diasHasta = (iso: string) => Math.round((new Date(iso + 'T12:00:00').getTime() - new Date(hoyISO() + 'T12:00:00').getTime()) / DIA)
 const MESES = ['E', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D']
 

@@ -5,11 +5,12 @@ import { X } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { guardarGastoVariable, ingresarABilletera, listarMediosDePago } from '@/lib/movimientos'
 import { CATEGORIAS } from '@/lib/categorias'
+import { hoyISO } from '@/lib/fechas'
+import { guardarIngresoFijo, yaCobradoEsteMes } from '@/lib/ingresos'
 
 type Tab = 'gasto' | 'ingreso'
 type SubIngreso = 'freelance' | 'fijo'
 
-const hoyISO = () => new Date().toISOString().split('T')[0]
 
 const formGastoVacio = () => ({
   nombre: '', monto: '', categoria: 'varios', fecha: hoyISO(),
@@ -127,7 +128,7 @@ export function AgregarMovimientoModal({
        en vez de crear un duplicado (mismo criterio que en Trabajos). */
     const { data: existentes } = await supabase
       .from('ingresos_fijos')
-      .select('id, nombre, monto, monto_cobrado')
+      .select('*')
       .eq('user_id', user.id)
       .eq('activo', true)
 
@@ -136,14 +137,15 @@ export function AgregarMovimientoModal({
     )
 
     const { error: err } = existente
-      ? await supabase.from('ingresos_fijos').update({ nombre: formFijo.nombre, monto, monto_cobrado }).eq('id', existente.id)
-      : await supabase.from('ingresos_fijos').insert({ user_id: user.id, nombre: formFijo.nombre, monto, monto_cobrado, activo: true })
+      ? await guardarIngresoFijo(supabase, { nombre: formFijo.nombre, monto, monto_cobrado }, existente.id)
+      : await guardarIngresoFijo(supabase, { user_id: user.id, nombre: formFijo.nombre, monto, monto_cobrado, activo: true })
 
     if (err) { setSaving(false); setError('No se pudo guardar el ingreso.'); return }
 
     /* acreditamos solo la diferencia contra lo que ya se había cobrado,
        para no duplicar plata si estás "actualizando" el mismo sueldo. */
-    const cobradoAntes = existente ? (existente.monto_cobrado ?? existente.monto) : 0
+    /* lo cobrado en meses anteriores no cuenta: un sueldo nuevo acredita completo */
+    const cobradoAntes = existente ? yaCobradoEsteMes(existente) : 0
     const cobradoAhora = monto_cobrado ?? monto
     const delta = cobradoAhora - cobradoAntes
 

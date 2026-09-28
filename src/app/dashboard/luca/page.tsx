@@ -9,6 +9,8 @@ import { traerCotizaciones } from '@/lib/patrimonio'
 import { LucaAvatar } from '@/components/luca/LucaAvatar'
 import type { LucaEstado } from '@/components/luca/LucaAvatar'
 import { extensionDeAudio, mensajeErrorMicrofono, microfonoDisponible, tipoAudioSoportado } from '@/lib/audio'
+import { hoyISO } from '@/lib/fechas'
+import { guardarIngresoFijo } from '@/lib/ingresos'
 
 type TipoRegistro = 'gasto_variable' | 'gasto_fijo' | 'ingreso_fijo' | 'ingreso_freelance' | 'inversion'
 
@@ -238,6 +240,8 @@ export default function LucaChatPage() {
       const uid = user?.id
       if (!uid) throw new Error('No hay sesion activa. Inicia sesion para poder guardar.')
       let error
+      /* guardado, pero con algo para avisar (ej: no se pudo descontar del saldo) */
+      let aviso: string | null = null
 
       if (msg.tabla === 'gasto_variable') {
         /* Si Luca detectó con qué app/tarjeta se pagó, el gasto queda
@@ -246,13 +250,16 @@ export default function LucaChatPage() {
           nombre: msg.datos.nombre ?? 'Gasto',
           monto: Number(msg.datos.monto),
           categoria: msg.datos.categoria ?? 'varios',
-          fecha: msg.datos.fecha ?? new Date().toISOString().split('T')[0],
+          fecha: msg.datos.fecha ?? hoyISO(),
           medio_pago: msg.datos.medio_pago,
           forma_pago: msg.datos.forma_pago,
           cuotas: msg.datos.cuotas,
           moneda: msg.datos.moneda === 'USD' ? 'USD' : 'ARS',
         })
-        if (r.error) error = new Error(r.error)
+        /* si el gasto SE GUARDÓ pero falló el descuento del saldo, no es un
+           error: marcarlo así hacía que se reintentara y se duplicara */
+        if (r.error && !r.guardado) error = new Error(r.error)
+        else aviso = r.error ?? r.avisoSaldoNegativo ?? null
       } else if (msg.tabla === 'gasto_fijo') {
         const { error: e } = await supabase.from('gastos_fijos').insert({
           user_id: uid, nombre: msg.datos.nombre, monto: msg.datos.monto,
@@ -270,12 +277,10 @@ export default function LucaChatPage() {
           .eq('activo', true)
           .ilike('nombre', msg.datos.nombre ?? '')
         if (existentes && existentes.length > 0) {
-          const { error: e } = await supabase.from('ingresos_fijos')
-            .update({ monto_cobrado: msg.datos.monto })
-            .eq('id', existentes[0].id)
+          const { error: e } = await guardarIngresoFijo(supabase, { monto_cobrado: msg.datos.monto }, existentes[0].id)
           error = e
         } else {
-          const { error: e } = await supabase.from('ingresos_fijos').insert({
+          const { error: e } = await guardarIngresoFijo(supabase, {
             user_id: uid, nombre: msg.datos.nombre, monto: msg.datos.monto,
             monto_cobrado: msg.datos.monto, activo: true,
           })
@@ -300,6 +305,7 @@ export default function LucaChatPage() {
 
       if (error) throw error
       setMensajes(prev => prev.map(m => m.id === msg.id ? { ...m, guardado: true } : m))
+      if (aviso) setErrores(prev => ({ ...prev, [msg.id]: `Guardado. Ojo: ${aviso}` }))
       setLucaEstado('celebration')
       setTimeout(() => setLucaEstado('idle'), 2000)
     } catch (e) {

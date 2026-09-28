@@ -13,6 +13,7 @@ import { LucaAvatar, type LucaEstado } from '@/components/luca/LucaAvatar'
 import { CATEGORIAS, getCat } from '@/lib/categorias'
 import { fmt, fmtFechaCorta } from './base'
 import type { Insight, TipoInsight } from '@/lib/finanzas/insights'
+import { hoyISO } from '@/lib/fechas'
 
 const TIPO: Record<TipoInsight, { label: string; color: string; Icono: typeof Lightbulb }> = {
   atencion: { label: 'Atención', color: 'var(--accent-warning)', Icono: AlertTriangle },
@@ -21,7 +22,7 @@ const TIPO: Record<TipoInsight, { label: string; color: string; Icono: typeof Li
   dato: { label: 'Para tener en cuenta', color: 'var(--text-secondary)', Icono: Sparkles },
 }
 
-const CLAVE_OCULTOS = () => `fa_insights_ocultos_${new Date().toISOString().slice(0, 10)}`
+const CLAVE_OCULTOS = () => `fa_insights_ocultos_${hoyISO()}`
 
 function leerOcultos(): string[] {
   try { return JSON.parse(localStorage.getItem(CLAVE_OCULTOS()) || '[]') as string[] } catch { return [] }

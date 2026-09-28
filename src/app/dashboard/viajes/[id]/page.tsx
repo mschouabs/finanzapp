@@ -26,8 +26,8 @@ import {
   type Viaje,
   type ViajeGasto,
 } from '@/lib/viajes'
+import { hoyISO } from '@/lib/fechas'
 
-const hoyISO = () => new Date().toISOString().split('T')[0]
 
 const formVacio = () => ({
   concepto: '',

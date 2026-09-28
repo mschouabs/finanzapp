@@ -9,6 +9,7 @@ import { fmtMonto, type Seccion } from '@/lib/secciones'
 import { detectarCategoria } from '@/lib/parser'
 import { detectarMedioPago } from '@/lib/tarjetas'
 import { fmtK } from '@/components/ui/Piezas'
+import { hoyISO } from '@/lib/fechas'
 
 /* ── Importar ─────────────────────────────────────────────────────
    Paso a paso: subís el archivo, emparejás columnas, revisás (con
@@ -174,7 +175,7 @@ export default function ImportarPage() {
       const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error('sin sesión')
-      const hoy = new Date().toISOString().slice(0, 10)
+      const hoy = hoyISO()
 
       /* medio de pago: solo se vincula a cuentas que ya existen, sin tocar saldos */
       const tarjetaPorMedio = new Map<string, string>()
@@ -197,7 +198,11 @@ export default function ImportarPage() {
         }))
       } else if (destino === 'ingresos_freelance') {
         tablaDestino = 'ingresos_freelance'
-        rows = aImportar.map(f => ({ user_id: user.id, nombre: f.descripcion, monto: Math.abs(f.monto ?? 0), fecha: f.fecha ?? hoy }))
+        /* columnas reales de la tabla (antes mandaba nombre/monto y fallaba siempre) */
+        rows = aImportar.map(f => {
+          const monto = Math.abs(f.monto ?? 0)
+          return { user_id: user.id, cliente: f.descripcion, descripcion: f.descripcion, monto_total: monto, monto_cobrado: monto, fecha: f.fecha ?? hoy }
+        })
       } else {
         tablaDestino = 'gastos_variables'
         rows = aImportar.map(f => ({

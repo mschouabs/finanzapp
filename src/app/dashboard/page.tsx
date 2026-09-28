@@ -27,6 +27,8 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Legend,
   BarChart, Bar,
 } from 'recharts'
+import { cobradoDelMes } from '@/lib/ingresos'
+import { EVENTO_DATOS } from '@/lib/eventos'
 
 /* ── helpers ─────────────────────────────────────── */
 const fmt = (n: number) => '$' + n.toLocaleString('es-AR', { minimumFractionDigits: 0 })
@@ -83,6 +85,14 @@ export default function DashboardPage() {
   const [lineas, setLineas] = useState<LineaSaldo[]>([])
   const [pagando, setPagando] = useState<{ t: TarjetaInfo; r: ResumenInfo } | null>(null)
   const [showAgregar, setShowAgregar] = useState(false)
+
+  /* si se guardó algo desde el menú (botón Nuevo), recargar */
+  useEffect(() => {
+    const h = () => { cargar() }
+    window.addEventListener(EVENTO_DATOS, h)
+    return () => window.removeEventListener(EVENTO_DATOS, h)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   useEffect(() => {
     cargar()
@@ -201,8 +211,7 @@ export default function DashboardPage() {
     const activos = (rows: Record<string, unknown>[] | null) =>
       (rows || []).filter(r => r.activo !== false)
 
-    const montoFijo = (r: Record<string, unknown>) =>
-      (r.monto_cobrado as number) ?? (r.monto as number) ?? 0
+    const montoFijo = (r: Record<string, unknown>) => cobradoDelMes(r)
     const montoFreelance = (r: Record<string, unknown>) =>
       (r.monto_cobrado as number) ?? (r.monto_total as number) ?? (r.monto as number) ?? 0
     const suma = (rows: Record<string, unknown>[], f: (r: Record<string, unknown>) => number) =>

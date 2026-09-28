@@ -8,7 +8,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { normalizar, resolverTarjetaId, type FormaPago } from './tarjetas'
-import { aISO, fechasDeResumen, resumenDeCompra, sumarMeses } from './ciclos'
+import { aISO, resumenDeCompra, sumarMeses } from './ciclos'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Cliente = SupabaseClient<any, any, any>
@@ -47,6 +47,13 @@ export interface NuevoGasto {
 export function montoEnPesos(g: { monto: number; moneda?: string | null }, dolar: number | null) {
   const m = Number(g.monto) || 0
   return g.moneda === 'USD' ? m * (dolar ?? 1560) : m
+}
+
+/** La misma fecha, `n` meses después (el 31 pasa al último día si el mes es más corto). */
+function mismoDiaEnMeses(iso: string, n: number): Date {
+  const [y, m, d] = iso.slice(0, 10).split('-').map(Number)
+  const ultimo = new Date(y, m - 1 + n + 1, 0).getDate()
+  return new Date(y, m - 1 + n, Math.min(d, ultimo))
 }
 
 const nuevoId = () =>
@@ -144,9 +151,11 @@ export async function guardarGastoVariable(
       return {
         ...base,
         monto,
-        /* la primera cuota que cargamos queda en la fecha indicada; las
-           demás, en el vencimiento de su resumen (cuando la vas a pagar) */
-        fecha: i === 0 ? g.fecha : aISO(fechasDeResumen(resumen, dias).vencimiento),
+        /* una cuota por mes desde la compra: la primera en la fecha
+           indicada y cada una de las siguientes, un mes después (antes
+           iban al vencimiento de su resumen y quedaba un mes sin cuota).
+           Cuándo se PAGA cada una lo sigue diciendo `resumen`. */
+        fecha: i === 0 ? g.fecha : aISO(mismoDiaEnMeses(g.fecha, i)),
         fecha_compra: g.fecha,
         resumen,
         pagado: false,
@@ -235,6 +244,28 @@ export async function borrarGastoVariable(
       p_id: gasto.billetera_linea_id, p_delta: Number(gasto.monto),
     })
   }
+}
+
+/**
+ * Edita un gasto y, si salió de una billetera y cambió el monto, corrige
+ * ese saldo por la diferencia (antes la billetera quedaba desfasada).
+ */
+export async function editarGastoVariable(
+  supabase: Cliente,
+  id: string,
+  cambios: { nombre?: string; monto?: number; categoria?: string; fecha?: string; es_gasto_hormiga?: boolean },
+): Promise<{ error: string | null }> {
+  const { data: antes } = await supabase
+    .from('gastos_variables').select('monto, billetera_linea_id').eq('id', id).single()
+  const { error } = await supabase.from('gastos_variables').update(cambios).eq('id', id)
+  if (error) return { error: error.message }
+  const linea = (antes as { billetera_linea_id?: string | null } | null)?.billetera_linea_id
+  const viejo = Number((antes as { monto?: number } | null)?.monto) || 0
+  if (linea && cambios.monto != null && Number(cambios.monto) !== viejo) {
+    const { error: e2 } = await supabase.rpc('ajustar_saldo', { p_id: linea, p_delta: viejo - Number(cambios.monto) })
+    if (e2) return { error: `El gasto se actualizó pero no se pudo corregir el saldo de la billetera: ${e2.message}` }
+  }
+  return { error: null }
 }
 
 /* ── Pago de resúmenes ─────────────────────────────────────────── */
