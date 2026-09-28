@@ -125,6 +125,18 @@ input:-webkit-autofill:focus {
   transition: background-color 9999s ease-in-out 0s;
 }
 
+/* ── Foco visible para navegación por teclado (accesibilidad) ──
+   Solo aparece con teclado (:focus-visible), no al hacer click con
+   el mouse, así no compite visualmente con los estados normales. */
+button:focus-visible,
+a:focus-visible,
+[role="button"]:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--accent-confirm);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
 /* ── Utilidades compartidas ── */
 .fa-card {
   background: var(--bg-card);
