@@ -38,3 +38,12 @@ next-env.d.ts
 # capacitor — carpetas generadas localmente
 /android
 /ios
+
+# archivos sueltos que Windows descarga en la carpeta del proyecto
+# (adjuntos del chat, parches, etc.) — no son parte del código
+/Claude outputs/
+/*.patch
+/Sidebar.tsx
+/globals.css
+/layout.tsx
+
