@@ -13,6 +13,7 @@ import {
   type Consumo, type EstadoTarjeta, type ResumenInfo, type TarjetaInfo,
 } from '@/lib/resumenes'
 import { GrillaOrdenable, type HandleProps } from '@/components/GrillaOrdenable'
+import { SkeletonPagina } from '@/components/ui/Piezas'
 import { LucaMensaje } from '@/components/luca/LucaMensaje'
 import { AnilloLimite, TarjetaVisual, colorTarjeta, fmt, fmtCorto } from '@/components/tarjetas/TarjetaVisual'
 import { EditarTarjeta, PagarResumen, type DatosTarjeta } from '@/components/tarjetas/Modales'
@@ -185,7 +186,7 @@ export default function TarjetasPage() {
   /* ── render ────────────────────────────── */
 
   if (loading) {
-    return <div className="fa-card p-8 text-center"><p className="text-sm text-secondary">Cargando tarjetas…</p></div>
+    return <SkeletonPagina kpis={4} />
   }
 
   const renderTarjeta = (e: EstadoTarjeta, handle: HandleProps) => {
@@ -209,11 +210,11 @@ export default function TarjetasPage() {
           <div className={`flex items-center justify-between gap-3 rounded-xl p-3 ${cerrado && dias < 0 ? '' : 'bg-alternate'}`}
             style={cerrado && dias < 0 ? { background: 'color-mix(in srgb, var(--accent-negative) 12%, transparent)' } : undefined}>
             <div className="min-w-0">
-              <p className="text-[11px] text-secondary">
+              <p className="fa-caption">
                 {cerrado ? (dias < 0 ? `Vencido hace ${-dias} días` : `A pagar · vence ${fmtDiaMes(r.vencimiento)} (en ${dias} ${dias === 1 ? 'día' : 'días'})`)
                   : `Resumen abierto · vence ${fmtDiaMes(r.vencimiento)}`}
               </p>
-              <p className={`fa-amount text-lg ${cerrado && dias < 0 ? 'text-negative' : 'text-primary'}`}>{fmt(pend)}</p>
+              <p className={`fa-num-lg ${cerrado && dias < 0 ? 'text-negative' : 'text-primary'}`}>{fmt(pend)}</p>
             </div>
             <button onClick={() => setPagando({ t, r })}
               className="shrink-0 rounded-lg bg-confirm px-3 py-2 text-xs font-semibold text-white hover:bg-confirm-hover">
@@ -335,6 +336,19 @@ export default function TarjetasPage() {
               detalle={cuotas.length ? `quedan ${fmtCorto(cuotas.reduce((s, c) => s + c.restante, 0))}` : 'ninguna activa'} />
           </div>
 
+          {/* insight de Luca */}
+          {cuotas.length > 0 && (() => {
+            const aPesosCuota = (n: number, moneda: string) => moneda === 'USD' ? n * dolar : n
+            const restanteTotal = cuotas.reduce((s, c) => s + aPesosCuota(c.restante, c.moneda), 0)
+            const porMesTotal = cuotas.reduce((s, c) => s + aPesosCuota(c.montoCuota, c.moneda), 0)
+            return (
+              <LucaMensaje estado="idle" variante="panel" className="p-4">
+                Tenés <b>{fmtCorto(restanteTotal)}</b> comprometidos en {cuotas.length} {cuotas.length === 1 ? 'compra en cuotas' : 'compras en cuotas'},
+                con <b>{fmt(porMesTotal)}</b> fijos por mes hasta terminarlas.
+              </LucaMensaje>
+            )
+          })()}
+
           {/* avisos */}
           {avisos.length > 0 && (
             <div className="flex flex-col gap-2">
@@ -420,8 +434,8 @@ export default function TarjetasPage() {
                         </div>
                       </div>
                       <div className="text-right">
-                        <p className="fa-amount text-sm text-primary">{signo}{Math.round(c.montoCuota).toLocaleString('es-AR')}/mes</p>
-                        <p className="text-[11px] text-muted">faltan {signo}{Math.round(c.restante).toLocaleString('es-AR')} de {signo}{Math.round(c.montoTotal).toLocaleString('es-AR')}</p>
+                        <p className="fa-num-sm text-primary">{signo}{Math.round(c.montoCuota).toLocaleString('es-AR')}/mes</p>
+                        <p className="fa-caption">faltan {signo}{Math.round(c.restante).toLocaleString('es-AR')} de {signo}{Math.round(c.montoTotal).toLocaleString('es-AR')}</p>
                       </div>
                     </li>
                   )
@@ -462,9 +476,9 @@ export default function TarjetasPage() {
 function Kpi({ label, valor, detalle }: { label: string; valor: string; detalle: string }) {
   return (
     <div className="fa-card px-4 py-3">
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-secondary">{label}</p>
-      <p className="fa-amount mt-0.5 text-xl text-primary">{valor}</p>
-      <p className="truncate text-[11px] text-muted">{detalle}</p>
+      <p className="fa-label">{label}</p>
+      <p className="fa-num-lg mt-0.5 text-primary">{valor}</p>
+      <p className="fa-caption truncate">{detalle}</p>
     </div>
   )
 }
