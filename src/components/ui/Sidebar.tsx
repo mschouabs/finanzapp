@@ -15,18 +15,47 @@ import { AgregarMovimientoModal } from '@/components/AgregarMovimientoModal'
 import { LucaAvatar } from '@/components/luca/LucaAvatar'
 import type { Seccion } from '@/lib/secciones'
 
-const NAV = [
-  { href: '/dashboard', label: 'Resumen', Icono: Home },
-  { href: '/dashboard/ingresos-gastos', label: 'Trabajos', Icono: Briefcase },
-  { href: '/dashboard/gastos-variables', label: 'Movimientos', Icono: ShoppingCart },
-  { href: '/dashboard/viajes', label: 'Viajes', Icono: Plane },
-  { href: '/dashboard/billeteras', label: 'Billeteras', Icono: Wallet },
-  { href: '/dashboard/inversiones', label: 'Portfolio', Icono: TrendingUp },
-  { href: '/dashboard/metas', label: 'Metas', Icono: Target },
-  { href: '/dashboard/historial', label: 'Historial', Icono: Receipt },
-  { href: '/dashboard/tarjetas', label: 'Tarjetas', Icono: CreditCard },
-  { href: '/dashboard/importar', label: 'Importar', Icono: Download },
+/* Navegación agrupada por función, no por orden alfabético: así la
+   sidebar responde "¿qué tipo de cosa es esto?" de un vistazo.
+   Se exporta porque el buscador global (Header) reusa esta misma
+   lista — un solo lugar con las secciones de la app. */
+export const NAV_GRUPOS = [
+  {
+    titulo: null, // Resumen no necesita rótulo de grupo, es el punto de partida
+    items: [{ href: '/dashboard', label: 'Resumen', Icono: Home }],
+  },
+  {
+    titulo: 'Dinero',
+    items: [
+      { href: '/dashboard/gastos-variables', label: 'Movimientos', Icono: ShoppingCart },
+      { href: '/dashboard/billeteras', label: 'Billeteras', Icono: Wallet },
+      { href: '/dashboard/tarjetas', label: 'Tarjetas', Icono: CreditCard },
+    ],
+  },
+  {
+    titulo: 'Planificación',
+    items: [
+      { href: '/dashboard/viajes', label: 'Viajes', Icono: Plane },
+      { href: '/dashboard/metas', label: 'Metas', Icono: Target },
+    ],
+  },
+  {
+    titulo: 'Ingresos',
+    items: [{ href: '/dashboard/ingresos-gastos', label: 'Trabajos', Icono: Briefcase }],
+  },
+  {
+    titulo: 'Inversión',
+    items: [{ href: '/dashboard/inversiones', label: 'Portfolio', Icono: TrendingUp }],
+  },
+  {
+    titulo: 'Análisis',
+    items: [
+      { href: '/dashboard/historial', label: 'Historial', Icono: Receipt },
+      { href: '/dashboard/importar', label: 'Importar', Icono: Download },
+    ],
+  },
 ]
+
 
 /* ── bottom nav tabs (mobile) ── */
 const BOTTOM_TABS = [
@@ -72,11 +101,14 @@ export default function Sidebar({ userName }: { userName?: string }) {
   }
 
   const item = (activa: boolean) =>
-    `flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
-      activa ? 'text-primary' : 'text-secondary hover:bg-alternate hover:text-primary'
+    `flex items-center gap-3 rounded-lg border-l-2 px-2.5 py-2 text-sm font-medium transition-colors ${
+      activa ? 'text-primary' : 'border-transparent text-secondary hover:bg-alternate hover:text-primary'
     }`
 
-  const estiloActiva = { background: 'color-mix(in srgb, var(--accent-confirm) 16%, transparent)' }
+  const estiloActiva = {
+    background: 'color-mix(in srgb, var(--accent-confirm) 14%, transparent)',
+    borderColor: 'var(--accent-confirm)',
+  }
 
   /* contenido compartido: sidebar desktop + drawer mobile */
   const contenido = (
@@ -93,27 +125,36 @@ export default function Sidebar({ userName }: { userName?: string }) {
         <span className="text-lg font-extrabold text-primary">FinanzApp</span>
       </Link>
 
-      {/* navegación */}
+      {/* navegación agrupada */}
       <nav className="flex flex-col gap-1">
-        {NAV.map(({ href, label, Icono }) => {
-          const activa = pathname === href
-          return (
-            <Link
-              key={href}
-              href={href}
-              aria-current={activa ? 'page' : undefined}
-              className={item(activa)}
-              style={activa ? estiloActiva : undefined}
-            >
-              <Icono
-                size={18}
-                strokeWidth={2}
-                style={activa ? { color: 'var(--accent-confirm)' } : undefined}
-              />
-              {label}
-            </Link>
-          )
-        })}
+        {NAV_GRUPOS.map((grupo, gi) => (
+          <div key={grupo.titulo ?? `g${gi}`} className={gi > 0 ? 'mt-3' : undefined}>
+            {grupo.titulo && (
+              <div className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted">
+                {grupo.titulo}
+              </div>
+            )}
+            {grupo.items.map(({ href, label, Icono }) => {
+              const activa = pathname === href
+              return (
+                <Link
+                  key={href}
+                  href={href}
+                  aria-current={activa ? 'page' : undefined}
+                  className={item(activa)}
+                  style={activa ? estiloActiva : undefined}
+                >
+                  <Icono
+                    size={18}
+                    strokeWidth={2}
+                    style={activa ? { color: 'var(--accent-confirm)' } : undefined}
+                  />
+                  {label}
+                </Link>
+              )
+            })}
+          </div>
+        ))}
 
         {secciones.length > 0 && (
           <div className="mt-3 px-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted">

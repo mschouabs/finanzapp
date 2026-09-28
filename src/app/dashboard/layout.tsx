@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import Sidebar from '@/components/ui/Sidebar'
+import { Header } from '@/components/ui/Header'
 import { DEMO, USUARIO_DEMO } from '@/lib/demo'
 
 async function obtenerUsuario() {
@@ -48,7 +49,8 @@ export default async function DashboardLayout({
       <Sidebar userName={userName} />
       {/* lg:ml-64 deja lugar a la sidebar fija en desktop */}
       <main className="lg:ml-64">
-        <div className="mx-auto max-w-[1200px] px-4 pt-4 sm:pt-6 sm:px-6 pb-bottom-nav">
+        <Header />
+        <div className="fa-container px-4 pt-4 sm:pt-6 sm:px-6 lg:px-10 pb-bottom-nav">
           {children}
         </div>
       </main>

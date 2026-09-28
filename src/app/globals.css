@@ -138,6 +138,21 @@ input:-webkit-autofill:focus {
   font-weight: 700;
 }
 
+/* ══ Escala tipográfica financiera ══════════════════════════════
+   Un solo lugar para "qué tan grande es un número". La cifra hero
+   (patrimonio, saldo principal) manda; todo lo demás se subordina. */
+.fa-num-hero   { font-variant-numeric: tabular-nums; font-weight: 800; font-size: clamp(2rem, 3.4vw, 2.75rem); letter-spacing: -0.02em; line-height: 1.05; }
+.fa-num-xl     { font-variant-numeric: tabular-nums; font-weight: 800; font-size: clamp(1.5rem, 2.2vw, 1.875rem); letter-spacing: -0.01em; line-height: 1.1; }
+.fa-num-lg     { font-variant-numeric: tabular-nums; font-weight: 800; font-size: 1.5rem; letter-spacing: -0.01em; line-height: 1.15; }
+.fa-num-md     { font-variant-numeric: tabular-nums; font-weight: 700; font-size: 1.125rem; line-height: 1.2; }
+.fa-num-sm     { font-variant-numeric: tabular-nums; font-weight: 600; font-size: 0.8125rem; line-height: 1.2; }
+.fa-label      { font-size: 0.6875rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-secondary); }
+.fa-caption    { font-size: 0.75rem; color: var(--text-muted); line-height: 1.4; }
+
+/* Contenedor principal: aprovecha el ancho real del monitor sin
+   perderse en 1920px, pero nunca se vuelve una línea imposible de leer. */
+.fa-container { max-width: 1600px; margin-inline: auto; }
+
 /* Tarjetas que "se levantan" al pasar el mouse, con la misma sombra de
    superposición que al arrastrar una billetera o una tarjeta. */
 .fa-lift {

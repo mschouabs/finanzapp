@@ -213,6 +213,38 @@ export function Titulo({ titulo, sub, derecha }: { titulo: ReactNode; sub?: Reac
   )
 }
 
+/* ── Skeleton loader ─────────────────────────────────────────────── */
+/* Placeholder con la forma del contenido real, en vez de un texto
+   "Cargando..." perdido en medio de la pantalla. */
+
+export function Skeleton({ className = '' }: { className?: string }) {
+  return (
+    <div
+      className={`animate-pulse rounded-lg ${className}`}
+      style={{ background: 'var(--bg-alternate)' }}
+    />
+  )
+}
+
+/** Esqueleto de una pantalla típica: header + fila de KPIs + un bloque grande. */
+export function SkeletonPagina({ kpis = 4 }: { kpis?: number }) {
+  return (
+    <div className="flex flex-col gap-5">
+      <div className="flex flex-col gap-2">
+        <Skeleton className="h-7 w-48" />
+        <Skeleton className="h-4 w-72" />
+      </div>
+      <div
+        className="grid grid-cols-2 gap-3"
+        style={{ gridTemplateColumns: `repeat(${Math.min(kpis, 4)}, minmax(0, 1fr))` }}
+      >
+        {Array.from({ length: kpis }).map((_, i) => <Skeleton key={i} className="h-20" />)}
+      </div>
+      <Skeleton className="h-64" />
+    </div>
+  )
+}
+
 /** Formato corto para ejes y tarjetas: $1,2M / $350K / $900 */
 export const fmtK = (n: number) =>
   Math.abs(n) >= 1_000_000 ? `$${(n / 1_000_000).toFixed(1).replace('.', ',')}M`

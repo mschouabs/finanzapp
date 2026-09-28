@@ -18,6 +18,7 @@ import { fmtDiaMes } from '@/lib/ciclos'
 import { pagarConsumos } from '@/lib/movimientos'
 import { LucaWidget } from '@/components/LucaWidget'
 import { AgregarMovimientoModal } from '@/components/AgregarMovimientoModal'
+import { SkeletonPagina } from '@/components/ui/Piezas'
 import { LucaMensaje } from '@/components/luca/LucaMensaje'
 import type { LucaEstado } from '@/components/luca/LucaAvatar'
 import { PagarResumen } from '@/components/tarjetas/Modales'
@@ -333,7 +334,7 @@ export default function DashboardPage() {
   }
 
   if (loading) {
-    return <p className="py-20 text-center text-sm text-muted">Cargando…</p>
+    return <SkeletonPagina kpis={4} />
   }
 
   const d = data!
@@ -390,12 +391,12 @@ export default function DashboardPage() {
       {/* balance + tasa de ahorro */}
       <div className="grid grid-cols-1 gap-5 min-w-0 lg:grid-cols-[1fr_320px]">
         <section className="fa-card p-5">
-          <h2 className="text-sm font-semibold text-secondary">Balance del mes</h2>
+          <h2 className="fa-label">Balance del mes</h2>
 
           <div className="mt-2 flex flex-wrap items-end justify-between gap-4">
             <div>
               <p
-                className="fa-amount text-4xl"
+                className="fa-num-xl"
                 style={{ color: d.neto >= 0 ? 'var(--accent-positive)' : 'var(--accent-negative)' }}
               >
                 {fmt(d.neto)}
@@ -427,7 +428,7 @@ export default function DashboardPage() {
         </section>
 
         <section className="fa-card flex flex-col items-center justify-center p-5">
-          <h2 className="text-sm font-semibold text-secondary">Tasa de ahorro</h2>
+          <h2 className="fa-label">Tasa de ahorro</h2>
           <Anillo pct={tasaAhorro} />
           <p className="mt-3 text-center text-xs text-secondary">
             {tasaAhorro >= 30 ? '¡Excelente! Seguí así 🚀'
@@ -705,8 +706,8 @@ function TarjetaPatrimonio({ p }: { p: Patrimonio }) {
     <section className="fa-card p-5">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h2 className="text-sm font-semibold text-secondary">Patrimonio neto</h2>
-          <p className="fa-amount mt-1 text-4xl text-primary">{fmt(Math.round(neto))}</p>
+          <h2 className="fa-label">Patrimonio neto</h2>
+          <p className="fa-num-hero mt-1 text-primary">{fmt(Math.round(neto))}</p>
           {p.deuda > 0 && (
             <p className="mt-0.5 text-xs text-secondary">
               {fmt(Math.round(p.total))} en tus cuentas − {fmt(Math.round(p.deuda))} que debés en tarjetas
@@ -728,36 +729,32 @@ function TarjetaPatrimonio({ p }: { p: Patrimonio }) {
             </p>
           )}
         </div>
-        <div className="flex gap-6">
-          <div>
-            <p className="text-xs text-secondary">🏦 Disponible</p>
-            <p className="fa-amount text-lg text-primary">{fmt(Math.round(p.liquido))}</p>
-          </div>
-          <div>
-            <p className="text-xs text-secondary">📈 Invertido</p>
-            <p className="fa-amount text-lg text-primary">{fmt(Math.round(p.invertido))}</p>
-          </div>
+        <div className="flex gap-2">
+          <Link href="/dashboard/billeteras" className="rounded-lg px-2.5 py-1.5 -mx-2.5 -my-1.5 hover:bg-alternate">
+            <p className="fa-label">🏦 Disponible</p>
+            <p className="fa-num-md text-primary">{fmt(Math.round(p.liquido))}</p>
+          </Link>
+          <Link href="/dashboard/inversiones" className="rounded-lg px-2.5 py-1.5 -mx-2.5 -my-1.5 hover:bg-alternate">
+            <p className="fa-label">📈 Invertido</p>
+            <p className="fa-num-md text-primary">{fmt(Math.round(p.invertido))}</p>
+          </Link>
           {p.deuda > 0 && (
-            <div>
-              <p className="text-xs text-secondary">💳 Deuda tarjetas</p>
-              <p className="fa-amount text-lg text-negative">−{fmt(Math.round(p.deuda))}</p>
-            </div>
+            <Link href="/dashboard/tarjetas" className="rounded-lg px-2.5 py-1.5 -mx-2.5 -my-1.5 hover:bg-alternate">
+              <p className="fa-label">💳 Deuda tarjetas</p>
+              <p className="fa-num-md text-negative">−{fmt(Math.round(p.deuda))}</p>
+            </Link>
           )}
         </div>
       </div>
+
+      {/* composición: cada segmento lleva a su sección */}
       <div className="mt-4 flex h-2 overflow-hidden rounded-full" style={{ background: 'var(--border-color)' }}>
-        <div style={{ width: `${p.total > 0 ? (p.liquido / p.total) * 100 : 0}%`, background: 'var(--accent-secondary)' }} />
-        <div style={{ width: `${p.total > 0 ? (p.invertido / p.total) * 100 : 0}%`, background: 'var(--accent-positive)' }} />
-      </div>
-      <div className="mt-3 flex gap-4">
-        <Link href="/dashboard/billeteras" className="text-xs font-semibold text-secondary underline underline-offset-2 hover:text-primary">
-          Ver billeteras →
-        </Link>
-        {p.deuda > 0 && (
-          <Link href="/dashboard/tarjetas" className="text-xs font-semibold text-secondary underline underline-offset-2 hover:text-primary">
-            Ver tarjetas →
-          </Link>
-        )}
+        <Link href="/dashboard/billeteras" title="Disponible"
+          style={{ width: `${p.total > 0 ? (p.liquido / p.total) * 100 : 0}%`, background: 'var(--accent-secondary)' }}
+          className="transition-opacity hover:opacity-80" />
+        <Link href="/dashboard/inversiones" title="Invertido"
+          style={{ width: `${p.total > 0 ? (p.invertido / p.total) * 100 : 0}%`, background: 'var(--accent-positive)' }}
+          className="transition-opacity hover:opacity-80" />
       </div>
     </section>
   )
@@ -773,8 +770,8 @@ function Mini({ icono, tono, label, valor }: { icono: React.ReactNode; tono: str
         {icono}
       </span>
       <div className="min-w-0">
-        <p className="text-xs text-secondary">{label}</p>
-        <p className="fa-amount truncate text-lg text-primary">{valor}</p>
+        <p className="fa-label">{label}</p>
+        <p className="fa-num-md truncate text-primary">{valor}</p>
       </div>
     </div>
   )
