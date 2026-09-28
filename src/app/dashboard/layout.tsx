@@ -48,7 +48,7 @@ export default async function DashboardLayout({
       <Sidebar userName={userName} />
       {/* lg:ml-64 deja lugar a la sidebar fija en desktop */}
       <main className="lg:ml-64">
-        <div className="mx-auto max-w-[1200px] px-4 pt-6 sm:px-6 pb-bottom-nav">
+        <div className="mx-auto max-w-[1200px] px-4 pt-4 sm:pt-6 sm:px-6 pb-bottom-nav">
           {children}
         </div>
       </main>

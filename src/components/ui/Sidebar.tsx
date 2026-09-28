@@ -217,12 +217,12 @@ export default function Sidebar({ userName }: { userName?: string }) {
       {/* ── MOBILE: drawer deslizante (abierto desde "Más") ── */}
       {abierta && (
         <div className="fixed inset-0 z-50 lg:hidden">
-          <div className="absolute inset-0 bg-black/60" onClick={() => setAbierta(false)} />
-          <aside className="absolute inset-y-0 left-0 w-72 border-r bg-page">
+          <div className="absolute inset-0 bg-black/60 fa-fade-in" onClick={() => setAbierta(false)} />
+          <aside className="absolute inset-y-0 right-0 w-72 border-l bg-page fa-slide-from-right">
             <button
               onClick={() => setAbierta(false)}
               aria-label="Cerrar menú"
-              className="absolute right-3 z-10 rounded-lg p-2 text-secondary hover:bg-alternate hover:text-primary"
+              className="absolute left-3 z-10 rounded-lg p-2 text-secondary hover:bg-alternate hover:text-primary"
               style={{ top: 'calc(0.75rem + env(safe-area-inset-top, 0px))' }}
             >
               <X size={18} />
@@ -241,12 +241,12 @@ export default function Sidebar({ userName }: { userName?: string }) {
           paddingBottom: 'env(safe-area-inset-bottom, 0px)',
         }}
       >
-        <div className="flex h-[60px] items-center justify-around">
+        <div className="flex h-[62px] items-center justify-around px-1">
           {/* Resumen */}
           <BottomTab
             href="/dashboard"
             label="Resumen"
-            icono={<Home size={21} strokeWidth={2} />}
+            icono={<Home size={22} strokeWidth={2} />}
             activa={pathname === '/dashboard'}
           />
 
@@ -254,7 +254,7 @@ export default function Sidebar({ userName }: { userName?: string }) {
           <BottomTab
             href="/dashboard/gastos-variables"
             label="Movimientos"
-            icono={<ShoppingCart size={21} strokeWidth={2} />}
+            icono={<ShoppingCart size={22} strokeWidth={2} />}
             activa={pathname === '/dashboard/gastos-variables'}
           />
 
@@ -262,17 +262,17 @@ export default function Sidebar({ userName }: { userName?: string }) {
           <Link
             href="/dashboard/luca"
             className="flex flex-col items-center gap-0.5"
-            style={{ marginTop: '-20px' }}
+            style={{ marginTop: '-22px' }}
           >
             <span
-              className="flex h-[54px] w-[54px] items-center justify-center rounded-full shadow-lg"
+              className="flex h-[56px] w-[56px] items-center justify-center rounded-full shadow-lg"
               style={{
                 background: pathname === '/dashboard/luca'
                   ? 'var(--accent-confirm-hover)'
                   : 'var(--accent-confirm)',
               }}
             >
-              <Bot size={26} color="white" strokeWidth={1.8} />
+              <Bot size={27} color="white" strokeWidth={1.8} />
             </span>
             <span
               className="text-[10px] font-semibold"
@@ -282,22 +282,22 @@ export default function Sidebar({ userName }: { userName?: string }) {
             </span>
           </Link>
 
-          {/* Trabajos */}
+          {/* Tarjetas */}
           <BottomTab
-            href="/dashboard/ingresos-gastos"
-            label="Trabajos"
-            icono={<Briefcase size={21} strokeWidth={2} />}
-            activa={pathname === '/dashboard/ingresos-gastos'}
+            href="/dashboard/tarjetas"
+            label="Tarjetas"
+            icono={<CreditCard size={22} strokeWidth={2} />}
+            activa={pathname === '/dashboard/tarjetas'}
           />
 
-          {/* Más — abre el drawer completo */}
+          {/* Más — abre el drawer completo (derecha) */}
           <button
-            onClick={() => setAbierta(true)}
+            onClick={() => setAbierta(v => !v)}
             aria-label="Más opciones"
-            className="flex min-h-[44px] min-w-[44px] flex-col items-center justify-center gap-0.5"
+            className="flex min-h-[48px] min-w-[48px] flex-col items-center justify-center gap-0.5"
           >
             <LayoutGrid
-              size={21}
+              size={22}
               strokeWidth={2}
               style={{ color: abierta ? 'var(--accent-confirm)' : 'var(--text-muted)' }}
             />

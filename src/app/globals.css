@@ -244,10 +244,34 @@ input:-webkit-autofill:focus {
    (60px) más el home indicator de iOS (env safe-area-inset-bottom).
    En desktop (lg+) se sobreescribe con el padding estándar.        */
 .pb-bottom-nav {
-  padding-bottom: calc(60px + env(safe-area-inset-bottom, 0px));
+  padding-bottom: calc(60px + env(safe-area-inset-bottom, 0px) + 1rem);
 }
 @media (min-width: 1024px) {
   .pb-bottom-nav {
     padding-bottom: 1.5rem; /* equivalente a py-6 */
   }
+}
+
+/* Drawer móvil — entra deslizando desde la derecha */
+@keyframes fa-slide-from-right {
+  from { transform: translateX(100%); opacity: 0.6; }
+  to   { transform: translateX(0);    opacity: 1; }
+}
+.fa-slide-from-right {
+  animation: fa-slide-from-right 0.22s cubic-bezier(.2,.8,.2,1) both;
+}
+
+/* Overlay móvil — fade in */
+@keyframes fa-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.fa-fade-in {
+  animation: fa-fade-in 0.2s ease both;
+}
+
+/* En mobile, ocultar scrollbar */
+@media (max-width: 1023px) {
+  * { scrollbar-width: none; }
+  *::-webkit-scrollbar { display: none; }
 }
