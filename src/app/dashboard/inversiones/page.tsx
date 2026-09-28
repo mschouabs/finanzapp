@@ -6,8 +6,9 @@ import { Coins, LineChart as IconoLinea, Pencil, Percent, PiggyBank, Plus, Refre
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { createClient } from '@/lib/supabase'
 import { aPesos, esLiquida, traerCotizaciones, type Cotizaciones, type LineaSaldo } from '@/lib/patrimonio'
-import { Dona, Kpi, Leyenda, PALETA, Segmentado, Titulo, fmtK, fmtPesos, tooltipStyle, type Porcion } from '@/components/ui/Piezas'
+import { Dona, Kpi, Leyenda, PALETA, Segmentado, SkeletonPagina, Titulo, fmtK, fmtPesos, tooltipStyle, type Porcion } from '@/components/ui/Piezas'
 import { Modal } from '@/components/tarjetas/Modales'
+import { LucaMensaje } from '@/components/luca/LucaMensaje'
 
 type Riesgo = 'conservador' | 'moderado' | 'alto'
 
@@ -133,7 +134,7 @@ export default function PortfolioPage() {
   }
 
   if (loading) {
-    return <div className="fa-card p-8 text-center"><p className="text-sm text-secondary">Cargando portfolio…</p></div>
+    return <SkeletonPagina kpis={4} />
   }
 
   const apps = Array.from(new Set(lineas.map(l => l.app))).sort()
@@ -186,6 +187,13 @@ export default function PortfolioPage() {
             <Kpi label="TNA promedio" valor={`${tnaPromedio.toFixed(1).replace('.', ',')}%`} icono={<Percent size={17} />} tono="var(--accent-warning)" sub="ponderada por monto" />
           </div>
 
+          {porTipo[0] && total > 0 && (
+            <LucaMensaje estado="idle" variante="panel" className="p-4">
+              Tu mayor exposición está en <b>{porTipo[0].label}</b>: {Math.round((porTipo[0].valor / total) * 100)}%
+              de tu portfolio ({fmtK(porTipo[0].valor)}).
+            </LucaMensaje>
+          )}
+
           {/* Gráficos */}
           <div className="grid gap-5 xl:grid-cols-3">
             <section className="fa-card p-5">
@@ -236,6 +244,9 @@ export default function PortfolioPage() {
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
+              <p className="fa-caption mt-2">
+                ⚠️ Proyección matemática con la TNA actual de cada activo, no un resultado garantizado: tasas y mercados cambian.
+              </p>
             </section>
           </div>
 
