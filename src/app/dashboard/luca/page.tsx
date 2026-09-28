@@ -64,6 +64,7 @@ export default function LucaChatPage() {
   const [transcribiendo, setTranscribiendo] = useState(false)
   const [segundos, setSegundos] = useState(0)
   const [micDisponible, setMicDisponible] = useState(true)
+  const [permisoMic, setPermisoMic] = useState<'desconocido' | 'prompt' | 'solicitando' | 'concedido' | 'denegado'>('desconocido')
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
@@ -97,7 +98,36 @@ export default function LucaChatPage() {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [mensajes, loading])
 
-  useEffect(() => { setMicDisponible(microfonoDisponible()) }, [])
+  useEffect(() => {
+    const disponible = microfonoDisponible()
+    setMicDisponible(disponible)
+    if (!disponible) { setPermisoMic('denegado'); return }
+
+    // Si ya lo guardamos como concedido, no volvemos a preguntar
+    try {
+      if (localStorage.getItem('luca_mic_granted') === '1') {
+        setPermisoMic('concedido'); return
+      }
+    } catch { /* ignore */ }
+
+    // Usamos Permissions API cuando está disponible (Chrome/Android)
+    if (navigator.permissions) {
+      navigator.permissions.query({ name: 'microphone' as PermissionName })
+        .then(result => {
+          const mapear = (s: PermissionState) => {
+            if (s === 'granted') { try { localStorage.setItem('luca_mic_granted', '1') } catch { /* */ } return 'concedido' as const }
+            if (s === 'denied') return 'denegado' as const
+            return 'prompt' as const
+          }
+          setPermisoMic(mapear(result.state))
+          result.onchange = () => setPermisoMic(mapear(result.state))
+        })
+        .catch(() => setPermisoMic('prompt'))
+    } else {
+      // iOS Safari no tiene Permissions API → mostramos el banner igualmente
+      setPermisoMic('prompt')
+    }
+  }, [])
 
   const enviar = async () => {
     const texto = input.trim()
@@ -286,9 +316,30 @@ export default function LucaChatPage() {
     setGuardando(null)
   }
 
+  /** Pedimos permiso de forma proactiva antes de grabar (toque del banner). */
+  const solicitarPermisoMic = async () => {
+    setPermisoMic('solicitando')
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      stream.getTracks().forEach(t => t.stop())
+      setPermisoMic('concedido')
+      try { localStorage.setItem('luca_mic_granted', '1') } catch { /* ignore */ }
+    } catch (e) {
+      setPermisoMic('denegado')
+      setMensajes(prev => [...prev, {
+        id: getId(), rol: 'luca',
+        texto: mensajeErrorMicrofono(e),
+        timestamp: Date.now(),
+      }])
+    }
+  }
+
   const startGrabacion = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      // Permiso concedido — lo guardamos para no volver a pedir
+      setPermisoMic('concedido')
+      try { localStorage.setItem('luca_mic_granted', '1') } catch { /* ignore */ }
       chunksRef.current = []
       const tipo = tipoAudioSoportado()
       const mr = tipo ? new MediaRecorder(stream, { mimeType: tipo }) : new MediaRecorder(stream)
@@ -381,6 +432,41 @@ export default function LucaChatPage() {
           Limpiar
         </button>
       </div>
+
+      {/* Banner de permiso de micrófono */}
+      {permisoMic === 'prompt' && (
+        <div className="mx-4 mt-3 rounded-xl border px-4 py-3" style={{ borderColor: 'var(--accent-warning)', background: 'color-mix(in srgb, var(--accent-warning) 10%, transparent)' }}>
+          <p className="text-xs font-bold mb-1" style={{ color: 'var(--accent-warning)' }}>🎤 Activar micrófono para hablar con Luca</p>
+          <p className="text-[11px] text-secondary mb-3 leading-relaxed">Permitile a la app usar tu micrófono para poder dictarle tus gastos. Solo te lo pedimos una vez.</p>
+          <button
+            onClick={solicitarPermisoMic}
+            className="w-full rounded-lg py-2.5 text-xs font-semibold text-white transition-colors"
+            style={{ background: 'var(--accent-confirm)' }}
+          >
+            Activar micrófono
+          </button>
+        </div>
+      )}
+
+      {permisoMic === 'solicitando' && (
+        <div className="mx-4 mt-3 rounded-xl border px-4 py-3 text-center text-xs text-secondary" style={{ borderColor: 'var(--border-color)' }}>
+          Esperando permiso del sistema…
+        </div>
+      )}
+
+      {permisoMic === 'denegado' && (
+        <div className="mx-4 mt-3 rounded-xl border px-4 py-3" style={{ borderColor: 'var(--accent-negative)', background: 'color-mix(in srgb, var(--accent-negative) 8%, transparent)' }}>
+          <p className="text-xs font-bold mb-1" style={{ color: 'var(--accent-negative)' }}>🎤 Micrófono bloqueado</p>
+          <p className="text-[11px] text-secondary leading-relaxed">
+            {typeof navigator !== 'undefined' && /iPhone|iPad/i.test(navigator.userAgent)
+              ? <>Andá a <strong className="text-primary">Ajustes → Safari → Micrófono → Permitir</strong> y volvé a abrir la app.</>
+              : /Android/i.test(typeof navigator !== 'undefined' ? navigator.userAgent : '')
+              ? <>Tocá el 🔒 candado en la barra del navegador → <strong className="text-primary">Permisos → Micrófono → Permitir</strong>.</>
+              : <>Habilitá el micrófono en los <strong className="text-primary">permisos del sitio</strong> y recargá la página.</>
+            }
+          </p>
+        </div>
+      )}
 
       {/* Mensajes */}
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">

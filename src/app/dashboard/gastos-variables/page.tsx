@@ -439,36 +439,36 @@ export default function GastosPage() {
   const inputCls = 'rounded-lg border bg-field px-3 py-2.5 text-sm text-primary'
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 overflow-x-hidden">
       {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-primary">Movimientos</h1>
           <p className="text-secondary text-sm">Gastos fijos y variables</p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="flex gap-1 rounded-lg bg-alternate p-1">
-            <button onClick={irAHoy} className="rounded-md px-2.5 py-1.5 text-xs font-semibold"
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+          <div className="flex gap-1 rounded-lg bg-alternate p-1 w-full sm:w-auto">
+            <button onClick={irAHoy} className="flex-1 sm:flex-none rounded-md px-2.5 py-1.5 text-xs font-semibold"
               style={rango.tipo === 'mes' && esRangoActual(rangoMes(new Date().getFullYear(), new Date().getMonth() + 1)) ? { background: 'var(--bg-card)', color: 'var(--text-primary)' } : { color: 'var(--text-secondary)' }}>
               Este mes
             </button>
-            <button onClick={irAMesPasado} className="rounded-md px-2.5 py-1.5 text-xs font-semibold"
+            <button onClick={irAMesPasado} className="flex-1 sm:flex-none rounded-md px-2.5 py-1.5 text-xs font-semibold"
               style={(() => { const d = new Date(); d.setMonth(d.getMonth() - 1); return rango.tipo === 'mes' && esRangoActual(rangoMes(d.getFullYear(), d.getMonth() + 1)) })() ? { background: 'var(--bg-card)', color: 'var(--text-primary)' } : { color: 'var(--text-secondary)' }}>
               Mes pasado
             </button>
-            <button onClick={() => setRango(rangoUltimosMeses(3))} className="rounded-md px-2.5 py-1.5 text-xs font-semibold"
+            <button onClick={() => setRango(rangoUltimosMeses(3))} className="flex-1 sm:flex-none rounded-md px-2.5 py-1.5 text-xs font-semibold"
               style={esRangoActual(rangoUltimosMeses(3)) ? { background: 'var(--bg-card)', color: 'var(--text-primary)' } : { color: 'var(--text-secondary)' }}>
               3 meses
             </button>
-            <button onClick={() => setRango(rangoAño())} className="rounded-md px-2.5 py-1.5 text-xs font-semibold"
+            <button onClick={() => setRango(rangoAño())} className="flex-1 sm:flex-none rounded-md px-2.5 py-1.5 text-xs font-semibold"
               style={esRangoActual(rangoAño()) ? { background: 'var(--bg-card)', color: 'var(--text-primary)' } : { color: 'var(--text-secondary)' }}>
               Año
             </button>
           </div>
           {rango.tipo === 'mes' && (
-            <div className="flex items-center gap-2 bg-card border border-line rounded-xl px-3 py-1.5">
+            <div className="flex items-center justify-between sm:justify-start gap-2 bg-card border border-line rounded-xl px-3 py-1.5 w-full sm:w-auto">
               <button onClick={prevMes} aria-label="Mes anterior" className="text-muted hover:text-secondary px-2 text-lg">‹</button>
-              <span className="text-sm font-medium text-primary min-w-[120px] text-center">{rango.etiqueta}</span>
+              <span className="text-sm font-medium text-primary text-center flex-1 sm:flex-none sm:min-w-[120px]">{rango.etiqueta}</span>
               <button onClick={nextMes} aria-label="Mes siguiente" className="text-muted hover:text-secondary px-2 text-lg">›</button>
             </div>
           )}
@@ -688,33 +688,35 @@ export default function GastosPage() {
               {rango.etiqueta} — {filtroCat ? `${getCat(filtroCat).label}: ${fmtFull(totalVisibles)} de ${fmtFull(totalVar)}` : `Total: ${fmtFull(totalVar)}`}
             </p>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="relative">
+          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+            <div className="relative flex-1 sm:flex-none">
               <Search size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted" />
               <input
                 value={busqueda}
                 onChange={e => setBusqueda(e.target.value)}
                 placeholder="Buscar…"
-                className="w-36 rounded-lg border bg-field py-2 pl-8 pr-2 text-xs text-primary sm:w-44"
+                className="w-full sm:w-44 rounded-lg border bg-field py-2 pl-8 pr-2 text-xs text-primary"
               />
             </div>
-            <button
-              onClick={() => setSoloHormiga(v => !v)}
-              className="rounded-lg border px-2.5 py-2 text-xs font-semibold"
-              style={soloHormiga ? { background: 'var(--riesgo-medio-tint)', borderColor: 'var(--riesgo-medio)', color: 'var(--riesgo-medio)' } : { color: 'var(--text-secondary)' }}
-            >
-              🐜 Hormiga
-            </button>
-            <button onClick={exportarCSV} title="Exportar a CSV"
-              className="flex items-center gap-1.5 rounded-lg border px-2.5 py-2 text-xs font-semibold text-secondary hover:bg-alternate">
-              <Download size={14} /> CSV
-            </button>
-            <button
-              onClick={() => (showManual ? setShowManual(false) : abrirManual())}
-              className="flex min-h-[40px] shrink-0 items-center gap-1.5 rounded-xl bg-confirm px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-confirm-hover"
-            >
-              <Plus size={16} strokeWidth={2.5} /> Agregar
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setSoloHormiga(v => !v)}
+                className="flex-1 sm:flex-none rounded-lg border px-2.5 py-2 text-xs font-semibold"
+                style={soloHormiga ? { background: 'var(--riesgo-medio-tint)', borderColor: 'var(--riesgo-medio)', color: 'var(--riesgo-medio)' } : { color: 'var(--text-secondary)' }}
+              >
+                🐜 Hormiga
+              </button>
+              <button onClick={exportarCSV} title="Exportar a CSV"
+                className="flex items-center gap-1.5 rounded-lg border px-2.5 py-2 text-xs font-semibold text-secondary hover:bg-alternate">
+                <Download size={14} /> CSV
+              </button>
+              <button
+                onClick={() => (showManual ? setShowManual(false) : abrirManual())}
+                className="flex flex-1 sm:flex-none min-h-[40px] shrink-0 items-center justify-center gap-1.5 rounded-xl bg-confirm px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-confirm-hover"
+              >
+                <Plus size={16} strokeWidth={2.5} /> Agregar
+              </button>
+            </div>
           </div>
         </div>
 
