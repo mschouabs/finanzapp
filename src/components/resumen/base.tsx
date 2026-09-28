@@ -201,3 +201,37 @@ export function Pestanas<T extends string>({ opciones, valor, onCambio, etiqueta
     </div>
   )
 }
+
+/* ── confirmación (reemplaza a window.confirm) ────────────────── */
+
+export function Confirmar({ titulo, detalle, accion = 'Confirmar', peligro = false, onConfirmar, onCancelar }: {
+  titulo: string
+  detalle?: ReactNode
+  accion?: string
+  peligro?: boolean
+  onConfirmar: () => void
+  onCancelar: () => void
+}) {
+  const boton = useRef<HTMLButtonElement>(null)
+  useEffect(() => {
+    boton.current?.focus()
+    const k = (e: KeyboardEvent) => { if (e.key === 'Escape') onCancelar() }
+    window.addEventListener('keydown', k)
+    return () => window.removeEventListener('keydown', k)
+  }, [onCancelar])
+  return (
+    <div className="fixed inset-0 z-[70] flex items-end justify-center p-4 sm:items-center" role="alertdialog" aria-modal="true" aria-labelledby="confirmar-titulo">
+      <button className="fa-fade-in absolute inset-0 bg-black/60" aria-label="Cancelar" onClick={onCancelar} />
+      <div className="fa-pop relative w-full max-w-sm rounded-2xl border p-5 shadow-card-hover" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+        <p id="confirmar-titulo" className="font-semibold text-primary">{titulo}</p>
+        {detalle && <div className="mt-1.5 text-sm text-secondary">{detalle}</div>}
+        <div className="mt-5 flex justify-end gap-2">
+          <button onClick={onCancelar} className="fa-press rounded-lg px-4 py-2 text-sm font-semibold text-secondary hover:bg-alternate">Cancelar</button>
+          <button ref={boton} onClick={onConfirmar}
+            className="fa-press rounded-lg px-4 py-2 text-sm font-semibold text-white"
+            style={{ background: peligro ? 'var(--accent-negative)' : 'var(--accent-confirm)' }}>{accion}</button>
+        </div>
+      </div>
+    </div>
+  )
+}

@@ -138,13 +138,16 @@ function Bloque({ label, valor, sub, signo, fuerte, href, tono }: {
 
 /* ── categorías ───────────────────────────────────────────────── */
 
-export function Categorias({ cats, mes, esActual, seleccion, onSeleccion, max = 7 }: {
+export function Categorias({ cats, mes, esActual, seleccion, onSeleccion, max = 7, sub, titulo = 'En qué se fue' }: {
   cats: Categoria[]
   mes: string
   esActual: boolean
   seleccion: string | null
   onSeleccion: (c: string | null) => void
   max?: number
+  /** reemplaza el subtítulo (ej: para rangos de varios meses) */
+  sub?: string
+  titulo?: string
 }) {
   const [foco, setFoco] = useState<string | null>(null)
   const total = cats.reduce((a, c) => a + c.monto, 0)
@@ -154,8 +157,8 @@ export function Categorias({ cats, mes, esActual, seleccion, onSeleccion, max = 
 
   return (
     <section aria-labelledby="t-cat" className="min-w-0">
-      <Encabezado id="t-cat" titulo="En qué se fue"
-        sub={`${esActual ? 'Este mes' : nombreMes(mes)} · la marca gris es ${esActual ? 'el mes pasado a esta altura' : 'el mes anterior'}`} />
+      <Encabezado id="t-cat" titulo={titulo}
+        sub={sub ?? `${esActual ? 'Este mes' : nombreMes(mes)} · la marca gris es ${esActual ? 'el mes pasado a esta altura' : 'el mes anterior'}`} />
       {cats.length === 0 ? (
         <p className="mt-6 rounded-xl border border-dashed px-4 py-8 text-center text-xs text-secondary fa-hairline">
           No hay gastos en este período.

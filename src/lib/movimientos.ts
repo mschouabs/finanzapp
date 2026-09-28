@@ -300,6 +300,43 @@ export async function repararFechasDeCuotas(supabase: Cliente): Promise<number> 
   return cambios.length
 }
 
+/**
+ * Borra un gasto (o la compra completa) y devuelve lo necesario para
+ * deshacerlo con restaurarGastos.
+ */
+export async function borrarConDeshacer(
+  supabase: Cliente,
+  gasto: { id: string; compra_id?: string | null },
+  compraCompleta = false,
+): Promise<Record<string, unknown>[]> {
+  const q = compraCompleta && gasto.compra_id
+    ? supabase.from('gastos_variables').select('*').eq('compra_id', gasto.compra_id)
+    : supabase.from('gastos_variables').select('*').eq('id', gasto.id)
+  const { data } = await q
+  const filas = (data ?? []) as Record<string, unknown>[]
+  const primera = filas.find(f => f.id === gasto.id) ?? filas[0]
+  if (!primera) return []
+  await borrarGastoVariable(supabase, {
+    id: String(primera.id), monto: Number(primera.monto),
+    billetera_linea_id: (primera.billetera_linea_id as string | null) ?? null,
+    compra_id: (primera.compra_id as string | null) ?? null,
+  }, compraCompleta)
+  return filas
+}
+
+/** Vuelve a crear gastos borrados (mismos ids) y re-descuenta la billetera si salieron de una. */
+export async function restaurarGastos(supabase: Cliente, filas: Record<string, unknown>[]) {
+  if (!filas.length) return { error: null as string | null }
+  const { error } = await supabase.from('gastos_variables').insert(filas)
+  if (error) return { error: error.message }
+  for (const f of filas) {
+    if (f.billetera_linea_id && f.forma_pago !== 'credito') {
+      await supabase.rpc('ajustar_saldo', { p_id: f.billetera_linea_id, p_delta: -Number(f.monto) })
+    }
+  }
+  return { error: null }
+}
+
 /* ── Pago de resúmenes ─────────────────────────────────────────── */
 
 export interface ConsumoTarjeta {

@@ -1,18 +1,36 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { Download, Pencil, Plus, Search, X } from 'lucide-react'
-import {
-  PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
-  BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Legend,
-} from 'recharts'
+/* ══ Movimientos ══════════════════════════════════════════════════
+   Personalidad: análisis + registro. Responde "¿en qué se me va la
+   plata?" y permite cargar y corregir rápido.
+   Jerarquía:
+     PRIMARIO    total del período y cómo viene vs. el anterior
+     SECUNDARIO  la lista de movimientos (buscar, filtrar, editar)
+     CONTEXTUAL  día a día, categorías, con qué pagaste, más grandes
+     AVANZADO    gastos fijos, exportar
+   Todo conectado: click en un día o en una categoría filtra la lista.
+   Los gastos de viaje también aparecen (antes no estaban acá).       */
+
+import Link from 'next/link'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { BarChart3, ChevronDown, ChevronLeft, ChevronRight, Download, MessageCircle, Pencil, Plus, Search, Trash2, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
-import { borrarGastoVariable, editarGastoVariable, guardarGastoVariable, listarMediosDePago, montoEnPesos } from '@/lib/movimientos'
+import {
+  borrarConDeshacer, editarGastoVariable, guardarGastoVariable, montoEnPesos, restaurarGastos,
+} from '@/lib/movimientos'
 import { traerCotizaciones } from '@/lib/patrimonio'
-import { SkeletonPagina } from '@/components/ui/Piezas'
-import { LucaMensaje } from '@/components/luca/LucaMensaje'
+import { CATEGORIAS, getCat } from '@/lib/categorias'
 import { hoyISO } from '@/lib/fechas'
-import { EVENTO_DATOS } from '@/lib/eventos'
+import { useAlCambiarDatos } from '@/lib/eventos'
+import { AgregarMovimientoModal } from '@/components/AgregarMovimientoModal'
+import { LucaAvatar } from '@/components/luca/LucaAvatar'
+import {
+  Confirmar, Encabezado, NumeroAnimado, Pestanas, Revelar, Toasts, fmt, fmtFechaCorta, useMedia, useToasts,
+} from '@/components/resumen/base'
+import { Categorias } from '@/components/resumen/Secciones'
+import { CapturaLuca, type GastoDetectado } from '@/components/resumen/Luca'
+import { GraficoBarras, type PuntoBarra } from '@/components/resumen/GraficoBarras'
+import type { Categoria } from '@/lib/finanzas/nucleo'
 
 interface GastoVariable {
   id: string
@@ -31,947 +49,732 @@ interface GastoVariable {
   monto_total: number | null
 }
 
-interface GastoFijo {
-  id: string
-  nombre: string
-  monto: number
-  categoria: string
-  activo: boolean
-  debitado: boolean
-}
+interface GastoViaje { id: string; viaje_id: string; concepto: string; monto_ars: number; fecha: string }
+interface GastoFijo { id: string; nombre: string; monto: number; categoria: string; activo: boolean; debitado: boolean }
 
-const CATEGORIAS = [
-  { key: 'mercado', label: 'Mercado', emoji: '🛒', color: '#32D158' },
-  { key: 'comida', label: 'Comida', emoji: '🍕', color: '#F5C451' },
-  { key: 'transporte', label: 'Transporte', emoji: '🚗', color: '#63A9FF' },
-  { key: 'farmacia', label: 'Farmacia', emoji: '💊', color: '#22C55E' },
-  { key: 'ocio', label: 'Ocio', emoji: '🎬', color: '#A855F7' },
-  { key: 'ropa', label: 'Ropa', emoji: '👕', color: '#FF8A3D' },
-  { key: 'personal', label: 'Personal', emoji: '✂️', color: '#DF7897' },
-  { key: 'impuesto', label: 'Impuesto', emoji: '📋', color: '#94A3B8' },
-  { key: 'tecnologia', label: 'Tecnología', emoji: '💻', color: '#79C0FF' },
-  { key: 'regalo', label: 'Regalo', emoji: '🎁', color: '#FF5873' },
-  { key: 'servicios', label: 'Servicios', emoji: '💡', color: '#14B8A6' },
-  { key: 'varios', label: 'Varios', emoji: '📦', color: '#6E7681' },
-]
+const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre']
+const MESES_C = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
+const pad = (n: number) => String(n).padStart(2, '0')
 
-const getCat = (key: string) =>
-  CATEGORIAS.find(c => c.key === key) ?? { key, label: key, emoji: '📦', color: '#6E7681' }
-
-function fmt(n: number) {
-  if (Math.abs(n) >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`
-  if (Math.abs(n) >= 1_000) return `$${(n / 1_000).toFixed(0)}K`
-  return `$${n.toLocaleString('es-AR', { maximumFractionDigits: 0 })}`
-}
-const fmtFull = (n: number) => '$' + Math.round(n).toLocaleString('es-AR')
-
-const meses = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
-const mesesCorto = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic']
-const formVacio = () => ({ nombre: '', monto: '', categoria: 'varios', fecha: hoyISO(), es_gasto_hormiga: false, medio: '', forma: 'debito' as 'debito' | 'credito', cuotas: '1', moneda: 'ARS' as 'ARS' | 'USD' })
-
-const tooltipStyle = {
-  background: 'var(--bg-card)', border: '1px solid var(--border-color)',
-  borderRadius: 10, fontSize: 12, color: 'var(--text-primary)',
-}
-
-/* ── rango de fechas a mostrar ─────────────────────────────────────
-   'mes' navega mes a mes con las flechas; los presets ('pasado',
-   '3m', 'año') arman un rango fijo y ocultan la navegación.        */
-type TipoRango = 'mes' | 'preset'
-interface Rango { desde: string; hasta: string; etiqueta: string; tipo: TipoRango; year: number; month: number }
-
-const ultimoDiaMes = (year: number, month: number) => String(new Date(year, month, 0).getDate()).padStart(2, '0')
-const rangoMes = (year: number, month: number): Rango => ({
-  desde: `${year}-${String(month).padStart(2, '0')}-01`,
-  hasta: `${year}-${String(month).padStart(2, '0')}-${ultimoDiaMes(year, month)}`,
-  etiqueta: `${meses[month - 1]} ${year}`,
-  tipo: 'mes', year, month,
+/* ── períodos ─────────────────────────────────────────────────── */
+type Preset = 'mes' | 'pasado' | '3m' | 'anio'
+interface Rango { desde: string; hasta: string; titulo: string; esMes: boolean; year: number; month: number }
+const ultimoDia = (y: number, m: number) => new Date(y, m, 0).getDate()
+const rangoMes = (y: number, m: number): Rango => ({
+  desde: `${y}-${pad(m)}-01`, hasta: `${y}-${pad(m)}-${pad(ultimoDia(y, m))}`,
+  titulo: `${MESES[m - 1][0].toUpperCase()}${MESES[m - 1].slice(1)} ${y}`, esMes: true, year: y, month: m,
 })
-const rangoUltimosMeses = (n: number): Rango => {
-  const hoy = new Date()
-  const desde = new Date(hoy.getFullYear(), hoy.getMonth() - (n - 1), 1)
-  return {
-    desde: `${desde.getFullYear()}-${String(desde.getMonth() + 1).padStart(2, '0')}-01`,
-    hasta: hoyISO(),
-    etiqueta: `Últimos ${n} meses`,
-    tipo: 'preset', year: hoy.getFullYear(), month: hoy.getMonth() + 1,
+function rangoPreset(p: Preset): Rango {
+  const h = new Date()
+  if (p === 'mes') return rangoMes(h.getFullYear(), h.getMonth() + 1)
+  if (p === 'pasado') { const d = new Date(h.getFullYear(), h.getMonth() - 1, 1); return rangoMes(d.getFullYear(), d.getMonth() + 1) }
+  if (p === '3m') {
+    const d = new Date(h.getFullYear(), h.getMonth() - 2, 1)
+    return { desde: `${d.getFullYear()}-${pad(d.getMonth() + 1)}-01`, hasta: hoyISO(), titulo: 'Últimos 3 meses', esMes: false, year: h.getFullYear(), month: h.getMonth() + 1 }
   }
+  return { desde: `${h.getFullYear()}-01-01`, hasta: hoyISO(), titulo: `Año ${h.getFullYear()}`, esMes: false, year: h.getFullYear(), month: 12 }
 }
-const rangoAño = (): Rango => {
-  const y = new Date().getFullYear()
-  return { desde: `${y}-01-01`, hasta: hoyISO(), etiqueta: `Año ${y}`, tipo: 'preset', year: y, month: 12 }
-}
+const PRESETS = [
+  { key: 'mes', label: 'Este mes' }, { key: 'pasado', label: 'Mes pasado' }, { key: '3m', label: '3 meses' }, { key: 'anio', label: 'Año' },
+] as const
 
-export default function GastosPage() {
-  const [gastosVar, setGastosVar] = useState<GastoVariable[]>([])
-  const [gastosVarAnt, setGastosVarAnt] = useState<GastoVariable[]>([])
-  const [gastosFijos, setGastosFijos] = useState<GastoFijo[]>([])
-  const [tarjetas, setTarjetas] = useState<Record<string, string>>({})
-  const [medios, setMedios] = useState<string[]>([])
-  const [loading, setLoading] = useState(true)
-  const [rango, setRango] = useState<Rango>(() => {
-    const now = new Date()
-    return rangoMes(now.getFullYear(), now.getMonth() + 1)
-  })
+type Fila = { tipo: 'gasto'; g: GastoVariable; pesos: number } | { tipo: 'viaje'; v: GastoViaje; pesos: number }
+
+export default function MovimientosPage() {
+  const desktop = useMedia('(min-width: 1024px)', true)
+  const toasts = useToasts()
+  const [rango, setRango] = useState<Rango>(() => rangoPreset('mes'))
+  const [preset, setPreset] = useState<Preset | null>('mes')
+  const [gastos, setGastos] = useState<GastoVariable[]>([])
+  const [gastosAnt, setGastosAnt] = useState<GastoVariable[]>([])
+  const [viajes, setViajes] = useState<GastoViaje[]>([])
+  const [viajesAnt, setViajesAnt] = useState<GastoViaje[]>([])
+  const [nombreViaje, setNombreViaje] = useState<Record<string, string>>({})
+  const [fijos, setFijos] = useState<GastoFijo[]>([])
+  const [cuentas, setCuentas] = useState<Record<string, string>>({})
+  const [dolar, setDolar] = useState<number | null>(null)
+  const [estado, setEstado] = useState<'cargando' | 'listo'>('cargando')
+
   const [filtroCat, setFiltroCat] = useState<string | null>(null)
+  const [diaSel, setDiaSel] = useState<string | null>(null)
   const [soloHormiga, setSoloHormiga] = useState(false)
   const [busqueda, setBusqueda] = useState('')
-  const [vistaDia, setVistaDia] = useState<'barras' | 'acumulado'>('barras')
-  const [dolar, setDolar] = useState<number | null>(null)
-  /* monto en pesos (los consumos en dólares se convierten) */
-  const ars = (g: GastoVariable) => montoEnPesos(g, dolar)
-
-  /* si se guardó algo desde el menú (botón Nuevo), recargar */
-  useEffect(() => {
-    const h = () => { loadData() }
-    window.addEventListener(EVENTO_DATOS, h)
-    return () => window.removeEventListener(EVENTO_DATOS, h)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  useEffect(() => { traerCotizaciones().then(c => setDolar(c.dolar)) }, [])
-
-  // Carga en lenguaje natural
-  const [aiText, setAiText] = useState('')
-  const [aiLoading, setAiLoading] = useState(false)
-  const [aiMsg, setAiMsg] = useState<{ text: string; ok: boolean } | null>(null)
-
-  // Carga manual
-  const [showManual, setShowManual] = useState(false)
-  const [formManual, setFormManual] = useState(formVacio())
-
-  // Edición inline
-  const [editandoId, setEditandoId] = useState<string | null>(null)
+  const [vista, setVista] = useState<'barras' | 'acumulado'>('barras')
+  const [agregar, setAgregar] = useState(false)
+  const [hoja, setHoja] = useState(false)
+  const [analisis, setAnalisis] = useState(false)
+  const [editando, setEditando] = useState<string | null>(null)
   const [formEdit, setFormEdit] = useState({ nombre: '', monto: '', categoria: 'varios', fecha: '', es_gasto_hormiga: false })
+  const [confirmarCompra, setConfirmarCompra] = useState<GastoVariable | null>(null)
+  const [formFijo, setFormFijo] = useState<{ nombre: string; monto: string; categoria: string } | null>(null)
+  const [nuevos, setNuevos] = useState<Set<string>>(new Set())
 
-  // Gasto fijo
-  const [showFijoForm, setShowFijoForm] = useState(false)
-  const [formFijo, setFormFijo] = useState({ nombre: '', monto: '', categoria: 'servicios' })
+  const idsPrevios = useRef<Set<string> | null>(null)
+  const ars = useCallback((g: { monto: number; moneda?: string | null }) => montoEnPesos(g, dolar), [dolar])
 
-  const inputRef = useRef<HTMLInputElement>(null)
-  const manualRef = useRef<HTMLDivElement>(null)
-
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { loadData() }, [rango.desde, rango.hasta])
-
-  async function loadData() {
-    setLoading(true)
+  const cargar = useCallback(async (silencioso = false) => {
+    if (!silencioso) setEstado('cargando')
     const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-
-    /* mes anterior, para la comparación del header (solo tiene sentido
-       cuando estamos mirando un único mes) */
-    const antDate = new Date(rango.year, rango.month - 2, 1)
-    const antDesde = `${antDate.getFullYear()}-${String(antDate.getMonth() + 1).padStart(2, '0')}-01`
-    const antHasta = `${antDate.getFullYear()}-${String(antDate.getMonth() + 1).padStart(2, '0')}-${ultimoDiaMes(antDate.getFullYear(), antDate.getMonth() + 1)}`
-
-    const [{ data: varData }, { data: antData }, { data: fijoData }, { data: ts }, ms] = await Promise.all([
-      supabase.from('gastos_variables').select('*').eq('user_id', user.id).gte('fecha', rango.desde).lte('fecha', rango.hasta).order('fecha', { ascending: false }),
-      supabase.from('gastos_variables').select('*').eq('user_id', user.id).gte('fecha', antDesde).lte('fecha', antHasta),
-      supabase.from('gastos_fijos').select('*').eq('user_id', user.id).eq('activo', true).order('nombre'),
+    const ant = new Date(rango.year, rango.month - 2, 1)
+    const antDesde = `${ant.getFullYear()}-${pad(ant.getMonth() + 1)}-01`
+    const antHasta = `${ant.getFullYear()}-${pad(ant.getMonth() + 1)}-${pad(ultimoDia(ant.getFullYear(), ant.getMonth() + 1))}`
+    const [cot, rG, rA, rV, rVA, rVs, rF, rC, rL] = await Promise.all([
+      traerCotizaciones(),
+      supabase.from('gastos_variables').select('*').gte('fecha', rango.desde).lte('fecha', rango.hasta).order('fecha', { ascending: false }),
+      rango.esMes ? supabase.from('gastos_variables').select('*').gte('fecha', antDesde).lte('fecha', antHasta) : Promise.resolve({ data: [] }),
+      supabase.from('viaje_gastos').select('id, viaje_id, concepto, monto_ars, fecha').gte('fecha', rango.desde).lte('fecha', rango.hasta),
+      rango.esMes ? supabase.from('viaje_gastos').select('id, viaje_id, concepto, monto_ars, fecha').gte('fecha', antDesde).lte('fecha', antHasta) : Promise.resolve({ data: [] }),
+      supabase.from('viajes').select('id, nombre, emoji'),
+      supabase.from('gastos_fijos').select('*').eq('activo', true).order('nombre'),
       supabase.from('tarjetas_cuentas').select('id, nombre'),
-      listarMediosDePago(supabase).catch(() => [] as string[]),
+      supabase.from('inversiones').select('id, app, etiqueta'),
     ])
-
-    setGastosVar((varData || []) as GastoVariable[])
-    setGastosVarAnt((antData || []) as GastoVariable[])
-    setGastosFijos((fijoData || []) as GastoFijo[])
-    setTarjetas(Object.fromEntries((ts || []).map((t: { id: string; nombre: string }) => [t.id, t.nombre])))
-    setMedios(ms)
-    setLoading(false)
-  }
-
-  async function parseWithAI() {
-    if (!aiText.trim()) return
-    setAiLoading(true)
-    setAiMsg(null)
-    try {
-      const res = await fetch('/api/ai', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: aiText }),
-      })
-      const json = await res.json()
-
-      if (json.monto && json.monto > 0) {
-        const supabase = createClient()
-        const { data: { user } } = await supabase.auth.getUser()
-        if (user) {
-          const { error } = await guardarGastoVariable(supabase, user.id, {
-            nombre: json.nombre,
-            monto: json.monto,
-            categoria: json.categoria || 'varios',
-            fecha: json.fecha || hoyISO(),
-            medio_pago: json.medio_pago,
-            forma_pago: json.forma_pago,
-            cuotas: json.cuotas,
-            moneda: json.moneda === 'USD' ? 'USD' : 'ARS',
-          })
-          if (error) throw new Error(error)
-          const con = json.medio_pago
-            ? ` con ${json.medio_pago}${json.cuotas > 1 ? ` en ${json.cuotas} cuotas` : json.forma_pago === 'credito' ? ' (crédito)' : ''}`
-            : ''
-          const montoFmt = json.moneda === 'USD' ? `US$ ${Number(json.monto).toLocaleString('es-AR')}` : fmtFull(json.monto)
-          setAiMsg({ text: `${getCat(json.categoria || 'varios').emoji} "${json.nombre}" — ${montoFmt}${con} guardado`, ok: true })
-          setAiText('')
-          loadData()
-        }
-      } else {
-        setFormManual(p => ({ ...p, nombre: json.nombre || '', categoria: json.categoria || 'varios', medio: json.medio_pago || '' }))
-        abrirManual()
-        setAiMsg({ text: 'No pude determinar el monto. Completalo abajo.', ok: false })
-      }
-    } catch {
-      setFormManual(p => ({ ...p, nombre: aiText }))
-      abrirManual()
-      setAiMsg({ text: 'Error al procesar. Cargalo a mano abajo.', ok: false })
+    const lista = (rG.data ?? []) as GastoVariable[]
+    const antes = idsPrevios.current
+    idsPrevios.current = new Set(lista.map(g => g.id))
+    if (silencioso && antes) {
+      const llegaron = lista.filter(g => !antes.has(g.id)).map(g => g.id)
+      if (llegaron.length) { setNuevos(new Set(llegaron)); setTimeout(() => setNuevos(new Set()), 2000) }
     }
-    setAiLoading(false)
-  }
+    setDolar(cot.dolar)
+    setGastos(lista)
+    setGastosAnt((rA.data ?? []) as GastoVariable[])
+    setViajes((rV.data ?? []) as GastoViaje[])
+    setViajesAnt((rVA.data ?? []) as GastoViaje[])
+    setNombreViaje(Object.fromEntries(((rVs.data ?? []) as { id: string; nombre: string; emoji: string | null }[]).map(v => [v.id, `${v.emoji ?? '✈️'} ${v.nombre}`])))
+    setFijos((rF.data ?? []) as GastoFijo[])
+    const c: Record<string, string> = {}
+    for (const t of (rC.data ?? []) as { id: string; nombre: string }[]) c[t.id] = t.nombre
+    for (const l of (rL.data ?? []) as { id: string; app: string; etiqueta: string | null }[]) c[`l:${l.id}`] = l.etiqueta || l.app
+    setCuentas(c)
+    setEstado('listo')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rango.desde, rango.hasta])
 
-  function abrirManual() {
-    setShowManual(true)
-    setTimeout(() => manualRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50)
-  }
+  useEffect(() => { cargar() }, [cargar])
+  useAlCambiarDatos(useCallback(() => { cargar(true) }, [cargar]))
+  useEffect(() => { setDiaSel(null) }, [rango.desde])
 
-  async function saveManual() {
-    if (!formManual.nombre || !formManual.monto) return
-    const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-    const { error } = await guardarGastoVariable(supabase, user.id, {
-      nombre: formManual.nombre,
-      monto: Number(formManual.monto),
-      categoria: formManual.categoria,
-      fecha: formManual.fecha,
-      es_gasto_hormiga: formManual.es_gasto_hormiga,
-      medio_pago: formManual.medio || null,
-      forma_pago: formManual.medio ? formManual.forma : null,
-      cuotas: formManual.medio && formManual.forma === 'credito' ? Number(formManual.cuotas) || 1 : 1,
-      moneda: formManual.moneda,
-    })
-    if (error) { setAiMsg({ text: error, ok: false }); return }
-    setShowManual(false)
-    setFormManual(formVacio())
-    setAiMsg(null)
-    loadData()
-  }
-
-  async function saveFijo() {
-    if (!formFijo.nombre || !formFijo.monto) return
-    const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-    await supabase.from('gastos_fijos').insert({
-      user_id: user.id,
-      nombre: formFijo.nombre,
-      monto: Number(formFijo.monto),
-      categoria: formFijo.categoria,
-      activo: true,
-      debitado: false,
-    })
-    setShowFijoForm(false)
-    setFormFijo({ nombre: '', monto: '', categoria: 'servicios' })
-    loadData()
-  }
-
-  async function deleteVar(g: GastoVariable) {
-    const supabase = createClient()
-    let completa = false
-    if (g.compra_id && (g.cuotas_total ?? 1) > 1) {
-      /* es una cuota: se borra la compra entera o nada */
-      if (!window.confirm(`"${g.nombre}" es la cuota ${g.cuota_numero}/${g.cuotas_total}. ¿Borrar la compra completa (todas las cuotas)?`)) return
-      completa = true
-    }
-    await borrarGastoVariable(supabase, g, completa)
-    loadData()
-  }
-
-  async function deleteFijo(id: string) {
-    const supabase = createClient()
-    await supabase.from('gastos_fijos').update({ activo: false }).eq('id', id)
-    loadData()
-  }
-
-  async function toggleDebitado(id: string, current: boolean) {
-    const supabase = createClient()
-    await supabase.from('gastos_fijos').update({ debitado: !current }).eq('id', id)
-    loadData()
-  }
-
-  function empezarEdicion(g: GastoVariable) {
-    setEditandoId(g.id)
-    setFormEdit({ nombre: g.nombre, monto: String(g.monto), categoria: g.categoria, fecha: g.fecha, es_gasto_hormiga: g.es_gasto_hormiga })
-  }
-
-  async function guardarEdicion(id: string) {
-    if (!formEdit.nombre || !formEdit.monto) return
-    const supabase = createClient()
-    await editarGastoVariable(supabase, id, {
-      nombre: formEdit.nombre.trim(),
-      monto: Number(formEdit.monto),
-      categoria: formEdit.categoria,
-      fecha: formEdit.fecha,
-      es_gasto_hormiga: formEdit.es_gasto_hormiga,
-    })
-    setEditandoId(null)
-    loadData()
-  }
-
-  function exportarCSV() {
-    const filas = [
-      ['Fecha', 'Nombre', 'Categoría', 'Monto', 'Moneda', 'Medio de pago', 'Forma de pago', 'Cuota'],
-      ...gastosVar.map(g => [
-        g.fecha,
-        g.nombre.replace(/"/g, "'"),
-        getCat(g.categoria).label,
-        String(g.monto),
-        g.moneda ?? 'ARS',
-        g.tarjeta_id ? (tarjetas[g.tarjeta_id] ?? '') : 'Efectivo',
-        g.forma_pago ?? '',
-        (g.cuotas_total ?? 1) > 1 ? `${g.cuota_numero}/${g.cuotas_total}` : '',
-      ]),
-    ]
-    const csv = filas.map(fila => fila.map(v => `"${v}"`).join(',')).join('\n')
-    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `movimientos_${rango.etiqueta.replace(/\s+/g, '_').toLowerCase()}.csv`
-    a.click()
-    URL.revokeObjectURL(url)
-  }
-
-  /* ── datos para los gráficos ─────────────────────────────── */
-  const porCategoria = useMemo(() => {
-    const m: Record<string, number> = {}
-    for (const g of gastosVar) m[g.categoria] = (m[g.categoria] || 0) + ars(g)
-    return Object.entries(m)
-      .map(([key, value]) => ({ key, name: getCat(key).label, value, color: getCat(key).color, emoji: getCat(key).emoji }))
-      .sort((a, b) => b.value - a.value)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gastosVar, dolar])
-
-  /* rango en días: si es corto (~1 mes) mostramos por día, si es
-     largo (3 meses, año) agrupamos por mes */
-  const diasEnRango = Math.round((new Date(rango.hasta).getTime() - new Date(rango.desde).getTime()) / 86_400_000) + 1
-  const esMesUnico = diasEnRango <= 31
-
-  const porDia = useMemo(() => {
-    if (!esMesUnico) return []
-    const dias = new Date(rango.year, rango.month, 0).getDate()
-    const arr = Array.from({ length: dias }, (_, i) => ({ dia: String(i + 1), monto: 0 }))
-    for (const g of gastosVar) {
-      if (filtroCat && g.categoria !== filtroCat) continue
-      const d = Number(g.fecha.split('-')[2])
-      if (arr[d - 1]) arr[d - 1].monto += ars(g)
-    }
-    return arr
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gastosVar, rango, filtroCat, dolar, esMesUnico])
-
-  /* acumulado del mes actual vs. el mes anterior, día a día */
-  const acumuladoComparado = useMemo(() => {
-    if (!esMesUnico) return []
-    let acAct = 0, acAnt = 0
-    return porDia.map((d, i) => {
-      acAct += d.monto
-      const antDia = gastosVarAnt.filter(g => Number(g.fecha.split('-')[2]) === i + 1 && (!filtroCat || g.categoria === filtroCat))
-        .reduce((s, g) => s + ars(g), 0)
-      acAnt += antDia
-      return { dia: d.dia, actual: acAct, anterior: acAnt }
-    })
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [porDia, gastosVarAnt, filtroCat, dolar, esMesUnico])
-
-  const porMesAgrupado = useMemo(() => {
-    if (esMesUnico) return []
-    const m: Record<string, number> = {}
-    for (const g of gastosVar) {
-      if (filtroCat && g.categoria !== filtroCat) continue
-      const key = g.fecha.slice(0, 7)
-      m[key] = (m[key] || 0) + ars(g)
-    }
-    return Object.entries(m).sort(([a], [b]) => a.localeCompare(b))
-      .map(([key, monto]) => ({ dia: `${mesesCorto[Number(key.slice(5, 7)) - 1]} '${key.slice(2, 4)}`, monto }))
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gastosVar, filtroCat, dolar, esMesUnico])
-
-  const porMedio = useMemo(() => {
-    const m: Record<string, number> = {}
-    for (const g of gastosVar) {
-      if (filtroCat && g.categoria !== filtroCat) continue
-      const nombre = g.tarjeta_id && tarjetas[g.tarjeta_id]
-        ? `${tarjetas[g.tarjeta_id]}${g.forma_pago === 'credito' ? ' (crédito)' : ''}`
-        : 'Efectivo / sin especificar'
-      m[nombre] = (m[nombre] || 0) + ars(g)
-    }
-    return Object.entries(m).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gastosVar, tarjetas, filtroCat, dolar])
-
-  const topGastos = useMemo(() => (
-    [...gastosVar].sort((a, b) => ars(b) - ars(a)).slice(0, 5)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  ), [gastosVar, dolar])
-
-  const busquedaNorm = busqueda.trim().toLowerCase()
-  const visibles = gastosVar
-    .filter(g => !filtroCat || g.categoria === filtroCat)
-    .filter(g => !soloHormiga || g.es_gasto_hormiga)
-    .filter(g => !busquedaNorm || g.nombre.toLowerCase().includes(busquedaNorm))
-  const grouped = visibles.reduce<Record<string, GastoVariable[]>>((acc, g) => {
-    if (!acc[g.fecha]) acc[g.fecha] = []
-    acc[g.fecha].push(g)
-    return acc
-  }, {})
-
-  const gastosHormiga = gastosVar.filter(g => g.es_gasto_hormiga)
-  const totalVar = gastosVar.reduce((s, g) => s + ars(g), 0)
-  const totalVarAnt = gastosVarAnt.reduce((s, g) => s + ars(g), 0)
-  const variacionVsAnterior = totalVarAnt > 0 ? Math.round(((totalVar - totalVarAnt) / totalVarAnt) * 100) : null
-  const totalVisibles = visibles.reduce((s, g) => s + ars(g), 0)
-  const totalFijos = gastosFijos.reduce((s, g) => s + Number(g.monto), 0)
-  /* en rangos de varios meses los fijos se cuentan una vez por mes
-     (antes se sumaba un solo mes aunque el rango fuera de 3 o 12) */
+  /* ── derivados ─────────────────────────────────────────────── */
+  const esActual = rango.esMes && rango.desde.slice(0, 7) === hoyISO().slice(0, 7)
+  const corte = esActual ? new Date().getDate() : 31
   const mesesEnRango = (() => {
     const [y1, m1] = rango.desde.slice(0, 7).split('-').map(Number)
     const [y2, m2] = rango.hasta.slice(0, 7).split('-').map(Number)
     return Math.max(1, (y2 - y1) * 12 + (m2 - m1) + 1)
   })()
-  const fijosDelPeriodo = totalFijos * mesesEnRango
 
-  const prevMes = () => setRango(r => {
-    const d = new Date(r.year, r.month - 2, 1)
-    return rangoMes(d.getFullYear(), d.getMonth() + 1)
-  })
-  const nextMes = () => setRango(r => {
-    const d = new Date(r.year, r.month, 1)
-    return rangoMes(d.getFullYear(), d.getMonth() + 1)
-  })
-  const irAHoy = () => { const n = new Date(); setRango(rangoMes(n.getFullYear(), n.getMonth() + 1)) }
-  const irAMesPasado = () => { const n = new Date(); const d = new Date(n.getFullYear(), n.getMonth() - 1, 1); setRango(rangoMes(d.getFullYear(), d.getMonth() + 1)) }
+  const esCuota = (g: GastoVariable) => (g.cuotas_total ?? 1) > 1 && (g.cuota_numero ?? 1) > 1
+  const totales = useMemo(() => {
+    let diaADia = 0, cuotas = 0, hormiga = 0, nHormiga = 0
+    for (const g of gastos) {
+      const v = ars(g)
+      if (esCuota(g)) cuotas += v; else diaADia += v
+      if (g.es_gasto_hormiga) { hormiga += v; nHormiga++ }
+    }
+    const viaje = viajes.reduce((a, v) => a + (Number(v.monto_ars) || 0), 0)
+    const fijosMes = fijos.reduce((a, f) => a + Number(f.monto), 0)
+    const fijosPeriodo = fijosMes * mesesEnRango
+    /* comparación justa: mes anterior hasta el mismo día */
+    const antMismoTramo = gastosAnt.filter(g => Number(g.fecha.slice(8, 10)) <= corte).reduce((a, g) => a + ars(g), 0)
+      + viajesAnt.filter(v => Number(v.fecha.slice(8, 10)) <= corte).reduce((a, v) => a + (Number(v.monto_ars) || 0), 0)
+    const actualTramo = diaADia + cuotas + viaje
+    return {
+      diaADia, cuotas, viaje, fijosMes, fijosPeriodo, hormiga, nHormiga,
+      variables: actualTramo,
+      total: actualTramo + fijosPeriodo,
+      variacion: rango.esMes && antMismoTramo > 0 ? ((actualTramo - antMismoTramo) / antMismoTramo) * 100 : null,
+      antMismoTramo,
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gastos, gastosAnt, viajes, viajesAnt, fijos, ars, corte, mesesEnRango, rango.esMes])
 
-  const esRangoActual = (r: Rango) => r.desde === rango.desde && r.hasta === rango.hasta
+  const cats: Categoria[] = useMemo(() => {
+    const m = new Map<string, Categoria>()
+    const sumar = (clave: string, v: number, prev: boolean) => {
+      const c = m.get(clave) ?? { clave, nombre: clave, monto: 0, anterior: 0, movimientos: 0 }
+      if (prev) c.anterior += v; else { c.monto += v; c.movimientos++ }
+      m.set(clave, c)
+    }
+    for (const g of gastos) sumar(g.categoria, ars(g), false)
+    for (const v of viajes) sumar('viajes', Number(v.monto_ars) || 0, false)
+    for (const g of gastosAnt) if (Number(g.fecha.slice(8, 10)) <= corte) sumar(g.categoria, ars(g), true)
+    for (const v of viajesAnt) if (Number(v.fecha.slice(8, 10)) <= corte) sumar('viajes', Number(v.monto_ars) || 0, true)
+    return Array.from(m.values()).filter(c => c.monto > 0).sort((a, b) => b.monto - a.monto)
+  }, [gastos, gastosAnt, viajes, viajesAnt, ars, corte])
 
-  const inputCls = 'rounded-lg border bg-field px-3 py-2.5 text-sm text-primary'
+  const pasaFiltros = useCallback((f: Fila) => {
+    const cat = f.tipo === 'gasto' ? f.g.categoria : 'viajes'
+    const fecha = f.tipo === 'gasto' ? f.g.fecha : f.v.fecha
+    const nombre = f.tipo === 'gasto' ? f.g.nombre : f.v.concepto
+    if (filtroCat && cat !== filtroCat) return false
+    if (soloHormiga && !(f.tipo === 'gasto' && f.g.es_gasto_hormiga)) return false
+    if (diaSel && (rango.esMes ? fecha !== diaSel : fecha.slice(0, 7) !== diaSel)) return false
+    if (busqueda.trim() && !nombre.toLowerCase().includes(busqueda.trim().toLowerCase())) return false
+    return true
+  }, [filtroCat, soloHormiga, diaSel, busqueda, rango.esMes])
 
-  if (loading && gastosVar.length === 0 && gastosFijos.length === 0) {
-    return <SkeletonPagina kpis={3} />
+  const filas: Fila[] = useMemo(() => [
+    ...gastos.map(g => ({ tipo: 'gasto' as const, g, pesos: ars(g) })),
+    ...viajes.map(v => ({ tipo: 'viaje' as const, v, pesos: Number(v.monto_ars) || 0 })),
+  ].sort((a, b) => (b.tipo === 'gasto' ? b.g.fecha : b.v.fecha).localeCompare(a.tipo === 'gasto' ? a.g.fecha : a.v.fecha)), [gastos, viajes, ars])
+
+  const visibles = useMemo(() => filas.filter(pasaFiltros), [filas, pasaFiltros])
+  const porFecha = useMemo(() => {
+    const out: { fecha: string; items: Fila[]; total: number }[] = []
+    for (const f of visibles) {
+      const fecha = f.tipo === 'gasto' ? f.g.fecha : f.v.fecha
+      const ult = out[out.length - 1]
+      if (ult && ult.fecha === fecha) { ult.items.push(f); ult.total += f.pesos } else out.push({ fecha, items: [f], total: f.pesos })
+    }
+    return out
+  }, [visibles])
+
+  /* gráfico: por día (un mes) o por mes (rangos largos), con los filtros de categoría/hormiga */
+  const puntos: PuntoBarra[] = useMemo(() => {
+    const filtra = (cat: string, hormiga: boolean) => (!filtroCat || cat === filtroCat) && (!soloHormiga || hormiga)
+    if (rango.esMes) {
+      const dias = ultimoDia(rango.year, rango.month)
+      const arr: PuntoBarra[] = Array.from({ length: dias }, (_, i) => ({
+        clave: `${rango.desde.slice(0, 8)}${pad(i + 1)}`, etiqueta: String(i + 1), valor: 0, anterior: 0,
+      }))
+      for (const g of gastos) if (filtra(g.categoria, g.es_gasto_hormiga)) { const d = Number(g.fecha.slice(8, 10)); if (arr[d - 1]) arr[d - 1].valor += ars(g) }
+      for (const v of viajes) if (filtra('viajes', false)) { const d = Number(v.fecha.slice(8, 10)); if (arr[d - 1]) arr[d - 1].valor += Number(v.monto_ars) || 0 }
+      for (const g of gastosAnt) if (filtra(g.categoria, g.es_gasto_hormiga)) { const d = Number(g.fecha.slice(8, 10)); if (arr[d - 1]) arr[d - 1].anterior = (arr[d - 1].anterior ?? 0) + ars(g) }
+      for (const v of viajesAnt) if (filtra('viajes', false)) { const d = Number(v.fecha.slice(8, 10)); if (arr[d - 1]) arr[d - 1].anterior = (arr[d - 1].anterior ?? 0) + (Number(v.monto_ars) || 0) }
+      return esActual ? arr.slice(0, new Date().getDate()) : arr
+    }
+    const m = new Map<string, number>()
+    for (const g of gastos) if (filtra(g.categoria, g.es_gasto_hormiga)) m.set(g.fecha.slice(0, 7), (m.get(g.fecha.slice(0, 7)) ?? 0) + ars(g))
+    for (const v of viajes) if (filtra('viajes', false)) m.set(v.fecha.slice(0, 7), (m.get(v.fecha.slice(0, 7)) ?? 0) + (Number(v.monto_ars) || 0))
+    return Array.from(m.entries()).sort(([a], [b]) => a.localeCompare(b))
+      .map(([k, valor]) => ({ clave: k, etiqueta: `${MESES_C[Number(k.slice(5, 7)) - 1]}`, valor }))
+  }, [gastos, gastosAnt, viajes, viajesAnt, rango, filtroCat, soloHormiga, ars, esActual])
+
+  const porMedio = useMemo(() => {
+    const m = new Map<string, number>()
+    for (const f of visibles) {
+      if (f.tipo === 'viaje') { m.set('Viajes', (m.get('Viajes') ?? 0) + f.pesos); continue }
+      const g = f.g
+      const n = g.tarjeta_id && cuentas[g.tarjeta_id] ? `${cuentas[g.tarjeta_id]}${g.forma_pago === 'credito' ? ' · crédito' : ''}`
+        : g.billetera_linea_id && cuentas[`l:${g.billetera_linea_id}`] ? cuentas[`l:${g.billetera_linea_id}`] : 'Efectivo / sin especificar'
+      m.set(n, (m.get(n) ?? 0) + f.pesos)
+    }
+    return Array.from(m.entries()).map(([nombre, valor]) => ({ nombre, valor })).sort((a, b) => b.valor - a.valor)
+  }, [visibles, cuentas])
+
+  const masGrandes = useMemo(() => [...visibles].sort((a, b) => b.pesos - a.pesos).slice(0, 5), [visibles])
+
+  /* ── acciones ──────────────────────────────────────────────── */
+  function elegirPreset(p: Preset) { setPreset(p); setRango(rangoPreset(p)) }
+  function moverMes(d: -1 | 1) {
+    const x = new Date(rango.year, rango.month - 1 + d, 1)
+    setPreset(null)
+    setRango(rangoMes(x.getFullYear(), x.getMonth() + 1))
   }
 
-  return (
-    <div className="space-y-6 overflow-x-hidden">
-      {/* Header */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-primary">Movimientos</h1>
-          <p className="text-secondary text-sm">Gastos fijos y variables</p>
-        </div>
-        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
-          <div className="flex gap-1 rounded-lg bg-alternate p-1 w-full sm:w-auto">
-            <button onClick={irAHoy} className="flex-1 sm:flex-none rounded-md px-2.5 py-1.5 text-xs font-semibold"
-              style={rango.tipo === 'mes' && esRangoActual(rangoMes(new Date().getFullYear(), new Date().getMonth() + 1)) ? { background: 'var(--bg-card)', color: 'var(--text-primary)' } : { color: 'var(--text-secondary)' }}>
-              Este mes
-            </button>
-            <button onClick={irAMesPasado} className="flex-1 sm:flex-none rounded-md px-2.5 py-1.5 text-xs font-semibold"
-              style={(() => { const d = new Date(); d.setMonth(d.getMonth() - 1); return rango.tipo === 'mes' && esRangoActual(rangoMes(d.getFullYear(), d.getMonth() + 1)) })() ? { background: 'var(--bg-card)', color: 'var(--text-primary)' } : { color: 'var(--text-secondary)' }}>
-              Mes pasado
-            </button>
-            <button onClick={() => setRango(rangoUltimosMeses(3))} className="flex-1 sm:flex-none rounded-md px-2.5 py-1.5 text-xs font-semibold"
-              style={esRangoActual(rangoUltimosMeses(3)) ? { background: 'var(--bg-card)', color: 'var(--text-primary)' } : { color: 'var(--text-secondary)' }}>
-              3 meses
-            </button>
-            <button onClick={() => setRango(rangoAño())} className="flex-1 sm:flex-none rounded-md px-2.5 py-1.5 text-xs font-semibold"
-              style={esRangoActual(rangoAño()) ? { background: 'var(--bg-card)', color: 'var(--text-primary)' } : { color: 'var(--text-secondary)' }}>
-              Año
-            </button>
-          </div>
-          {rango.tipo === 'mes' && (
-            <div className="flex items-center justify-between sm:justify-start gap-2 bg-card border border-line rounded-xl px-3 py-1.5 w-full sm:w-auto">
-              <button onClick={prevMes} aria-label="Mes anterior" className="text-muted hover:text-secondary px-2 text-lg">‹</button>
-              <span className="text-sm font-medium text-primary text-center flex-1 sm:flex-none sm:min-w-[120px]">{rango.etiqueta}</span>
-              <button onClick={nextMes} aria-label="Mes siguiente" className="text-muted hover:text-secondary px-2 text-lg">›</button>
-            </div>
+  async function guardarDesdeLuca(g: GastoDetectado): Promise<string | null> {
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return 'Tu sesión venció. Volvé a entrar.'
+    const r = await guardarGastoVariable(supabase, user.id, {
+      nombre: g.nombre, monto: Number(g.monto), categoria: g.categoria, fecha: g.fecha,
+      medio_pago: g.medio_pago, forma_pago: g.forma_pago,
+      cuotas: g.forma_pago === 'credito' ? g.cuotas : undefined,
+      moneda: g.moneda === 'USD' ? 'USD' : 'ARS',
+    })
+    if (r.error && !r.guardado) return 'No se pudo guardar el gasto.'
+    setHoja(false)
+    await cargar(true)
+    const guardado = r.guardado
+    toasts.mostrar({
+      texto: `Gasto registrado: ${g.nombre} · ${fmt(g.monto)}`,
+      deshacer: guardado?.id ? async () => {
+        await borrarConDeshacer(createClient(), guardado, !!guardado.compra_id)
+        await cargar(true)
+      } : undefined,
+    }, 8000)
+    if (r.avisoSaldoNegativo) toasts.mostrar({ texto: r.avisoSaldoNegativo, tono: 'info' }, 9000)
+    if (r.error) toasts.mostrar({ texto: r.error, tono: 'error' }, 9000)
+    return null
+  }
+
+  async function borrar(g: GastoVariable, compraCompleta = false) {
+    const supabase = createClient()
+    const filas = await borrarConDeshacer(supabase, g, compraCompleta)
+    setConfirmarCompra(null)
+    await cargar(true)
+    toasts.mostrar({
+      texto: compraCompleta ? `Borraste la compra "${g.nombre}" (${filas.length} cuotas)` : `Borraste "${g.nombre}"`,
+      deshacer: async () => {
+        const { error } = await restaurarGastos(createClient(), filas)
+        await cargar(true)
+        toasts.mostrar(error ? { texto: 'No pude restaurarlo.', tono: 'error' } : { texto: 'Listo, lo restauré.', tono: 'info' }, 3000)
+      },
+    }, 8000)
+  }
+
+  function pedirBorrar(g: GastoVariable) {
+    if (g.compra_id && (g.cuotas_total ?? 1) > 1) setConfirmarCompra(g)
+    else borrar(g)
+  }
+
+  async function guardarEdicion(id: string) {
+    if (!formEdit.nombre.trim() || !Number(formEdit.monto)) return
+    const { error } = await editarGastoVariable(createClient(), id, {
+      nombre: formEdit.nombre.trim(), monto: Number(formEdit.monto), categoria: formEdit.categoria,
+      fecha: formEdit.fecha, es_gasto_hormiga: formEdit.es_gasto_hormiga,
+    })
+    setEditando(null)
+    await cargar(true)
+    toasts.mostrar(error ? { texto: error, tono: 'error' } : { texto: 'Cambios guardados.' }, 4000)
+  }
+
+  async function guardarFijo() {
+    if (!formFijo?.nombre.trim() || !Number(formFijo.monto)) return
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    await supabase.from('gastos_fijos').insert({
+      user_id: user.id, nombre: formFijo.nombre.trim(), monto: Number(formFijo.monto), categoria: formFijo.categoria, activo: true, debitado: false,
+    })
+    setFormFijo(null)
+    await cargar(true)
+    toasts.mostrar({ texto: 'Gasto fijo agregado.' }, 3000)
+  }
+
+  async function alternarPagado(f: GastoFijo) {
+    setFijos(xs => xs.map(x => (x.id === f.id ? { ...x, debitado: !x.debitado } : x)))
+    await createClient().from('gastos_fijos').update({ debitado: !f.debitado }).eq('id', f.id)
+  }
+
+  async function quitarFijo(f: GastoFijo) {
+    await createClient().from('gastos_fijos').update({ activo: false }).eq('id', f.id)
+    await cargar(true)
+    toasts.mostrar({
+      texto: `Quitaste "${f.nombre}" de tus fijos`,
+      deshacer: async () => { await createClient().from('gastos_fijos').update({ activo: true }).eq('id', f.id); await cargar(true) },
+    }, 8000)
+  }
+
+  function exportarCSV() {
+    const lineas = [
+      ['Fecha', 'Descripción', 'Categoría', 'Monto', 'Moneda', 'Monto en pesos', 'Medio de pago', 'Forma de pago', 'Cuota'],
+      ...visibles.map(f => f.tipo === 'gasto'
+        ? [f.g.fecha, f.g.nombre, getCat(f.g.categoria).label, String(f.g.monto), f.g.moneda ?? 'ARS', String(Math.round(f.pesos)),
+          f.g.tarjeta_id ? (cuentas[f.g.tarjeta_id] ?? '') : f.g.billetera_linea_id ? (cuentas[`l:${f.g.billetera_linea_id}`] ?? '') : 'Efectivo',
+          f.g.forma_pago ?? '', (f.g.cuotas_total ?? 1) > 1 ? `${f.g.cuota_numero}/${f.g.cuotas_total}` : '']
+        : [f.v.fecha, f.v.concepto, 'Viajes', String(f.v.monto_ars), 'ARS', String(Math.round(f.pesos)), nombreViaje[f.v.viaje_id] ?? 'Viaje', '', '']),
+    ]
+    const csv = lineas.map(l => l.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n')
+    const url = URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' }))
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `movimientos_${rango.titulo.replace(/\s+/g, '_').toLowerCase()}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  /* ── Luca: lo más relevante del período, con datos reales ──── */
+  const lucaTexto = (() => {
+    const partes: string[] = []
+    if (totales.variacion !== null && Math.abs(totales.variacion) >= 10) {
+      partes.push(`${esActual ? 'A esta altura del mes' : 'Este mes'} vas ${Math.abs(Math.round(totales.variacion))}% ${totales.variacion > 0 ? 'arriba' : 'abajo'} del anterior (${fmt(totales.antMismoTramo)} → ${fmt(totales.variables)}).`)
+    }
+    const suba = cats.filter(c => c.anterior > 0 && c.monto - c.anterior >= 10_000).sort((a, b) => (b.monto - b.anterior) - (a.monto - a.anterior))[0]
+    if (suba) partes.push(`Lo que más creció: ${getCat(suba.clave).label.toLowerCase()} (+${fmt(suba.monto - suba.anterior)}).`)
+    if (totales.nHormiga >= 5) partes.push(`${totales.nHormiga} gastos hormiga suman ${fmt(totales.hormiga)}.`)
+    return partes
+  })()
+
+  const hayFiltros = !!(filtroCat || diaSel || soloHormiga || busqueda.trim())
+  const limpiar = () => { setFiltroCat(null); setDiaSel(null); setSoloHormiga(false); setBusqueda('') }
+
+  if (estado === 'cargando' && gastos.length === 0) return <SkeletonMovimientos />
+
+  /* ── bloques ───────────────────────────────────────────────── */
+  const encabezado = (
+    <header className="flex flex-wrap items-end gap-x-6 gap-y-3">
+      <div className="min-w-0 flex-1">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-muted">Movimientos</p>
+        <div className="mt-0.5 flex items-center gap-1">
+          {rango.esMes && (
+            <button onClick={() => moverMes(-1)} aria-label="Mes anterior"
+              className="fa-press -ml-2 flex h-9 w-9 items-center justify-center rounded-lg text-secondary hover:bg-alternate hover:text-primary"><ChevronLeft size={18} /></button>
           )}
-          {rango.tipo === 'preset' && (
-            <span className="text-sm font-medium text-primary">{rango.etiqueta}</span>
+          <h1 className="text-xl font-extrabold tracking-tight text-primary lg:text-2xl">{rango.titulo}</h1>
+          {rango.esMes && (
+            <button onClick={() => moverMes(1)} aria-label="Mes siguiente" disabled={esActual}
+              className="fa-press flex h-9 w-9 items-center justify-center rounded-lg text-secondary hover:bg-alternate hover:text-primary disabled:opacity-30"><ChevronRight size={18} /></button>
           )}
         </div>
+        <div className="mt-2 overflow-x-auto"><Pestanas etiqueta="Período" opciones={PRESETS} valor={(preset ?? 'x') as Preset} onCambio={elegirPreset} /></div>
       </div>
-
-      {/* Resumen rápido */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-        <Kpi label="Variables" valor={fmtFull(totalVar)} />
-        <Kpi label={mesesEnRango > 1 ? `Fijos (${mesesEnRango} meses)` : 'Fijos'} valor={fmtFull(fijosDelPeriodo)} />
-        <Kpi label="Total del período" valor={fmtFull(totalVar + fijosDelPeriodo)} fuerte />
-      </div>
-
-      {/* Luca: insight real, calculado con los mismos datos del período */}
-      {rango.tipo === 'mes' && variacionVsAnterior !== null && Math.abs(variacionVsAnterior) >= 5 && (
-        <LucaMensaje estado={variacionVsAnterior >= 0 ? 'sad' : 'celebration'} variante="panel" className="p-4">
-          {variacionVsAnterior >= 0
-            ? <>Detecté que tus gastos variables subieron <b>{variacionVsAnterior}%</b> vs. el mes pasado ({fmtFull(totalVarAnt)} → {fmtFull(totalVar)}).</>
-            : <>Tus gastos variables bajaron <b>{Math.abs(variacionVsAnterior)}%</b> vs. el mes pasado ({fmtFull(totalVarAnt)} → {fmtFull(totalVar)}). ¡Bien ahí!</>}
-        </LucaMensaje>
-      )}
-
-      {/* Carga por lenguaje natural */}
-      <div className="fa-card p-5">
-        <p className="text-xs font-semibold text-primary mb-3">
-          ✨ Contame un gasto como se lo dirías a alguien
-        </p>
-        <div className="flex flex-col gap-2 sm:flex-row">
-          <input
-            ref={inputRef}
-            value={aiText}
-            onChange={e => setAiText(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && parseWithAI()}
-            placeholder='Ej: "gasté 3500 en delivery con mercado pago"'
-            className="flex-1 rounded-xl border bg-field px-4 py-2.5 text-sm text-primary"
-          />
-          <button onClick={parseWithAI} disabled={aiLoading}
-            className="whitespace-nowrap rounded-xl bg-confirm px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-confirm-hover disabled:opacity-50">
-            {aiLoading ? 'Pensando…' : 'Guardar'}
+      {desktop ? (
+        <div className="flex w-full items-start gap-3 xl:w-auto xl:min-w-[560px]">
+          <div className="min-w-0 flex-1"><CapturaLuca onGuardar={guardarDesdeLuca} flotante /></div>
+          <button onClick={() => setAgregar(true)}
+            className="fa-press flex h-11 items-center gap-2 rounded-xl bg-confirm px-4 text-sm font-semibold text-white hover:bg-confirm-hover">
+            <Plus size={18} strokeWidth={2.5} /> Agregar
           </button>
         </div>
-        {aiMsg && (
-          <p className={`mt-2 text-xs ${aiMsg.ok ? 'text-positive' : 'text-negative'}`}>{aiMsg.text}</p>
+      ) : (
+        <div className="flex w-full gap-2">
+          <button onClick={() => setHoja(true)} className="fa-press flex flex-1 items-center gap-3 rounded-2xl border px-3 py-2.5 text-left text-sm text-muted fa-hairline" style={{ background: 'var(--bg-input)' }}>
+            <LucaAvatar estado="idle" size={24} /><span className="flex-1">Contale a Luca…</span><MessageCircle size={16} />
+          </button>
+          <button onClick={() => setAgregar(true)} aria-label="Agregar gasto" className="fa-press flex h-12 w-12 items-center justify-center rounded-2xl bg-confirm text-white"><Plus size={20} strokeWidth={2.5} /></button>
+        </div>
+      )}
+    </header>
+  )
+
+  const resumen = (
+    <section aria-label="Total del período" className="grid gap-5 lg:grid-cols-12 lg:items-end">
+      <div className="lg:col-span-4">
+        <p className="fa-label">Total del período</p>
+        <NumeroAnimado valor={totales.total} contarAlInicio className="mt-1 block text-[clamp(2.1rem,3.6vw,2.9rem)] font-extrabold leading-none tracking-tight tabular-nums text-primary" />
+        {totales.variacion !== null ? (
+          <p className="mt-2 flex items-center gap-1.5 text-sm">
+            <span className="rounded-md px-1.5 py-0.5 text-xs font-semibold tabular-nums"
+              style={{ background: totales.variacion > 0 ? 'var(--glow-negative)' : 'var(--glow-positive)', color: totales.variacion > 0 ? 'var(--accent-negative)' : 'var(--accent-positive)' }}>
+              {totales.variacion > 0 ? '▲' : '▼'} {Math.abs(Math.round(totales.variacion))}%
+            </span>
+            <span className="text-secondary">variables vs. {esActual ? 'el mes pasado a esta altura' : 'el mes anterior'}</span>
+          </p>
+        ) : <p className="mt-2 text-xs text-secondary">{mesesEnRango > 1 ? `${mesesEnRango} meses` : 'Sin mes anterior para comparar'}</p>}
+      </div>
+      <div className="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-4 lg:col-span-8">
+        {[
+          { l: 'Día a día', v: totales.diaADia, t: 'var(--accent-negative)' },
+          { l: 'Cuotas', v: totales.cuotas, t: 'var(--accent-warning)' },
+          { l: 'Viajes', v: totales.viaje, t: 'var(--accent-secondary)' },
+          { l: mesesEnRango > 1 ? `Fijos · ${mesesEnRango} meses` : 'Fijos', v: totales.fijosPeriodo, t: 'var(--text-muted)' },
+        ].map(x => (
+          <div key={x.l} className="min-w-0">
+            <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.04em] text-secondary">
+              <span className="h-1.5 w-1.5 rounded-full" style={{ background: x.t }} />{x.l}
+            </p>
+            <NumeroAnimado valor={x.v} className="mt-1 block whitespace-nowrap text-lg font-bold tabular-nums text-primary" />
+            <div className="mt-1.5 h-1 overflow-hidden rounded-full" style={{ background: 'var(--border-subtle)' }}>
+              <div className="fa-grow-x h-full rounded-full" style={{ width: `${(x.v / Math.max(totales.total, 1)) * 100}%`, background: x.t }} />
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+
+  const luca = lucaTexto.length > 0 && (
+    <div className="flex items-start gap-3 rounded-2xl border px-4 py-3"
+      style={{ borderColor: 'color-mix(in srgb, var(--accent-positive) 22%, var(--border-subtle))', background: 'color-mix(in srgb, var(--accent-positive) 4%, var(--bg-card))' }}>
+      <LucaAvatar estado={totales.variacion !== null && totales.variacion >= 10 ? 'warning' : 'insight'} size={30} />
+      <p className="text-sm leading-relaxed text-primary">{lucaTexto.join(' ')}</p>
+    </div>
+  )
+
+  const grafico = (
+    <section aria-labelledby="t-dia" className="min-w-0">
+      <Encabezado id="t-dia" titulo={rango.esMes ? 'Día a día' : 'Mes a mes'}
+        sub={`${filtroCat ? `Solo ${getCat(filtroCat).label.toLowerCase()} · ` : ''}${rango.esMes ? 'click en un día para ver sus movimientos' : 'click en un mes para ver sus movimientos'}`}
+        derecha={rango.esMes ? <Pestanas etiqueta="Vista" opciones={[{ key: 'barras', label: 'Por día' }, { key: 'acumulado', label: 'Acumulado' }] as const} valor={vista} onCambio={setVista} /> : undefined} />
+      {vista === 'acumulado' && rango.esMes && (
+        <div className="mt-3 flex gap-4 text-xs text-secondary" aria-hidden="true">
+          <span className="inline-flex items-center gap-1.5"><span className="h-0.5 w-3 rounded" style={{ background: 'var(--accent-negative)' }} />Este mes</span>
+          <span className="inline-flex items-center gap-1.5"><span className="h-0 w-3 border-t-2 border-dashed" style={{ borderColor: 'var(--text-muted)' }} />Mes anterior</span>
+        </div>
+      )}
+      <div className="mt-3">
+        {puntos.some(p => p.valor > 0) ? (
+          <GraficoBarras key={`${rango.desde}-${vista}-${filtroCat}`} datos={puntos} modo={rango.esMes ? vista : 'barras'}
+            seleccion={diaSel} onElegir={setDiaSel} alto={desktop ? 240 : 190} etiquetaAnterior="Mes anterior" />
+        ) : (
+          <p className="rounded-xl border border-dashed px-4 py-10 text-center text-xs text-secondary fa-hairline">Sin gastos en este período.</p>
+        )}
+      </div>
+    </section>
+  )
+
+  const categorias = (
+    <Categorias cats={cats} mes={rango.desde.slice(0, 7)} esActual={esActual} seleccion={filtroCat} onSeleccion={setFiltroCat} max={8}
+      titulo="Por categoría" sub={rango.esMes ? (esActual ? 'La marca gris es el mes pasado a esta altura' : 'La marca gris es el mes anterior') : `${rango.titulo} · click para filtrar`} />
+  )
+
+  const medios = (
+    <section aria-labelledby="t-medio" className="min-w-0">
+      <Encabezado id="t-medio" titulo="Con qué pagaste" sub={hayFiltros ? 'De lo que estás viendo' : undefined} />
+      <ul className="mt-3 space-y-2.5">
+        {porMedio.slice(0, 6).map(m => (
+          <li key={m.nombre}>
+            <div className="flex justify-between gap-2 text-sm"><span className="min-w-0 flex-1 truncate text-secondary">{m.nombre}</span><span className="font-semibold tabular-nums text-primary">{fmt(m.valor)}</span></div>
+            <div className="mt-1 h-1.5 overflow-hidden rounded-full" style={{ background: 'var(--border-subtle)' }}>
+              <div className="fa-grow-x h-full rounded-full" style={{ width: `${(m.valor / Math.max(porMedio[0]?.valor ?? 1, 1)) * 100}%`, background: 'var(--accent-secondary)' }} />
+            </div>
+          </li>
+        ))}
+        {porMedio.length === 0 && <li className="text-xs text-secondary">Sin datos.</li>}
+      </ul>
+    </section>
+  )
+
+  const grandes = masGrandes.length > 0 && (
+    <section aria-labelledby="t-grandes" className="min-w-0">
+      <Encabezado id="t-grandes" titulo="Los más grandes" />
+      <ol className="mt-3 space-y-2">
+        {masGrandes.map((f, i) => (
+          <li key={f.tipo === 'gasto' ? f.g.id : f.v.id} className="flex items-center gap-3 text-sm">
+            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-alternate text-[11px] font-bold text-secondary">{i + 1}</span>
+            <span className="min-w-0 flex-1 truncate text-primary">{f.tipo === 'gasto' ? `${getCat(f.g.categoria).emoji} ${f.g.nombre}` : `✈️ ${f.v.concepto}`}</span>
+            <span className="font-semibold tabular-nums text-primary">{fmt(f.pesos)}</span>
+          </li>
+        ))}
+      </ol>
+    </section>
+  )
+
+  const inputCls = 'rounded-lg border bg-field px-3 py-2 text-sm text-primary'
+
+  const lista = (
+    <section aria-labelledby="t-lista" className="min-w-0">
+      <div className="sticky top-0 z-20 -mx-1 flex flex-wrap items-center gap-2 px-1 pb-3 pt-1 lg:top-14" style={{ background: 'var(--bg-page)' }}>
+        <h2 id="t-lista" className="mr-auto text-[15px] font-bold text-primary">
+          {visibles.length} {visibles.length === 1 ? 'movimiento' : 'movimientos'}
+          <span className="ml-2 text-xs font-normal tabular-nums text-secondary">{fmt(visibles.reduce((a, f) => a + f.pesos, 0))}</span>
+        </h2>
+        <div className="relative w-full sm:w-52">
+          <Search size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted" />
+          <input value={busqueda} onChange={e => setBusqueda(e.target.value)} placeholder="Buscar…" aria-label="Buscar movimientos"
+            className="w-full rounded-lg border bg-field py-2 pl-8 pr-2 text-sm text-primary" />
+        </div>
+        <button onClick={() => setSoloHormiga(v => !v)} aria-pressed={soloHormiga}
+          className="fa-press rounded-lg border px-2.5 py-2 text-xs font-semibold fa-hairline"
+          style={soloHormiga ? { background: 'var(--riesgo-medio-tint)', borderColor: 'var(--riesgo-medio)', color: 'var(--riesgo-medio)' } : { color: 'var(--text-secondary)' }}>
+          🐜 Hormiga
+        </button>
+        <button onClick={exportarCSV} className="fa-press flex items-center gap-1.5 rounded-lg border px-2.5 py-2 text-xs font-semibold text-secondary hover:bg-alternate fa-hairline" title="Exportar lo que estás viendo">
+          <Download size={14} /> CSV
+        </button>
+        {hayFiltros && (
+          <div className="flex w-full flex-wrap items-center gap-1.5">
+            {filtroCat && <Chip onQuitar={() => setFiltroCat(null)}>{filtroCat === 'viajes' ? '✈️ Viajes' : `${getCat(filtroCat).emoji} ${getCat(filtroCat).label}`}</Chip>}
+            {diaSel && <Chip onQuitar={() => setDiaSel(null)}>{rango.esMes ? fmtFechaCorta(diaSel) : MESES[Number(diaSel.slice(5, 7)) - 1]}</Chip>}
+            {soloHormiga && <Chip onQuitar={() => setSoloHormiga(false)}>🐜 Hormiga</Chip>}
+            {busqueda.trim() && <Chip onQuitar={() => setBusqueda('')}>“{busqueda.trim()}”</Chip>}
+            <button onClick={limpiar} className="text-xs font-semibold text-info hover:underline">Limpiar todo</button>
+          </div>
         )}
       </div>
 
-      {/* Gráficos */}
-      {porCategoria.length > 0 && (
-        <div className="grid grid-cols-1 gap-5 min-w-0 lg:grid-cols-[380px_1fr]">
-          <section className="fa-card p-5 min-w-0">
-            <div className="flex items-start justify-between gap-2">
-              <div>
-                <h2 className="text-base font-bold text-primary">¿En qué se te va la plata?</h2>
-                <p className="mt-0.5 text-xs text-secondary">Tocá una categoría para filtrar</p>
+      {porFecha.length === 0 ? (
+        <div className="rounded-2xl border border-dashed px-4 py-10 text-center fa-hairline">
+          <p className="text-sm text-secondary">{hayFiltros ? 'Nada con estos filtros.' : 'Todavía no hay gastos en este período.'}</p>
+          {hayFiltros ? <button onClick={limpiar} className="mt-3 text-xs font-semibold text-info hover:underline">Limpiar filtros</button>
+            : <button onClick={() => setAgregar(true)} className="fa-press mt-3 rounded-lg bg-confirm px-3 py-1.5 text-xs font-semibold text-white">Registrar un gasto</button>}
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {porFecha.map(d => (
+            <div key={d.fecha}>
+              <div className="flex items-baseline justify-between border-b pb-1.5 fa-hairline">
+                <span className="text-xs font-semibold capitalize text-secondary">
+                  {fmtFechaCorta(d.fecha)} <span className="font-normal text-muted">· {new Date(d.fecha + 'T12:00:00').toLocaleDateString('es-AR', { weekday: 'long' })}</span>
+                </span>
+                <span className="text-xs font-semibold tabular-nums text-secondary">{fmt(d.total)}</span>
               </div>
-              {filtroCat && (
-                <button onClick={() => setFiltroCat(null)} className="flex items-center gap-1 rounded-full border px-2 py-1 text-[11px] text-secondary hover:bg-alternate">
-                  <X size={12} /> Quitar filtro
-                </button>
-              )}
-            </div>
-
-            <div className="relative mt-2 h-[200px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={porCategoria}
-                    dataKey="value"
-                    nameKey="name"
-                    innerRadius={58}
-                    outerRadius={88}
-                    paddingAngle={2}
-                    stroke="none"
-                    isAnimationActive={false}
-                    onClick={(d: { key?: string; payload?: { key?: string } }) => {
-                      const k = d?.payload?.key ?? d?.key
-                      if (k) setFiltroCat(f => (f === k ? null : k))
-                    }}
-                  >
-                    {porCategoria.map(c => (
-                      <Cell key={c.key} fill={c.color} opacity={filtroCat && filtroCat !== c.key ? 0.25 : 1} />
-                    ))}
-                  </Pie>
-                  <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => fmtFull(v)} />
-                </PieChart>
-              </ResponsiveContainer>
-              <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-                <span className="text-[10px] uppercase tracking-wide text-muted">{filtroCat ? getCat(filtroCat).label : 'Total'}</span>
-                <span className="fa-amount text-base text-primary">{fmt(filtroCat ? totalVisibles : totalVar)}</span>
-              </div>
-            </div>
-
-            <ul className="mt-3 space-y-1">
-              {porCategoria.map(c => {
-                const pct = totalVar > 0 ? Math.round((c.value / totalVar) * 100) : 0
-                const activa = filtroCat === c.key
-                return (
-                  <li key={c.key}>
-                    <button
-                      onClick={() => setFiltroCat(f => (f === c.key ? null : c.key))}
-                      className={`flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs transition-colors hover:bg-alternate ${activa ? 'bg-alternate' : ''}`}
-                    >
-                      <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: c.color }} />
-                      <span className="min-w-0 flex-1 truncate text-secondary">{c.emoji} {c.name}</span>
-                      <span className="fa-amount shrink-0 text-primary">{fmtFull(c.value)}</span>
-                      <span className="w-9 shrink-0 text-right text-muted">{pct}%</span>
-                    </button>
-                  </li>
-                )
-              })}
-            </ul>
-          </section>
-
-          <div className="flex min-w-0 flex-col gap-5">
-            <section className="fa-card p-5 min-w-0">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div>
-                  <h2 className="text-base font-bold text-primary">{esMesUnico ? 'Gasto por día' : 'Gasto por mes'}</h2>
-                  <p className="mt-0.5 text-xs text-secondary">
-                    {filtroCat ? `Solo ${getCat(filtroCat).label.toLowerCase()}` : 'Todos los gastos variables'} · {rango.etiqueta}
-                  </p>
-                </div>
-                {esMesUnico && (
-                  <div className="flex gap-1 rounded-lg bg-alternate p-1">
-                    <button onClick={() => setVistaDia('barras')} className="rounded-md px-2.5 py-1 text-xs font-semibold"
-                      style={vistaDia === 'barras' ? { background: 'var(--bg-card)', color: 'var(--text-primary)' } : { color: 'var(--text-secondary)' }}>
-                      Por día
-                    </button>
-                    <button onClick={() => setVistaDia('acumulado')} className="rounded-md px-2.5 py-1 text-xs font-semibold"
-                      style={vistaDia === 'acumulado' ? { background: 'var(--bg-card)', color: 'var(--text-primary)' } : { color: 'var(--text-secondary)' }}>
-                      Acumulado
-                    </button>
-                  </div>
-                )}
-              </div>
-              <div className="mt-3 h-[190px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  {!esMesUnico ? (
-                    <BarChart data={porMesAgrupado} margin={{ top: 4, right: 4, bottom: 0, left: -18 }}>
-                      <CartesianGrid stroke="var(--border-color)" strokeDasharray="3 3" vertical={false} />
-                      <XAxis dataKey="dia" tick={{ fill: 'var(--text-muted)', fontSize: 10 }} axisLine={false} tickLine={false} />
-                      <YAxis tick={{ fill: 'var(--text-muted)', fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={(v: number) => fmt(v)} />
-                      <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => [fmtFull(v), 'Gastado']} cursor={{ fill: 'var(--bg-alternate, rgba(127,127,127,.12))' }} />
-                      <Bar dataKey="monto" radius={[4, 4, 0, 0]} fill={filtroCat ? getCat(filtroCat).color : 'var(--accent-negative)'} />
-                    </BarChart>
-                  ) : vistaDia === 'barras' ? (
-                    <BarChart data={porDia} margin={{ top: 4, right: 4, bottom: 0, left: -18 }}>
-                      <CartesianGrid stroke="var(--border-color)" strokeDasharray="3 3" vertical={false} />
-                      <XAxis dataKey="dia" tick={{ fill: 'var(--text-muted)', fontSize: 10 }} axisLine={false} tickLine={false} interval={2} />
-                      <YAxis tick={{ fill: 'var(--text-muted)', fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={(v: number) => fmt(v)} />
-                      <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => [fmtFull(v), 'Gastado']} labelFormatter={(l: string) => `Día ${l}`} cursor={{ fill: 'var(--bg-alternate, rgba(127,127,127,.12))' }} />
-                      <Bar dataKey="monto" radius={[4, 4, 0, 0]} fill={filtroCat ? getCat(filtroCat).color : 'var(--accent-negative)'} />
-                    </BarChart>
-                  ) : (
-                    <LineChart data={acumuladoComparado} margin={{ top: 4, right: 4, bottom: 0, left: -18 }}>
-                      <CartesianGrid stroke="var(--border-color)" strokeDasharray="3 3" vertical={false} />
-                      <XAxis dataKey="dia" tick={{ fill: 'var(--text-muted)', fontSize: 10 }} axisLine={false} tickLine={false} interval={2} />
-                      <YAxis tick={{ fill: 'var(--text-muted)', fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={(v: number) => fmt(v)} />
-                      <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => fmtFull(v)} labelFormatter={(l: string) => `Día ${l}`} />
-                      <Legend wrapperStyle={{ fontSize: 11, color: 'var(--text-secondary)' }} />
-                      <Line type="monotone" dataKey="anterior" name="Mes pasado" stroke="var(--border-color)" strokeWidth={2} dot={false} />
-                      <Line type="monotone" dataKey="actual" name="Este mes" stroke="var(--accent-negative)" strokeWidth={2.5} dot={false} />
-                    </LineChart>
-                  )}
-                </ResponsiveContainer>
-              </div>
-            </section>
-
-            <section className="fa-card p-5 min-w-0">
-              <h2 className="text-base font-bold text-primary">¿Con qué pagaste?</h2>
-              <ul className="mt-3 space-y-2.5">
-                {porMedio.map(m => {
-                  const total = porMedio.reduce((s, x) => s + x.value, 0)
-                  const pct = total > 0 ? (m.value / total) * 100 : 0
+              <ul>
+                {d.items.map(f => {
+                  if (f.tipo === 'viaje') {
+                    return (
+                      <li key={`v-${f.v.id}`}>
+                        <Link href={`/dashboard/viajes/${f.v.viaje_id}`} className="-mx-2 flex items-center gap-3 rounded-lg px-2 py-2.5 hover:bg-alternate">
+                          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-alternate" aria-hidden="true">✈️</span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-sm text-primary">{f.v.concepto}</span>
+                            <span className="block truncate text-[11px] text-muted">Viaje · {nombreViaje[f.v.viaje_id] ?? 'Viaje'}</span>
+                          </span>
+                          <span className="text-sm font-semibold tabular-nums text-primary">−{fmt(f.pesos)}</span>
+                          <ChevronRight size={14} className="text-muted" />
+                        </Link>
+                      </li>
+                    )
+                  }
+                  const g = f.g
+                  const cat = getCat(g.categoria)
+                  const medio = g.tarjeta_id ? cuentas[g.tarjeta_id] : g.billetera_linea_id ? cuentas[`l:${g.billetera_linea_id}`] : null
+                  if (editando === g.id) {
+                    return (
+                      <li key={g.id} className="fa-pop -mx-2 my-1 rounded-xl border p-3 fa-hairline" style={{ background: 'var(--bg-alternate)' }}>
+                        <div className="grid grid-cols-2 gap-2 sm:grid-cols-6">
+                          <input value={formEdit.nombre} onChange={e => setFormEdit(p => ({ ...p, nombre: e.target.value }))} aria-label="Descripción" className={`${inputCls} col-span-2 sm:col-span-2`} />
+                          <input type="number" inputMode="decimal" value={formEdit.monto} onChange={e => setFormEdit(p => ({ ...p, monto: e.target.value }))} aria-label="Monto" className={inputCls} />
+                          <select value={formEdit.categoria} onChange={e => setFormEdit(p => ({ ...p, categoria: e.target.value }))} aria-label="Categoría" className={inputCls}>
+                            {CATEGORIAS.map(c => <option key={c.key} value={c.key}>{c.emoji} {c.label}</option>)}
+                          </select>
+                          <input type="date" value={formEdit.fecha} onChange={e => setFormEdit(p => ({ ...p, fecha: e.target.value }))} aria-label="Fecha" className={`${inputCls} col-span-2 sm:col-span-2`} />
+                        </div>
+                        <div className="mt-2 flex flex-wrap items-center gap-3">
+                          <label className="flex items-center gap-1.5 text-xs text-secondary">
+                            <input type="checkbox" checked={formEdit.es_gasto_hormiga} onChange={e => setFormEdit(p => ({ ...p, es_gasto_hormiga: e.target.checked }))} /> 🐜 Hormiga
+                          </label>
+                          {(g.cuotas_total ?? 1) > 1 && <span className="text-[11px] text-muted">Cuota {g.cuota_numero}/{g.cuotas_total}: solo cambia esta cuota.</span>}
+                          {g.billetera_linea_id && <span className="text-[11px] text-muted">Si cambiás el monto, se corrige el saldo de {medio ?? 'la billetera'}.</span>}
+                          <div className="ml-auto flex gap-2">
+                            <button onClick={() => setEditando(null)} className="fa-press rounded-lg px-3 py-1.5 text-xs font-semibold text-secondary hover:bg-card">Cancelar</button>
+                            <button onClick={() => guardarEdicion(g.id)} className="fa-press rounded-lg bg-confirm px-3 py-1.5 text-xs font-semibold text-white hover:bg-confirm-hover">Guardar</button>
+                          </div>
+                        </div>
+                      </li>
+                    )
+                  }
                   return (
-                    <li key={m.name}>
-                      <div className="flex justify-between gap-2 text-xs">
-                        <span className="min-w-0 flex-1 truncate text-secondary">{m.name}</span>
-                        <span className="fa-amount shrink-0 text-primary">{fmtFull(m.value)}</span>
-                      </div>
-                      <div className="mt-1 h-2 overflow-hidden rounded-full" style={{ background: 'var(--border-color)' }}>
-                        <div className="h-full rounded-full" style={{ width: `${pct}%`, background: 'var(--accent-secondary)' }} />
-                      </div>
+                    <li key={g.id} className={`group -mx-2 flex items-center gap-3 rounded-lg px-2 py-2.5 hover:bg-alternate ${nuevos.has(g.id) ? 'fa-flash' : ''}`}>
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-alternate text-base" aria-hidden="true">{cat.emoji}</span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm text-primary">{g.nombre}</span>
+                        <span className="block truncate text-[11px] text-muted">
+                          {cat.label}
+                          {medio && <> · {medio}{g.forma_pago === 'credito' ? ' · crédito' : ''}</>}
+                          {(g.cuotas_total ?? 1) > 1 && <> · cuota {g.cuota_numero}/{g.cuotas_total}</>}
+                          {g.es_gasto_hormiga && <> · 🐜</>}
+                        </span>
+                      </span>
+                      <span className="text-right">
+                        <span className="block text-sm font-semibold tabular-nums text-primary">−{fmt(f.pesos)}</span>
+                        {g.moneda === 'USD' && <span className="block text-[11px] text-muted">US$ {Number(g.monto).toLocaleString('es-AR')}</span>}
+                      </span>
+                      <span className="flex shrink-0 items-center lg:opacity-0 lg:transition-opacity lg:group-hover:opacity-100 lg:group-focus-within:opacity-100">
+                        <button onClick={() => { setEditando(g.id); setFormEdit({ nombre: g.nombre, monto: String(g.monto), categoria: g.categoria, fecha: g.fecha, es_gasto_hormiga: g.es_gasto_hormiga }) }}
+                          aria-label={`Editar ${g.nombre}`} className="fa-press flex h-9 w-9 items-center justify-center rounded-lg text-muted hover:bg-card hover:text-primary"><Pencil size={15} /></button>
+                        <button onClick={() => pedirBorrar(g)} aria-label={`Borrar ${g.nombre}`}
+                          className="fa-press flex h-9 w-9 items-center justify-center rounded-lg text-muted hover:bg-card hover:text-negative"><Trash2 size={15} /></button>
+                      </span>
                     </li>
                   )
                 })}
               </ul>
-            </section>
-
-            {topGastos.length > 0 && (
-              <section className="fa-card p-5 min-w-0">
-                <h2 className="text-base font-bold text-primary">Top 5 gastos</h2>
-                <p className="mt-0.5 text-xs text-secondary">Los movimientos más grandes del período</p>
-                <ul className="mt-3 space-y-2">
-                  {topGastos.map((g, i) => (
-                    <li key={g.id} className="flex items-center gap-3 text-sm">
-                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-alternate text-[11px] font-bold text-secondary">{i + 1}</span>
-                      <span className="min-w-0 flex-1 truncate text-primary">{getCat(g.categoria).emoji} {g.nombre}</span>
-                      <span className="fa-amount shrink-0 text-primary">
-                        {g.moneda === 'USD' ? `US$ ${Number(g.monto).toLocaleString('es-AR')}` : fmtFull(ars(g))}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Gastos variables del período */}
-      <div className="bg-card rounded-2xl border border-line shadow-sm" ref={manualRef}>
-        <div className="flex flex-col gap-3 p-5 border-b border-line sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h2 className="font-semibold text-primary">🛒 Gastos variables</h2>
-            <p className="text-xs text-muted mt-0.5">
-              {rango.etiqueta} — {filtroCat ? `${getCat(filtroCat).label}: ${fmtFull(totalVisibles)} de ${fmtFull(totalVar)}` : `Total: ${fmtFull(totalVar)}`}
-            </p>
-          </div>
-          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
-            <div className="relative flex-1 sm:flex-none">
-              <Search size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted" />
-              <input
-                value={busqueda}
-                onChange={e => setBusqueda(e.target.value)}
-                placeholder="Buscar…"
-                className="w-full sm:w-44 rounded-lg border bg-field py-2 pl-8 pr-2 text-xs text-primary"
-              />
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setSoloHormiga(v => !v)}
-                className="flex-1 sm:flex-none rounded-lg border px-2.5 py-2 text-xs font-semibold"
-                style={soloHormiga ? { background: 'var(--riesgo-medio-tint)', borderColor: 'var(--riesgo-medio)', color: 'var(--riesgo-medio)' } : { color: 'var(--text-secondary)' }}
-              >
-                🐜 Hormiga
-              </button>
-              <button onClick={exportarCSV} title="Exportar a CSV"
-                className="flex items-center gap-1.5 rounded-lg border px-2.5 py-2 text-xs font-semibold text-secondary hover:bg-alternate">
-                <Download size={14} /> CSV
-              </button>
-              <button
-                onClick={() => (showManual ? setShowManual(false) : abrirManual())}
-                className="flex flex-1 sm:flex-none min-h-[40px] shrink-0 items-center justify-center gap-1.5 rounded-xl bg-confirm px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-confirm-hover"
-              >
-                <Plus size={16} strokeWidth={2.5} /> Agregar
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {showManual && (
-          <div className="p-5 bg-alternate border-b border-line">
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <input autoFocus placeholder="¿Qué compraste?" value={formManual.nombre}
-                onChange={e => setFormManual(p => ({ ...p, nombre: e.target.value }))} className={inputCls} />
-              <div className="flex gap-1.5">
-                <input placeholder={formManual.moneda === 'USD' ? 'Monto (US$)' : 'Monto ($)'} type="number" inputMode="decimal" value={formManual.monto}
-                  onChange={e => setFormManual(p => ({ ...p, monto: e.target.value }))} className={`${inputCls} flex-1`} />
-                <div className="flex shrink-0 overflow-hidden rounded-lg border text-xs font-semibold">
-                  {(['ARS', 'USD'] as const).map(m => (
-                    <button key={m} type="button" onClick={() => setFormManual(p => ({ ...p, moneda: m }))}
-                      className={`px-2.5 ${formManual.moneda === m ? 'bg-confirm text-white' : 'text-secondary hover:bg-card'}`}>
-                      {m === 'ARS' ? '$' : 'US$'}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <select value={formManual.categoria} onChange={e => setFormManual(p => ({ ...p, categoria: e.target.value }))} className={inputCls}>
-                {CATEGORIAS.map(c => <option key={c.key} value={c.key}>{c.emoji} {c.label}</option>)}
-              </select>
-              <input type="date" value={formManual.fecha}
-                onChange={e => setFormManual(p => ({ ...p, fecha: e.target.value }))} className={inputCls} />
-              <select value={formManual.medio} onChange={e => setFormManual(p => ({ ...p, medio: e.target.value }))} className={inputCls}>
-                <option value="">💵 Efectivo / sin especificar</option>
-                {medios.map(m => <option key={m} value={m}>💳 {m}</option>)}
-              </select>
-              {formManual.medio && (
-                <div className="flex overflow-hidden rounded-lg border text-sm">
-                  {(['debito', 'credito'] as const).map(f => (
-                    <button key={f} type="button" onClick={() => setFormManual(p => ({ ...p, forma: f }))}
-                      className={`flex-1 px-3 py-2.5 font-medium ${formManual.forma === f ? 'bg-confirm text-white' : 'text-secondary hover:bg-card'}`}>
-                      {f === 'debito' ? 'Débito / saldo' : 'Crédito'}
-                    </button>
-                  ))}
-                </div>
-              )}
-              {formManual.medio && formManual.forma === 'credito' && (
-                <label className="flex items-center gap-2 text-sm text-secondary">
-                  Cuotas
-                  <input type="number" min={1} max={48} value={formManual.cuotas}
-                    onChange={e => setFormManual(p => ({ ...p, cuotas: e.target.value }))}
-                    className={`${inputCls} w-20`} />
-                  {Number(formManual.cuotas) > 1 && Number(formManual.monto) > 0 && (
-                    <span className="text-xs">de {fmtFull(Number(formManual.monto) / Number(formManual.cuotas))}</span>
-                  )}
-                </label>
-              )}
-            </div>
-            <label className="flex items-center gap-2 mt-3 text-sm text-secondary cursor-pointer">
-              <input type="checkbox" checked={formManual.es_gasto_hormiga}
-                onChange={e => setFormManual(p => ({ ...p, es_gasto_hormiga: e.target.checked }))} className="rounded" />
-              🐜 Marcar como gasto hormiga
-            </label>
-            {formManual.medio && formManual.forma === 'debito' && (
-              <p className="mt-2 text-xs text-secondary">Se descuenta del saldo disponible de {formManual.medio}.</p>
-            )}
-            <div className="flex gap-2 mt-3">
-              <button onClick={saveManual} className="bg-confirm text-white px-5 py-2.5 rounded-lg text-sm font-semibold hover:bg-confirm-hover">Guardar gasto</button>
-              <button onClick={() => setShowManual(false)} className="text-secondary px-4 py-2.5 rounded-lg text-sm hover:bg-card">Cancelar</button>
-            </div>
-          </div>
-        )}
-
-        {loading ? (
-          <p className="p-6 text-sm text-muted text-center animate-pulse">Cargando...</p>
-        ) : Object.keys(grouped).length === 0 ? (
-          <p className="p-6 text-sm text-muted text-center">
-            {busquedaNorm ? 'Sin resultados para tu búsqueda' : soloHormiga ? 'Sin gastos hormiga' : filtroCat ? 'Sin gastos en esta categoría' : 'Sin gastos en este período'}
-          </p>
-        ) : (
-          <div className="divide-y divide-line">
-            {Object.entries(grouped).map(([fecha, gastos]) => {
-              const total = gastos.reduce((s, g) => s + ars(g), 0)
-              const [, mm, dd] = fecha.split('-')
-              return (
-                <div key={fecha}>
-                  <div className="flex items-center justify-between px-4 py-2 bg-alternate">
-                    <span className="text-xs font-semibold text-secondary">{dd}/{mm}</span>
-                    <span className="text-xs font-bold text-secondary">{fmtFull(total)}</span>
-                  </div>
-                  {gastos.map(g => {
-                    const medio = g.tarjeta_id ? tarjetas[g.tarjeta_id] : null
-                    if (editandoId === g.id) {
-                      return (
-                        <div key={g.id} className="grid grid-cols-1 gap-2 px-4 py-3 bg-alternate sm:grid-cols-5">
-                          <input value={formEdit.nombre} onChange={e => setFormEdit(p => ({ ...p, nombre: e.target.value }))}
-                            className={`${inputCls} sm:col-span-2`} placeholder="Nombre" />
-                          <input type="number" value={formEdit.monto} onChange={e => setFormEdit(p => ({ ...p, monto: e.target.value }))}
-                            className={inputCls} placeholder="Monto" />
-                          <select value={formEdit.categoria} onChange={e => setFormEdit(p => ({ ...p, categoria: e.target.value }))} className={inputCls}>
-                            {CATEGORIAS.map(c => <option key={c.key} value={c.key}>{c.emoji} {c.label}</option>)}
-                          </select>
-                          <input type="date" value={formEdit.fecha} onChange={e => setFormEdit(p => ({ ...p, fecha: e.target.value }))} className={inputCls} />
-                          <div className="flex items-center gap-2 sm:col-span-5">
-                            <label className="flex items-center gap-1.5 text-xs text-secondary">
-                              <input type="checkbox" checked={formEdit.es_gasto_hormiga}
-                                onChange={e => setFormEdit(p => ({ ...p, es_gasto_hormiga: e.target.checked }))} className="rounded" />
-                              🐜 hormiga
-                            </label>
-                            {(g.cuotas_total ?? 1) > 1 && (
-                              <span className="text-[11px] text-muted">Es la cuota {g.cuota_numero}/{g.cuotas_total}: esto solo cambia esta cuota.</span>
-                            )}
-                            <div className="ml-auto flex gap-2">
-                              <button onClick={() => guardarEdicion(g.id)} className="rounded-lg bg-confirm px-3 py-1.5 text-xs font-semibold text-white hover:bg-confirm-hover">Guardar</button>
-                              <button onClick={() => setEditandoId(null)} className="rounded-lg px-3 py-1.5 text-xs text-secondary hover:bg-card">Cancelar</button>
-                            </div>
-                          </div>
-                        </div>
-                      )
-                    }
-                    return (
-                      <div key={g.id} className="group flex items-center justify-between gap-3 px-4 py-3">
-                        <div className="flex min-w-0 items-center gap-3">
-                          <span className="text-base">{getCat(g.categoria).emoji}</span>
-                          <div className="min-w-0">
-                            <p className="truncate text-sm text-primary">{g.nombre}</p>
-                            <div className="flex flex-wrap items-center gap-1.5">
-                              {medio && (
-                                <span className="rounded bg-alternate px-1.5 py-0.5 text-[10px] font-medium text-secondary">
-                                  💳 {medio}{g.forma_pago === 'credito' ? ' · crédito' : g.forma_pago === 'debito' ? ' · débito' : ''}
-                                </span>
-                              )}
-                              {(g.cuotas_total ?? 1) > 1 && (
-                                <span className="rounded bg-alternate px-1.5 py-0.5 text-[10px] font-medium text-secondary">
-                                  cuota {g.cuota_numero}/{g.cuotas_total}{g.monto_total ? ` · total ${fmtFull(Number(g.monto_total))}` : ''}
-                                </span>
-                              )}
-                              {g.es_gasto_hormiga && <span className="text-xs text-orange-500">🐜 hormiga</span>}
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex shrink-0 items-center gap-2">
-                          <span className="font-medium text-primary">
-                            {g.moneda === 'USD' ? `US$ ${Number(g.monto).toLocaleString('es-AR')}` : fmtFull(Number(g.monto))}
-                          </span>
-                          <button onClick={() => empezarEdicion(g)} aria-label={`Editar ${g.nombre}`}
-                            className="text-muted opacity-100 transition-opacity hover:text-secondary sm:opacity-0 sm:group-hover:opacity-100">
-                            <Pencil size={15} />
-                          </button>
-                          <button onClick={() => deleteVar(g)} aria-label={`Borrar ${g.nombre}`} className="text-muted hover:text-negative text-xl leading-none">×</button>
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              )
-            })}
-          </div>
-        )}
-      </div>
-
-      {/* Gastos fijos */}
-      <div className="bg-card rounded-2xl border border-line shadow-sm">
-        <div className="flex items-center justify-between gap-3 p-5 border-b border-line">
-          <div>
-            <h2 className="font-semibold text-primary">📌 Gastos fijos</h2>
-            <p className="text-xs text-muted mt-0.5">Suscripciones y recurrentes — {fmtFull(totalFijos)}/mes</p>
-          </div>
-          <button onClick={() => setShowFijoForm(!showFijoForm)}
-            className="flex min-h-[44px] shrink-0 items-center gap-1.5 rounded-xl bg-confirm px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-confirm-hover">
-            <Plus size={16} strokeWidth={2.5} /> Agregar fijo
-          </button>
-        </div>
-
-        {showFijoForm && (
-          <div className="p-5 bg-alternate border-b border-line">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <input placeholder="Nombre (ej. Gimnasio)" value={formFijo.nombre}
-                onChange={e => setFormFijo(p => ({ ...p, nombre: e.target.value }))} className={inputCls} />
-              <input placeholder="Monto mensual ($)" type="number" value={formFijo.monto}
-                onChange={e => setFormFijo(p => ({ ...p, monto: e.target.value }))} className={inputCls} />
-              <select value={formFijo.categoria} onChange={e => setFormFijo(p => ({ ...p, categoria: e.target.value }))} className={inputCls}>
-                {CATEGORIAS.map(c => <option key={c.key} value={c.key}>{c.emoji} {c.label}</option>)}
-              </select>
-            </div>
-            <div className="flex gap-2 mt-3">
-              <button onClick={saveFijo} className="bg-confirm text-white px-5 py-2.5 rounded-lg text-sm font-semibold hover:bg-confirm-hover">Guardar</button>
-              <button onClick={() => setShowFijoForm(false)} className="text-secondary px-4 py-2.5 rounded-lg text-sm hover:bg-card">Cancelar</button>
-            </div>
-          </div>
-        )}
-
-        <div className="divide-y divide-line">
-          {gastosFijos.length === 0 && <p className="p-6 text-sm text-muted text-center">Sin gastos fijos cargados</p>}
-          {gastosFijos.map(g => (
-            <div key={g.id} className="flex items-center justify-between gap-3 p-4">
-              <div className="flex min-w-0 items-center gap-3">
-                <span className="text-lg">{getCat(g.categoria).emoji}</span>
-                <div className="min-w-0">
-                  <p className="truncate font-medium text-primary text-sm">{g.nombre}</p>
-                  <p className="text-xs text-muted capitalize">{g.categoria}</p>
-                </div>
-              </div>
-              <div className="flex shrink-0 items-center gap-3">
-                <span className="font-bold text-primary">{fmtFull(Number(g.monto))}</span>
-                <button onClick={() => toggleDebitado(g.id, g.debitado)}
-                  className={`text-xs px-2 py-1 rounded-full font-medium border ${g.debitado ? 'bg-alternate text-positive' : 'bg-alternate text-secondary'}`}
-                  style={g.debitado ? { borderColor: 'var(--accent-positive)' } : undefined}>
-                  {g.debitado ? '✓ Pagado' : 'Pendiente'}
-                </button>
-                <button onClick={() => deleteFijo(g.id)} aria-label={`Quitar ${g.nombre}`} className="text-muted hover:text-negative text-xl leading-none">×</button>
-              </div>
             </div>
           ))}
         </div>
-      </div>
+      )}
+    </section>
+  )
 
-      {/* Gastos hormiga */}
-      {gastosHormiga.length > 0 && (
-        <div className="rounded-2xl border p-5" style={{ background: 'var(--riesgo-medio-tint)', borderColor: 'var(--riesgo-medio)' }}>
-          <h3 className="mb-2 text-sm font-semibold" style={{ color: 'var(--riesgo-medio)' }}>🐜 Gastos hormiga del período</h3>
-          <p className="text-sm text-primary">
-            {gastosHormiga.length} gastos chicos suman <strong>{fmtFull(gastosHormiga.reduce((s, g) => s + ars(g), 0))}</strong>
-            {totalVar > 0 && <span className="text-secondary"> ({Math.round((gastosHormiga.reduce((s, g) => s + ars(g), 0) / totalVar) * 100)}% del total)</span>}
-          </p>
+  const panelFijos = (
+    <section aria-labelledby="t-fijos" className="min-w-0">
+      <Encabezado id="t-fijos" titulo="Gastos fijos" sub={`${fmt(totales.fijosMes)} por mes · ${fijos.filter(f => !f.debitado).length} pendientes`}
+        derecha={<button onClick={() => setFormFijo(f => (f ? null : { nombre: '', monto: '', categoria: 'servicios' }))}
+          className="fa-press flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-xs font-semibold text-primary hover:bg-alternate fa-hairline"><Plus size={13} /> Agregar</button>} />
+      <div className="fa-colapsable" data-abierto={!!formFijo}>
+        <div>
+          {formFijo && (
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <input autoFocus placeholder="Nombre (ej. Gimnasio)" value={formFijo.nombre} onChange={e => setFormFijo({ ...formFijo, nombre: e.target.value })} className={`${inputCls} col-span-2`} />
+              <input placeholder="Monto mensual" type="number" inputMode="decimal" value={formFijo.monto} onChange={e => setFormFijo({ ...formFijo, monto: e.target.value })} className={inputCls} />
+              <select value={formFijo.categoria} onChange={e => setFormFijo({ ...formFijo, categoria: e.target.value })} aria-label="Categoría" className={inputCls}>
+                {CATEGORIAS.map(c => <option key={c.key} value={c.key}>{c.emoji} {c.label}</option>)}
+              </select>
+              <button onClick={guardarFijo} className="fa-press col-span-2 rounded-lg bg-confirm py-2 text-sm font-semibold text-white hover:bg-confirm-hover">Guardar fijo</button>
+            </div>
+          )}
+        </div>
+      </div>
+      <ul className="mt-3 divide-y fa-hairline">
+        {fijos.length === 0 && <li className="py-4 text-xs text-secondary">Sin gastos fijos. Agregá alquiler, servicios o suscripciones para ver tus compromisos del mes.</li>}
+        {fijos.map(f => (
+          <li key={f.id} className="flex items-center gap-3 py-2.5">
+            <span className="text-base" aria-hidden="true">{getCat(f.categoria).emoji}</span>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-sm text-primary">{f.nombre}</span>
+              <span className="block text-[11px] tabular-nums text-muted">{fmt(Number(f.monto))} por mes</span>
+            </span>
+            <button onClick={() => alternarPagado(f)} role="switch" aria-checked={f.debitado} aria-label={`${f.nombre}: ${f.debitado ? 'pagado' : 'pendiente'}`}
+              className="fa-press rounded-full border px-2.5 py-1 text-[11px] font-semibold"
+              style={f.debitado ? { borderColor: 'var(--accent-positive)', color: 'var(--accent-positive)', background: 'var(--glow-positive)' } : { borderColor: 'var(--border-color)', color: 'var(--text-secondary)' }}>
+              {f.debitado ? '✓ Pagado' : 'Pendiente'}
+            </button>
+            <button onClick={() => quitarFijo(f)} aria-label={`Quitar ${f.nombre}`} className="fa-press flex h-8 w-8 items-center justify-center rounded-lg text-muted hover:bg-alternate hover:text-negative"><X size={14} /></button>
+          </li>
+        ))}
+      </ul>
+    </section>
+  )
+
+  return (
+    <div className="fa-page-in mx-auto flex max-w-[1480px] flex-col gap-6 pb-6 lg:gap-7">
+      {encabezado}
+      {resumen}
+      {luca}
+
+      {desktop ? (
+        <>
+          <div className="grid grid-cols-12 gap-7">
+            <Revelar className="fa-panel col-span-8 p-6">{grafico}</Revelar>
+            <Revelar className="fa-panel col-span-4 p-6" demora={60}>{categorias}</Revelar>
+          </div>
+          <div className="grid grid-cols-12 gap-7">
+            <div className="col-span-8">{lista}</div>
+            <div className="col-span-4 flex flex-col gap-7">
+              <Revelar className="fa-panel p-6">{panelFijos}</Revelar>
+              <Revelar className="fa-panel p-6">{medios}</Revelar>
+              {grandes && <Revelar className="fa-panel p-6">{grandes}</Revelar>}
+            </div>
+          </div>
+        </>
+      ) : (
+        <>
+          {lista}
+          <section className="fa-panel overflow-hidden">
+            <button onClick={() => setAnalisis(v => !v)} aria-expanded={analisis} className="fa-press flex w-full items-center gap-3 px-5 py-4 text-left">
+              <BarChart3 size={18} className="text-info" />
+              <span className="flex-1"><span className="block text-sm font-semibold text-primary">Análisis</span><span className="block text-xs text-secondary">Día a día, categorías y medios de pago</span></span>
+              <ChevronDown size={16} className="text-muted" style={{ transform: analisis ? 'rotate(180deg)' : undefined, transition: 'transform var(--dur-std) var(--ease-out)' }} />
+            </button>
+            <div className="fa-colapsable" data-abierto={analisis}>
+              <div>{analisis && <div className="space-y-8 border-t px-5 pb-6 pt-5 fa-hairline">{grafico}{categorias}{medios}{grandes}</div>}</div>
+            </div>
+          </section>
+          <section className="fa-panel p-5">{panelFijos}</section>
+        </>
+      )}
+
+      {hoja && !desktop && (
+        <div className="fixed inset-0 z-[55] flex items-end" role="dialog" aria-modal="true" aria-label="Contale a Luca">
+          <button className="fa-fade-in absolute inset-0 bg-black/60" aria-label="Cerrar" onClick={() => setHoja(false)} />
+          <div className="fa-sheet-up relative w-full rounded-t-3xl border-t p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom,0px))] fa-hairline" style={{ background: 'var(--bg-card)' }}>
+            <div className="mx-auto mb-4 h-1 w-10 rounded-full" style={{ background: 'var(--border-color)' }} />
+            <p className="mb-3 text-sm font-semibold text-primary">Contale a Luca</p>
+            <CapturaLuca onGuardar={guardarDesdeLuca} autoFoco />
+          </div>
         </div>
       )}
+      {agregar && <AgregarMovimientoModal defaultTab="gasto" onClose={() => setAgregar(false)} onSaved={() => { cargar(true); toasts.mostrar({ texto: 'Movimiento guardado.' }, 3000) }} />}
+      {confirmarCompra && (
+        <Confirmar titulo={`¿Borrar la compra "${confirmarCompra.nombre}"?`} peligro accion="Borrar compra"
+          detalle={<>Es la cuota {confirmarCompra.cuota_numero}/{confirmarCompra.cuotas_total}: se borran todas sus cuotas. Vas a poder deshacerlo.</>}
+          onConfirmar={() => borrar(confirmarCompra, true)} onCancelar={() => setConfirmarCompra(null)} />
+      )}
+      <Toasts items={toasts.items} onCerrar={toasts.cerrar} />
     </div>
   )
 }
 
-function Kpi({ label, valor, fuerte }: { label: string; valor: string; fuerte?: boolean }) {
+function Chip({ children, onQuitar }: { children: React.ReactNode; onQuitar: () => void }) {
   return (
-    <div className="fa-card px-4 py-3">
-      <p className="fa-label">{label}</p>
-      <p className={fuerte ? 'fa-num-lg text-primary' : 'fa-num-md text-primary'}>{valor}</p>
+    <button onClick={onQuitar} className="fa-press fa-pop inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs text-primary hover:bg-alternate fa-hairline">
+      {children} <X size={12} className="text-muted" />
+    </button>
+  )
+}
+
+function SkeletonMovimientos() {
+  const B = ({ c }: { c: string }) => <div className={`animate-pulse rounded-lg ${c}`} style={{ background: 'var(--bg-alternate)' }} />
+  return (
+    <div className="mx-auto flex max-w-[1480px] flex-col gap-7" aria-busy="true" aria-label="Cargando movimientos">
+      <div className="space-y-2"><B c="h-3 w-24" /><B c="h-8 w-56" /><B c="h-8 w-72" /></div>
+      <div className="grid gap-5 lg:grid-cols-12"><div className="space-y-2 lg:col-span-4"><B c="h-3 w-28" /><B c="h-12 w-60" /></div>
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 lg:col-span-8"><B c="h-14" /><B c="h-14" /><B c="h-14" /><B c="h-14" /></div></div>
+      <div className="grid gap-7 lg:grid-cols-12"><B c="h-72 rounded-2xl lg:col-span-8" /><B c="h-72 rounded-2xl lg:col-span-4" /></div>
+      <div className="space-y-3">{[0, 1, 2, 3, 4].map(i => <B key={i} c="h-12" />)}</div>
     </div>
   )
 }
