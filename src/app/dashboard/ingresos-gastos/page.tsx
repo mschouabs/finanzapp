@@ -4,7 +4,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { Briefcase, Pencil, Plus, Rocket, Trash2, TrendingUp, Wallet } from 'lucide-react'
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { createClient } from '@/lib/supabase'
-import { Kpi, Titulo, fmtK, tooltipStyle } from '@/components/ui/Piezas'
+import { Kpi, SkeletonPagina, Titulo, fmtK, tooltipStyle } from '@/components/ui/Piezas'
+import { LucaMensaje } from '@/components/luca/LucaMensaje'
 
 interface IngresoFijo {
   id: string
@@ -178,11 +179,11 @@ export default function TrabajosPage() {
 
   const inputCls = 'rounded-lg border bg-field px-3 py-2.5 text-sm text-primary'
 
-  if (loading) return (
-    <div className="flex items-center justify-center h-64">
-      <div className="text-muted animate-pulse text-lg">Cargando...</div>
-    </div>
-  )
+  if (loading) return <SkeletonPagina kpis={4} />
+
+  /* Luca: qué proporción de lo cobrado este mes vino de freelance vs. sueldo fijo */
+  const totalMes = totalFijos + freelanceDelMes
+  const pctFreelanceMes = totalMes > 0 ? Math.round((freelanceDelMes / totalMes) * 100) : 0
 
   return (
     <div className="flex flex-col gap-6">
@@ -200,6 +201,13 @@ export default function TrabajosPage() {
         <Kpi label="Freelance cobrado" valor={fmtK(totalFreelanceCobrado)} icono={<Rocket size={17} />} tono="var(--accent-violet)" sub="histórico" />
         <Kpi label="Freelance pendiente" valor={fmtK(totalFreelancePendiente)} icono={<TrendingUp size={17} />} tono="var(--accent-warning)" sub="por cobrar" />
       </div>
+
+      {totalMes > 0 && (
+        <LucaMensaje estado="idle" variante="panel" className="p-4">
+          Este mes tu ingreso freelance representa <b>{pctFreelanceMes}%</b> de lo cobrado
+          ({fmtK(freelanceDelMes)} de {fmtK(totalMes)}); el resto es sueldo fijo.
+        </LucaMensaje>
+      )}
 
       {/* Comparativo mensual */}
       <section className="fa-card p-5">

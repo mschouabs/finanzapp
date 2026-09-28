@@ -57,9 +57,9 @@ export function Kpi({ label, valor, sub, icono, tono = 'var(--accent-secondary)'
         </span>
       )}
       <div className="min-w-0">
-        <p className="text-[11px] font-semibold uppercase tracking-wide text-secondary">{label}</p>
-        <p className="fa-amount mt-0.5 truncate text-xl text-primary">{valor}</p>
-        {sub && <p className="mt-0.5 text-[11px] text-muted">{sub}</p>}
+        <p className="fa-label">{label}</p>
+        <p className="fa-num-md mt-0.5 truncate text-primary">{valor}</p>
+        {sub && <p className="fa-caption mt-0.5">{sub}</p>}
       </div>
     </div>
   )
