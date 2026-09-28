@@ -5,8 +5,9 @@ import { CalendarClock, GripVertical, Link2, Pencil, PiggyBank, Plus, Target, Tr
 import { createClient } from '@/lib/supabase'
 import { aPesos, traerCotizaciones, type Cotizaciones, type LineaSaldo } from '@/lib/patrimonio'
 import { GrillaOrdenable, type HandleProps } from '@/components/GrillaOrdenable'
-import { AnilloProgreso, fmtK, fmtPesos } from '@/components/ui/Piezas'
+import { AnilloProgreso, SkeletonPagina, fmtK, fmtPesos } from '@/components/ui/Piezas'
 import { Modal } from '@/components/tarjetas/Modales'
+import { LucaMensaje } from '@/components/luca/LucaMensaje'
 
 /* ── Metas ────────────────────────────────────────────────────────
    Arriba, dos metas "automáticas" que salen de tus números (cuánto
@@ -194,12 +195,43 @@ export default function MetasPage() {
   }, [])
 
   if (loading) {
-    return <div className="fa-card p-8 text-center"><p className="text-sm text-secondary">Cargando metas…</p></div>
+    return <SkeletonPagina kpis={2} />
   }
 
   const colorAhorro = tasaAhorro >= metaAhorro ? 'var(--accent-positive)' : tasaAhorro >= metaAhorro / 2 ? 'var(--riesgo-medio)' : 'var(--accent-negative)'
   const colorCubierto = pctCubierto >= 100 ? 'var(--accent-positive)' : pctCubierto >= 50 ? 'var(--riesgo-medio)' : 'var(--accent-secondary)'
   const logradas = metas.filter(m => actualDe(m) >= Number(m.monto_objetivo)).length
+
+  /* ── insight de Luca: la meta más urgente (atrasada) o la más cerca de lograrse ── */
+  const lucaInsight = (() => {
+    const activas = metas
+      .filter(m => actualDe(m) < Number(m.monto_objetivo))
+      .map(m => {
+        const objetivo = Number(m.monto_objetivo) || 0
+        const actual = actualDe(m)
+        const faltante = Math.max(objetivo - actual, 0)
+        const pct = objetivo > 0 ? (actual / objetivo) * 100 : 0
+        const ritmo = m.moneda === 'USD' ? ahorroMes / dolar : ahorroMes
+        const mesesARitmo = ritmo > 0 ? Math.ceil(faltante / ritmo) : null
+        const llegada = mesesARitmo !== null ? new Date(new Date().getFullYear(), new Date().getMonth() + mesesARitmo, 1) : null
+        const llegaTarde = !!(llegada && m.fecha_limite && llegada.getTime() > new Date(m.fecha_limite + 'T12:00:00').getTime())
+        return { m, pct, mesesARitmo, llegaTarde }
+      })
+    if (activas.length === 0) return null
+    const atrasada = activas.filter(a => a.llegaTarde).sort((a, b) => b.pct - a.pct)[0]
+    if (atrasada) {
+      return (
+        <>Al ritmo de este mes, <b>{atrasada.m.nombre}</b> llegaría después de tu fecha límite. Si podés sumarle un poco más este mes, la alcanzás a tiempo.</>
+      )
+    }
+    const masCerca = activas.sort((a, b) => b.pct - a.pct)[0]
+    if (masCerca?.mesesARitmo !== null && masCerca?.mesesARitmo !== undefined) {
+      return (
+        <>A tu ritmo actual, alcanzarías <b>{masCerca.m.nombre}</b> en {masCerca.mesesARitmo} {masCerca.mesesARitmo === 1 ? 'mes' : 'meses'}.</>
+      )
+    }
+    return null
+  })()
 
   /* ── tarjeta de una meta ─────────────────── */
   const renderMeta = (m: Meta, handle: HandleProps, arrastrando: boolean) => {
@@ -239,12 +271,12 @@ export default function MetasPage() {
 
         <div className="mt-4 flex items-center gap-4">
           <AnilloProgreso pct={pct} size={92} grosor={9} color={color}>
-            <span className="fa-amount text-lg text-primary">{Math.min(Math.round(pct), 999)}%</span>
+            <span className="fa-num-md text-primary">{Math.min(Math.round(pct), 999)}%</span>
           </AnilloProgreso>
           <div className="min-w-0">
-            <p className="fa-amount text-xl text-primary">{fmtMoneda(actual, m.moneda)}</p>
-            <p className="text-xs text-secondary">de {fmtMoneda(objetivo, m.moneda)}</p>
-            {!lograda && <p className="mt-1 text-[11px] text-muted">Faltan {fmtMoneda(faltante, m.moneda)}</p>}
+            <p className="fa-num-lg text-primary">{fmtMoneda(actual, m.moneda)}</p>
+            <p className="fa-caption">de {fmtMoneda(objetivo, m.moneda)}</p>
+            {!lograda && <p className="fa-caption mt-1">Faltan {fmtMoneda(faltante, m.moneda)}</p>}
             {m.billetera_app && (
               <p className="mt-1.5 inline-flex items-center gap-1 rounded-full bg-alternate px-2 py-0.5 text-[10px] font-semibold text-secondary">
                 <Link2 size={10} /> {nombreApp(m.billetera_app)}
@@ -312,12 +344,18 @@ export default function MetasPage() {
         )}
       </div>
 
+      {lucaInsight && (
+        <LucaMensaje estado="idle" variante="panel" className="p-4">
+          {lucaInsight}
+        </LucaMensaje>
+      )}
+
       {/* Metas automáticas */}
       <div className="grid grid-cols-1 gap-5 min-w-0 lg:grid-cols-2">
         <section className="fa-card fa-lift flex flex-wrap items-center gap-5 p-5">
           <AnilloProgreso pct={metaAhorro > 0 ? (tasaAhorro / metaAhorro) * 100 : 0} size={110} grosor={11} color={colorAhorro}>
-            <span className="fa-amount text-xl text-primary">{Math.round(tasaAhorro)}%</span>
-            <span className="text-[10px] text-muted">de {metaAhorro}%</span>
+            <span className="fa-num-lg text-primary">{Math.round(tasaAhorro)}%</span>
+            <span className="fa-label">de {metaAhorro}%</span>
           </AnilloProgreso>
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
@@ -349,8 +387,8 @@ export default function MetasPage() {
 
         <section className="fa-card fa-lift flex flex-wrap items-center gap-5 p-5">
           <AnilloProgreso pct={pctCubierto} size={110} grosor={11} color={colorCubierto}>
-            <span className="fa-amount text-xl text-primary">{Math.round(pctCubierto)}%</span>
-            <span className="text-[10px] text-muted">cubierto</span>
+            <span className="fa-num-lg text-primary">{Math.round(pctCubierto)}%</span>
+            <span className="fa-label">cubierto</span>
           </AnilloProgreso>
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
@@ -420,8 +458,8 @@ export default function MetasPage() {
 function Mini({ label, valor, color }: { label: string; valor: string; color: string }) {
   return (
     <div className="rounded-xl bg-alternate px-2 py-2">
-      <p className="text-[10px] text-muted">{label}</p>
-      <p className="fa-amount text-sm" style={{ color }}>{valor}</p>
+      <p className="fa-label">{label}</p>
+      <p className="fa-num-sm" style={{ color }}>{valor}</p>
     </div>
   )
 }
