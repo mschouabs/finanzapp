@@ -4,10 +4,12 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import {
   ArrowDownRight, ArrowLeftRight, ArrowRight, ArrowUpRight, Check, ChevronRight, Coins, Eye, EyeOff,
-  GripVertical, Landmark, LineChart, Pencil, Percent, PiggyBank, Plus, Trash2, Wallet, X,
+  GripVertical, LineChart, Pencil, Percent, PiggyBank, Plus, Trash2, Wallet, X,
 } from 'lucide-react'
-import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import { BarraApilada, Dona, Leyenda, PALETA, SkeletonPagina, Titulo, fmtK, tooltipStyle, type Porcion } from '@/components/ui/Piezas'
+import { BarraApilada, Dona, Leyenda, PALETA, SkeletonPagina, fmtK, type Porcion } from '@/components/ui/Piezas'
+import { Encabezado, NumeroAnimado, Revelar, Toasts, useMedia, useToasts } from '@/components/resumen/base'
+import { GraficoMensual } from '@/components/resumen/GraficoMensual'
+import { EVENTO_DATOS } from '@/lib/eventos'
 import { Modal } from '@/components/tarjetas/Modales'
 import { createClient } from '@/lib/supabase'
 import { COLORES_MARCA, marcaDeMedio, normalizar } from '@/lib/tarjetas'
@@ -106,6 +108,9 @@ export default function BilleterasPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [oculto, setOculto] = useState(false)
+  const toasts = useToasts()
+  const desktop = useMedia('(min-width: 1024px)', true)
+  const [analisis, setAnalisis] = useState(false)
 
   const [lineaEdit, setLineaEdit] = useState<{ id: string; nombre: string; monto: string; tasa: string } | null>(null)
   const [appEdit, setAppEdit] = useState<{ app: string; nombre: string } | null>(null)
@@ -284,16 +289,24 @@ export default function BilleterasPage() {
         monto_cobrado: preguntaSaldo.diferencia,
         fecha: hoyISO(),
       })
+      toasts.mostrar({ texto: `Anotado como ingreso: ${fmtARS(preguntaSaldo.diferencia)}` }, 4000)
     }
     setPreguntaSaldo(null)
   }
 
   async function borrarLinea(l: LineaSaldo) {
-    if (!window.confirm(`¿Borrar "${l.nombre}"?`)) return
     const supabase = createClient()
+    const { data: fila } = await supabase.from('inversiones').select('*').eq('id', l.id).single()
     await supabase.from('inversiones').delete().eq('id', l.id)
     setLineaEdit(null)
-    cargar()
+    await cargar()
+    toasts.mostrar({
+      texto: `Borraste "${l.nombre}" de ${l.etiqueta || l.app}`,
+      deshacer: fila ? async () => {
+        await createClient().from('inversiones').insert(fila)
+        await cargar()
+      } : undefined,
+    }, 8000)
   }
 
   async function agregarLinea() {
@@ -331,7 +344,10 @@ export default function BilleterasPage() {
       return 'No se pudo acreditar en la cuenta de destino. No se movió nada.'
     }
     setTransfiriendo(false)
-    cargar()
+    await cargar()
+    window.dispatchEvent(new Event(EVENTO_DATOS))
+    const d = lineas.find(l => l.id === desdeId), h = lineas.find(l => l.id === haciaId)
+    toasts.mostrar({ texto: `Transferiste de ${d?.etiqueta || d?.app} a ${h?.etiqueta || h?.app}.` }, 4000)
     return null
   }
 
@@ -353,12 +369,12 @@ export default function BilleterasPage() {
     const editandoNombre = appEdit?.app === g.app
     return (
       <div
-        className={`fa-card flex h-full flex-col p-4 ${arrastrando ? '' : 'fa-lift'}`}
+        className={`fa-panel flex h-full flex-col p-4 ${arrastrando ? '' : 'fa-lift'}`}
         style={focoApp === g.app && !arrastrando ? { outline: '2px solid var(--accent-secondary)', outlineOffset: 2 } : arrastrando ? { boxShadow: '0 18px 40px rgba(0,0,0,.35)', outline: '2px solid var(--accent-positive)' } : undefined}
       >
         {/* cabecera: manija + nombre + lápiz */}
         <div className="flex items-center gap-2">
-          <button type="button" {...handle} className="-ml-1 rounded p-1 text-muted hover:bg-alternate hover:text-primary">
+          <button type="button" {...handle} className="-ml-1 flex h-8 w-7 items-center justify-center rounded text-muted hover:bg-alternate hover:text-primary">
             <GripVertical size={16} />
           </button>
           <Insignia app={g.nombre} size={30} />
@@ -380,7 +396,7 @@ export default function BilleterasPage() {
               <button
                 onClick={() => setAppEdit({ app: g.app, nombre: g.nombre })}
                 aria-label={`Cambiar nombre de ${g.nombre}`}
-                className="rounded p-1 text-muted hover:bg-alternate hover:text-primary"
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-muted hover:bg-alternate hover:text-primary"
               >
                 <Pencil size={13} />
               </button>
@@ -392,7 +408,7 @@ export default function BilleterasPage() {
               )}
               {!riesgo && (
                 <button onClick={() => abrirAgregar(g.app)} aria-label={`Agregar saldo a ${g.nombre}`}
-                  className="ml-auto rounded p-1 text-muted hover:bg-alternate hover:text-primary">
+                  className="ml-auto flex h-8 w-8 items-center justify-center rounded-lg text-muted hover:bg-alternate hover:text-primary">
                   <Plus size={15} />
                 </button>
               )}
@@ -401,7 +417,7 @@ export default function BilleterasPage() {
         </div>
 
         <div className="mt-3 flex items-baseline gap-2">
-          <p className="fa-amount text-2xl text-primary">{$(g.total)}</p>
+          {oculto ? <p className="text-2xl font-extrabold text-primary">{OCULTO}</p> : <NumeroAnimado valor={g.total} className="text-2xl font-extrabold tabular-nums text-primary" />}
           {tot.total > 0 && !oculto && (
             <span className="text-xs font-medium text-muted">{Math.round((g.total / tot.total) * 100)}% del total</span>
           )}
@@ -471,162 +487,125 @@ export default function BilleterasPage() {
     )
   }
 
-  return (
-    <div className="flex flex-col gap-6">
-      {/* Encabezado */}
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-extrabold text-primary">Billeteras</h1>
-          <p className="mt-1 text-sm text-secondary">Dónde está tu plata. Cuentas, dólares e inversiones.</p>
+  const hero = (
+    <section aria-label="Tu plata" className="grid gap-6 lg:grid-cols-12 lg:items-end">
+      <div className="lg:col-span-5">
+        <div className="flex items-center gap-1.5">
+          <p className="fa-label">Lo que tenés</p>
+          <button onClick={toggleOculto} aria-label={oculto ? 'Mostrar montos' : 'Ocultar montos'} aria-pressed={oculto}
+            className="fa-press flex h-7 w-7 items-center justify-center rounded-lg text-muted hover:bg-alternate hover:text-primary">
+            {oculto ? <EyeOff size={14} /> : <Eye size={14} />}
+          </button>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <button
-            onClick={() => setTransfiriendo(true)}
-            disabled={lineas.length < 2}
-            className="flex min-h-[44px] items-center gap-1.5 rounded-xl border px-4 py-2 text-sm font-semibold text-primary hover:bg-alternate disabled:opacity-40"
-          >
-            <ArrowLeftRight size={16} /> Transferir
-          </button>
-          <button
-            onClick={() => (showForm ? setShowForm(false) : abrirAgregar())}
-            className="flex min-h-[44px] items-center gap-1.5 rounded-xl bg-confirm px-4 py-2 text-sm font-semibold text-white hover:bg-confirm-hover"
-          >
-            <Plus size={16} strokeWidth={2.5} /> Agregar saldo
-          </button>
+        {oculto
+          ? <p className="mt-1 text-[clamp(2.2rem,3.8vw,3rem)] font-extrabold leading-none tracking-tight text-primary">{OCULTO}</p>
+          : <NumeroAnimado valor={tot.total} contarAlInicio className="mt-1 block text-[clamp(2.2rem,3.8vw,3rem)] font-extrabold leading-none tracking-tight tabular-nums text-primary" />}
+        {variacion !== null ? (
+          <p className="mt-2 flex flex-wrap items-center gap-1.5 text-sm">
+            <span className="inline-flex items-center gap-0.5 rounded-md px-1.5 py-0.5 text-xs font-semibold tabular-nums"
+              style={{ background: variacion >= 0 ? 'var(--glow-positive)' : 'var(--glow-negative)', color: variacion >= 0 ? 'var(--accent-positive)' : 'var(--accent-negative)' }}>
+              {variacion >= 0 ? <ArrowUpRight size={13} /> : <ArrowDownRight size={13} />}
+              {variacion >= 0 ? '+' : ''}{variacion.toFixed(1).replace('.', ',')}%
+            </span>
+            <span className="text-secondary">vs. fin del mes pasado</span>
+          </p>
+        ) : <p className="mt-2 text-xs text-secondary">Desde el mes que viene ves la comparación.</p>}
+        <p className="mt-2 text-[11px] text-muted">
+          Billeteras e inversiones, en pesos al dólar de hoy{cot.dolar ? ` ($${Math.round(cot.dolar).toLocaleString('es-AR')})` : ''}. Tu patrimonio neto (restando tarjetas) está en el <Link href="/dashboard" className="underline underline-offset-2 hover:text-primary">Resumen</Link>.
+        </p>
+      </div>
+
+      <div className="lg:col-span-4">
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.04em] text-secondary"><span className="h-2 w-2 rounded-full" style={{ background: 'var(--accent-secondary)' }} />Disponible</p>
+            {oculto ? <p className="mt-1 text-lg font-bold text-primary">{OCULTO}</p> : <NumeroAnimado valor={tot.liquido} className="mt-1 block text-lg font-bold tabular-nums text-primary" />}
+            <p className="text-[11px] text-muted">{pctLiq}% · {liquidas.length} cuentas</p>
+            {rindeDisponibleMes > 0 && !oculto && <p className="mt-0.5 flex items-center gap-1 text-[11px] font-medium text-positive"><PiggyBank size={11} /> +{fmtK(rindeDisponibleMes)}/mes de interés</p>}
+          </div>
+          <div>
+            <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.04em] text-secondary"><span className="h-2 w-2 rounded-full" style={{ background: 'var(--accent-violet)' }} />Invertido</p>
+            {oculto ? <p className="mt-1 text-lg font-bold text-primary">{OCULTO}</p> : <NumeroAnimado valor={tot.invertido} className="mt-1 block text-lg font-bold tabular-nums text-primary" />}
+            <p className="text-[11px] text-muted">{pctInv}% · {invertidas.length} {invertidas.length === 1 ? 'lugar' : 'lugares'}</p>
+          </div>
+        </div>
+        <div className="mt-3 flex h-2.5 gap-[2px] overflow-hidden rounded-full" style={{ background: 'var(--border-subtle)' }}>
+          <div className="fa-grow-x h-full rounded-l-full" style={{ width: `${pctLiq}%`, background: 'var(--accent-secondary)' }} />
+          <div className="fa-grow-x h-full rounded-r-full" style={{ width: `${pctInv}%`, background: 'var(--accent-violet)' }} />
         </div>
       </div>
 
-      {error && <p className="text-sm text-negative">{error}</p>}
-
-      {/* Patrimonio */}
-      <section className="fa-card grid grid-cols-1 gap-6 p-5 min-w-0 lg:grid-cols-[1.1fr_1.4fr_auto] lg:items-center">
-        <div>
-          <div className="flex items-center gap-2">
-            <Wallet size={17} className="text-positive" />
-            <h2 className="text-sm font-semibold text-primary">Patrimonio financiero</h2>
-            <button onClick={toggleOculto} aria-label={oculto ? 'Mostrar montos' : 'Ocultar montos'}
-              className="rounded p-1 text-muted hover:bg-alternate hover:text-primary">
-              {oculto ? <EyeOff size={15} /> : <Eye size={15} />}
-            </button>
-          </div>
-          <p className="fa-num-hero mt-2 text-primary">{$(tot.total)}</p>
-          {variacion !== null ? (
-            <p className="mt-1.5 flex items-center gap-1 text-sm">
-              {variacion >= 0
-                ? <ArrowUpRight size={16} className="text-positive" />
-                : <ArrowDownRight size={16} className="text-negative" />}
-              <span className={`font-semibold ${variacion >= 0 ? 'text-positive' : 'text-negative'}`}>
-                {variacion >= 0 ? '+' : ''}{variacion.toFixed(1).replace('.', ',')}%
-              </span>
-              <span className="text-secondary">respecto al mes anterior</span>
-            </p>
-          ) : (
-            <p className="mt-1.5 text-xs text-secondary">Primer mes registrado: desde el mes que viene ves la comparación.</p>
-          )}
-        </div>
-
-        <div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <p className="fa-label">Disponible</p>
-              <p className="fa-num-lg text-primary">{$(tot.liquido)}</p>
-              <p className="text-sm font-semibold text-positive">{pctLiq}%</p>
-              {rindeDisponibleMes > 0 && !oculto && (
-                <p className="mt-0.5 flex items-center gap-1 text-[11px] font-medium text-positive">
-                  <PiggyBank size={11} /> +{fmtK(rindeDisponibleMes)}/mes rindiendo
-                </p>
-              )}
-            </div>
-            <div className="border-l border-line pl-4">
-              <p className="fa-label">Invertido</p>
-              <p className="fa-num-lg text-primary">{$(tot.invertido)}</p>
-              <p className="text-sm font-semibold" style={{ color: 'var(--accent-violet, #8B5CF6)' }}>{pctInv}%</p>
-            </div>
-          </div>
-          <div className="mt-3 flex h-2.5 overflow-hidden rounded-full" style={{ background: 'var(--border-color)' }}>
-            <div style={{ width: `${pctLiq}%`, background: 'var(--accent-positive)' }} />
-            <div style={{ width: `${pctInv}%`, background: 'var(--accent-violet, #8B5CF6)' }} />
-          </div>
-        </div>
-
-        <ul className="flex gap-5 text-sm text-secondary lg:flex-col lg:gap-2.5 lg:border-l lg:border-line lg:pl-6">
-          <li className="flex items-center gap-2"><Landmark size={15} /> {liquidas.length} cuentas</li>
-          <li className="flex items-center gap-2"><LineChart size={15} /> {invertidas.length} inversiones</li>
-          <li className="flex items-center gap-2"><Coins size={15} /> {monedas} monedas</li>
+      <div className="lg:col-span-3">
+        <p className="fa-label">En qué moneda</p>
+        <div className="mt-2"><BarraApilada datos={exposicion} alto={10} /></div>
+        <ul className="mt-2 space-y-1">
+          {exposicion.filter(e => e.valor > 0).map(e => (
+            <li key={e.key} className="flex items-center gap-2 text-xs">
+              <span className="h-2 w-2 rounded-full" style={{ background: e.color }} />
+              <span className="flex-1 text-secondary">{e.label}</span>
+              <span className="font-semibold tabular-nums text-primary">{totalExpo > 0 ? Math.round((e.valor / totalExpo) * 100) : 0}%</span>
+            </li>
+          ))}
         </ul>
-      </section>
+        <p className="mt-2 flex items-start gap-1.5 text-[11px] text-secondary">
+          <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: semaforo.color }} />{semaforo.texto}
+        </p>
+      </div>
+    </section>
+  )
 
-      {/* Distribución, exposición y evolución */}
-      {tot.total > 0 && (
-        <div className="grid gap-5 xl:grid-cols-3">
-          <section className="fa-card p-5">
-            <Titulo titulo="Dónde está tu plata" sub="Tocá una app para resaltarla abajo" />
-            <div className="mt-4 flex flex-col items-center gap-3 sm:flex-row sm:items-start xl:flex-col xl:items-center">
-              <Dona
-                datos={porApp}
-                size={160}
-                activo={focoApp}
-                onElegir={k => setFocoApp(f => (f === k ? null : k))}
-                centro={<>
-                  <span className="text-[10px] font-semibold uppercase tracking-wide text-secondary">Total</span>
-                  <span className="fa-amount text-base text-primary">{oculto ? OCULTO : fmtK(tot.total)}</span>
-                </>}
-              />
-              <Leyenda datos={porApp} fmt={n => (oculto ? OCULTO : fmtK(n))} activo={focoApp} onElegir={k => setFocoApp(f => (f === k ? null : k))} max={6} />
-            </div>
-          </section>
+  const donde = (
+    <section aria-labelledby="t-donde" className="min-w-0">
+      <Encabezado id="t-donde" titulo="Dónde está tu plata" sub="Tocá una app para resaltar su tarjeta" />
+      <div className="mt-4 flex flex-col items-center gap-4 sm:flex-row sm:items-start">
+        <Dona datos={porApp} size={160} activo={focoApp} onElegir={k => setFocoApp(f => (f === k ? null : k))}
+          centro={<><span className="text-[10px] font-semibold uppercase tracking-wide text-secondary">Total</span><span className="fa-amount text-base text-primary">{oculto ? OCULTO : fmtK(tot.total)}</span></>} />
+        <Leyenda datos={porApp} fmt={n => (oculto ? OCULTO : fmtK(n))} activo={focoApp} onElegir={k => setFocoApp(f => (f === k ? null : k))} max={7} />
+      </div>
+    </section>
+  )
 
-          <section className="fa-card flex flex-col p-5">
-            <Titulo titulo="En qué moneda" sub="Cuánto de tu patrimonio está en pesos, dólares y cripto" />
-            <div className="mt-5">
-              <BarraApilada datos={exposicion} alto={14} />
-            </div>
-            <ul className="mt-4 space-y-2.5">
-              {exposicion.map(e => (
-                <li key={e.key} className="flex items-center gap-2 text-sm">
-                  <span className="h-2.5 w-2.5 rounded-full" style={{ background: e.color }} />
-                  <span className="flex-1 text-secondary">{e.label}</span>
-                  <span className="fa-amount text-primary">{oculto ? OCULTO : fmtK(e.valor)}</span>
-                  <span className="w-10 text-right text-xs font-semibold text-muted">{totalExpo > 0 ? Math.round((e.valor / totalExpo) * 100) : 0}%</span>
-                </li>
-              ))}
-            </ul>
-            <div className="mt-auto flex items-start gap-2 rounded-xl p-3 pt-3 text-xs" style={{ background: `color-mix(in srgb, ${semaforo.color} 12%, transparent)`, marginTop: 16 }}>
-              <span className="mt-0.5 h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: semaforo.color }} />
-              <span className="text-primary">{semaforo.texto}</span>
-            </div>
-          </section>
+  const evolucion = (
+    <section aria-labelledby="t-evo" className="min-w-0">
+      <Encabezado id="t-evo" titulo="Evolución" sub="Lo que tenés en billeteras e inversiones, foto de cada fin de mes" />
+      <div className="mt-4">
+        {serieHistoria.length >= 2 ? (
+          <GraficoMensual datos={serieHistoria.slice(-12).map(h => ({ mes: h.mes, patrimonio: h.total }))} modo="patrimonio"
+            etiquetaSerie="Lo que tenés" ocultarMontos={oculto} alto={desktop ? 230 : 190} />
+        ) : (
+          <div className="flex flex-col items-center justify-center rounded-xl border border-dashed py-10 text-center fa-hairline">
+            <LineChart size={24} className="text-muted" />
+            <p className="mt-2 text-sm text-secondary">Guardé la foto de este mes.</p>
+            <p className="text-xs text-muted">Desde el mes que viene vas a ver la curva.</p>
+          </div>
+        )}
+      </div>
+    </section>
+  )
 
-          <section className="fa-card flex flex-col p-5">
-            <Titulo titulo="Evolución" sub="Tu patrimonio financiero, mes a mes" />
-            {serieHistoria.length >= 2 ? (
-              <div className="mt-4 h-[190px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={serieHistoria} margin={{ top: 6, right: 6, bottom: 0, left: -14 }}>
-                    <defs>
-                      <linearGradient id="gradPatrimonio" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="var(--accent-positive)" stopOpacity={0.35} />
-                        <stop offset="100%" stopColor="var(--accent-positive)" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid stroke="var(--border-color)" strokeDasharray="3 3" vertical={false} />
-                    <XAxis dataKey="mes" tickFormatter={etiquetaMesCorta} tick={{ fill: 'var(--text-muted)', fontSize: 10 }} axisLine={false} tickLine={false} />
-                    <YAxis tickFormatter={(v: number) => (oculto ? '' : fmtK(v))} tick={{ fill: 'var(--text-muted)', fontSize: 10 }} axisLine={false} tickLine={false} />
-                    <Tooltip contentStyle={tooltipStyle} labelFormatter={etiquetaMesCorta} formatter={(v: number) => [oculto ? OCULTO : fmtARS(v), 'Patrimonio']} />
-                    <Area type="monotone" dataKey="total" stroke="var(--accent-positive)" strokeWidth={2.5} fill="url(#gradPatrimonio)" dot={{ r: 3 }} />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
-            ) : (
-              <div className="flex flex-1 flex-col items-center justify-center py-8 text-center">
-                <LineChart size={28} className="text-muted" />
-                <p className="mt-2 text-sm text-secondary">Guardé la foto de este mes.</p>
-                <p className="text-xs text-muted">Desde el mes que viene vas a ver la curva.</p>
-              </div>
-            )}
-          </section>
+  return (
+    <div className="fa-page-in mx-auto flex max-w-[1480px] flex-col gap-7 pb-6">
+      {/* Encabezado */}
+      <header className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-muted">Billeteras</p>
+          <h1 className="mt-0.5 text-xl font-extrabold tracking-tight text-primary lg:text-2xl">Dónde está tu plata</h1>
         </div>
-      )}
+        <div className="flex w-full gap-2 sm:w-auto">
+          <button onClick={() => setTransfiriendo(true)} disabled={lineas.length < 2}
+            className="fa-press flex h-11 flex-1 items-center justify-center gap-1.5 rounded-xl border px-4 text-sm font-semibold text-primary hover:bg-alternate disabled:opacity-40 sm:flex-none fa-hairline">
+            <ArrowLeftRight size={16} /> Transferir
+          </button>
+          <button onClick={() => (showForm ? setShowForm(false) : abrirAgregar())}
+            className="fa-press flex h-11 flex-1 items-center justify-center gap-1.5 rounded-xl bg-confirm px-4 text-sm font-semibold text-white hover:bg-confirm-hover sm:flex-none">
+            <Plus size={16} strokeWidth={2.5} /> Agregar saldo
+          </button>
+        </div>
+      </header>
+
+      {error && <p className="text-sm text-negative" role="alert">{error}</p>}
+
+      {hero}
 
       {/* Formulario */}
       {showForm && (
@@ -704,20 +683,39 @@ export default function BilleterasPage() {
         {cot.dolar ? ` · Dólar blue $${Math.round(cot.dolar).toLocaleString('es-AR')}` : ''}
       </p>
 
+      {/* Análisis: distribución + evolución */}
+      {tot.total > 0 && (desktop ? (
+        <div className="grid grid-cols-12 gap-7">
+          <Revelar className="fa-panel col-span-5 p-6">{donde}</Revelar>
+          <Revelar className="fa-panel col-span-7 p-6" demora={60}>{evolucion}</Revelar>
+        </div>
+      ) : (
+        <section className="fa-panel overflow-hidden">
+          <button onClick={() => setAnalisis(v => !v)} aria-expanded={analisis} className="fa-press flex w-full items-center gap-3 px-5 py-4 text-left">
+            <LineChart size={18} className="text-info" />
+            <span className="flex-1"><span className="block text-sm font-semibold text-primary">Análisis</span><span className="block text-xs text-secondary">Distribución por app y evolución</span></span>
+            <ChevronRight size={16} className="text-muted" style={{ transform: analisis ? 'rotate(90deg)' : undefined, transition: 'transform var(--dur-std) var(--ease-out)' }} />
+          </button>
+          <div className="fa-colapsable" data-abierto={analisis}>
+            <div>{analisis && <div className="space-y-8 border-t px-5 pb-6 pt-5 fa-hairline">{donde}{evolucion}</div>}</div>
+          </div>
+        </section>
+      ))}
+
       {/* Luca */}
-      <section className="fa-card flex flex-wrap items-center gap-4 p-4">
-        <LucaAvatar estado={variacion !== null && variacion < 0 ? 'warning' : 'idle'} size={40} />
-        <p className="min-w-0 flex-1 text-sm text-secondary">
+      <div className="flex flex-wrap items-center gap-3 rounded-2xl border px-4 py-3"
+        style={{ borderColor: 'color-mix(in srgb, var(--accent-positive) 22%, var(--border-subtle))', background: 'color-mix(in srgb, var(--accent-positive) 4%, var(--bg-card))' }}>
+        <LucaAvatar estado={variacion !== null && variacion < 0 ? 'warning' : 'insight'} size={30} />
+        <p className="min-w-0 flex-1 text-sm text-primary">
           {variacion !== null
-            ? `Tu patrimonio ${variacion >= 0 ? 'aumentó' : 'bajó'} ${Math.abs(variacion).toFixed(1).replace('.', ',')}% este mes. `
-            : 'Ya guardé la foto de tu patrimonio de este mes. '}
-          El {pctInv}% de tu dinero está invertido.
+            ? `Lo que tenés ${variacion >= 0 ? 'creció' : 'bajó'} ${Math.abs(variacion).toFixed(1).replace('.', ',')}% desde fin del mes pasado (incluye la cotización del dólar). `
+            : 'Ya guardé la foto de este mes. '}
+          El {pctInv}% está invertido{rindeDisponibleMes > 0 && !oculto ? ` y tu disponible genera ~${fmtK(rindeDisponibleMes)} por mes de interés` : ''}.
         </p>
-        <Link href="/dashboard/inversiones"
-          className="flex items-center gap-1.5 rounded-xl border px-4 py-2 text-sm font-medium text-primary hover:bg-alternate">
-          Ver análisis completo <ArrowRight size={15} />
+        <Link href="/dashboard/inversiones" className="fa-press flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold text-primary hover:bg-alternate fa-hairline">
+          Ver Portfolio <ArrowRight size={14} />
         </Link>
-      </section>
+      </div>
 
       {transfiriendo && (
         <Transferir lineas={lineas} cot={cot} onTransferir={transferir} onCerrar={() => setTransfiriendo(false)} />
@@ -758,6 +756,7 @@ export default function BilleterasPage() {
           )}
         </Modal>
       )}
+      <Toasts items={toasts.items} onCerrar={toasts.cerrar} />
     </div>
   )
 }

@@ -42,7 +42,11 @@ function ticks(min: number, max: number, n = 4) {
   return out
 }
 
-export function GraficoMensual({ datos, modo, mesSel, onElegir, alto = 240 }: {
+export function GraficoMensual({ datos, modo, mesSel, onElegir, alto = 240, etiquetaSerie = 'Patrimonio neto', ocultarMontos = false }: {
+  /** nombre de la serie en el tooltip (modo patrimonio) */
+  etiquetaSerie?: string
+  /** modo "ocultar montos": ejes y tooltips sin cifras */
+  ocultarMontos?: boolean
   datos: PuntoMes[]
   modo: Modo
   mesSel?: string | null
@@ -109,7 +113,7 @@ export function GraficoMensual({ datos, modo, mesSel, onElegir, alto = 240 }: {
             <line x1={m.left} x2={m.left + w} y1={y(t)} y2={y(t)}
               stroke={t === 0 && modo !== 'patrimonio' ? 'var(--border-color)' : 'var(--border-subtle)'} strokeWidth={1} />
             <text x={m.left - 10} y={y(t)} dy="0.32em" textAnchor="end" fontSize={11} fill="var(--text-muted)"
-              style={{ fontVariantNumeric: 'tabular-nums' }}>{fmtCorto(t)}</text>
+              style={{ fontVariantNumeric: 'tabular-nums' }}>{ocultarMontos ? '' : fmtCorto(t)}</text>
           </g>
         ))}
 
@@ -171,7 +175,7 @@ export function GraficoMensual({ datos, modo, mesSel, onElegir, alto = 240 }: {
               <circle cx={ultimo[0]} cy={ultimo[1]} r={4} fill={color} stroke="var(--bg-card)" strokeWidth={2} />
               <text x={ultimo[0] + 10} y={ultimo[1]} dy="0.32em" fontSize={11} fill="var(--text-secondary)" fontWeight={600}
                 style={{ fontVariantNumeric: 'tabular-nums' }}>
-                {fmtCorto(s.valores[s.valores.length - 1])}
+                {ocultarMontos ? '' : fmtCorto(s.valores[s.valores.length - 1])}
               </text>
             </g>
           )
@@ -199,7 +203,7 @@ export function GraficoMensual({ datos, modo, mesSel, onElegir, alto = 240 }: {
           }}>
           <p className="mb-1.5 font-semibold capitalize text-primary">{nombreMes(puntoHover.mes)} {puntoHover.mes.slice(0, 4)}</p>
           {modo === 'patrimonio' ? (
-            <Fila color={COLOR.patrimonio} label="Patrimonio neto" valor={fmt(puntoHover.patrimonio ?? 0)} />
+            <Fila color={COLOR.patrimonio} label={etiquetaSerie} valor={ocultarMontos ? '••••••' : fmt(puntoHover.patrimonio ?? 0)} />
           ) : (
             <>
               <Fila color={COLOR.ingresos} label="Entró" valor={fmt(puntoHover.ingresos ?? 0)} />
