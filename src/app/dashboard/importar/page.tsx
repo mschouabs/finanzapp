@@ -392,7 +392,7 @@ export default function ImportarPage() {
               <ul className="mt-3 space-y-2">
                 {porCat.map(([cat, v]) => (
                   <li key={cat} className="text-xs">
-                    <div className="flex justify-between"><span className="capitalize text-secondary">{cat}</span><span className="fa-amount text-primary">{fmtK(v)}</span></div>
+                    <div className="flex justify-between"><span className="capitalize text-secondary">{cat}</span><span className="fa-num-sm text-primary">{fmtK(v)}</span></div>
                     <div className="mt-1 h-1.5 overflow-hidden rounded-full" style={{ background: 'var(--border-color)' }}>
                       <div className="h-full rounded-full" style={{ width: `${(v / porCat[0][1]) * 100}%`, background: 'var(--accent-secondary)' }} />
                     </div>
@@ -451,7 +451,7 @@ export default function ImportarPage() {
                         <td className="px-3 py-2.5 capitalize text-secondary">
                           {f.catFinal}{f.catFinal !== f.categoria && <Sparkles size={10} className="ml-1 inline text-positive" />}
                         </td>
-                        <td className={`fa-amount whitespace-nowrap px-3 py-2.5 text-right ${destinoEsGasto || (f.monto ?? 0) < 0 ? 'text-negative' : 'text-positive'}`}>
+                        <td className={`fa-num-sm whitespace-nowrap px-3 py-2.5 text-right ${destinoEsGasto || (f.monto ?? 0) < 0 ? 'text-negative' : 'text-positive'}`}>
                           {f.monto == null ? '—' : fmtMonto(f.monto)}
                         </td>
                       </tr>
@@ -525,9 +525,9 @@ function Resumen({ label, valor, sub, tono }: { label: string; valor: string; su
   return (
     <div className="fa-card fa-lift relative overflow-hidden p-4">
       <span aria-hidden="true" className="absolute inset-x-0 top-0 h-1" style={{ background: tono }} />
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-secondary">{label}</p>
-      <p className="fa-amount mt-1 text-2xl text-primary">{valor}</p>
-      <p className="mt-0.5 truncate text-[11px] text-muted">{sub}</p>
+      <p className="fa-label">{label}</p>
+      <p className="fa-num-xl mt-1 text-primary">{valor}</p>
+      <p className="fa-caption mt-0.5 truncate">{sub}</p>
     </div>
   )
 }
