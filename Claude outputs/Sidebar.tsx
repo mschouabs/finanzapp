@@ -6,12 +6,11 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import {
   Home, Briefcase, ShoppingCart, TrendingUp, Target, Receipt,
-  CreditCard, Download, Plus, Settings, LogOut, X, LayoutGrid, Plane, Wallet,
+  CreditCard, Download, Plus, Settings, LogOut, X, Bot, LayoutGrid, Plane, Wallet,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { ThemeSelector } from '@/components/ThemeSelector'
 import { SeccionModal } from '@/components/SeccionModal'
-import { AgregarMovimientoModal } from '@/components/AgregarMovimientoModal'
 import { LucaAvatar } from '@/components/luca/LucaAvatar'
 import type { Seccion } from '@/lib/secciones'
 
@@ -43,7 +42,6 @@ export default function Sidebar({ userName }: { userName?: string }) {
   const [secciones, setSecciones] = useState<Seccion[]>([])
   const [modal, setModal] = useState(false)
   const [abierta, setAbierta] = useState(false)
-  const [showAgregar, setShowAgregar] = useState(false)
 
   const cargarSecciones = useCallback(async () => {
     try {
@@ -260,25 +258,29 @@ export default function Sidebar({ userName }: { userName?: string }) {
             activa={pathname === '/dashboard/gastos-variables'}
           />
 
-          {/* Nuevo movimiento — botón central destacado (antes abría Luca) */}
-          <button
-            onClick={() => setShowAgregar(true)}
+          {/* Luca — botón central destacado */}
+          <Link
+            href="/dashboard/luca"
             className="flex flex-col items-center gap-0.5"
             style={{ marginTop: '-22px' }}
           >
             <span
               className="flex h-[56px] w-[56px] items-center justify-center rounded-full shadow-lg"
-              style={{ background: 'var(--accent-confirm)' }}
+              style={{
+                background: pathname === '/dashboard/luca'
+                  ? 'var(--accent-confirm-hover)'
+                  : 'var(--accent-confirm)',
+              }}
             >
-              <Plus size={27} color="white" strokeWidth={2.2} />
+              <Bot size={27} color="white" strokeWidth={1.8} />
             </span>
             <span
               className="text-[10px] font-semibold"
               style={{ color: 'var(--accent-confirm)' }}
             >
-              Nuevo
+              Luca
             </span>
-          </button>
+          </Link>
 
           {/* Tarjetas */}
           <BottomTab
@@ -313,13 +315,6 @@ export default function Sidebar({ userName }: { userName?: string }) {
         <SeccionModal
           onClose={() => setModal(false)}
           onCreated={() => { cargarSecciones(); router.refresh() }}
-        />
-      )}
-
-      {showAgregar && (
-        <AgregarMovimientoModal
-          onClose={() => setShowAgregar(false)}
-          onSaved={() => router.refresh()}
         />
       )}
     </>

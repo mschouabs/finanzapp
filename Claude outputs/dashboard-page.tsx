@@ -17,7 +17,6 @@ import {
 import { fmtDiaMes } from '@/lib/ciclos'
 import { pagarConsumos } from '@/lib/movimientos'
 import { LucaWidget } from '@/components/LucaWidget'
-import { AgregarMovimientoModal } from '@/components/AgregarMovimientoModal'
 import { LucaMensaje } from '@/components/luca/LucaMensaje'
 import type { LucaEstado } from '@/components/luca/LucaAvatar'
 import { PagarResumen } from '@/components/tarjetas/Modales'
@@ -81,7 +80,6 @@ export default function DashboardPage() {
   const [vistaCategoria, setVistaCategoria] = useState<'torta' | 'comparar'>('torta')
   const [lineas, setLineas] = useState<LineaSaldo[]>([])
   const [pagando, setPagando] = useState<{ t: TarjetaInfo; r: ResumenInfo } | null>(null)
-  const [showAgregar, setShowAgregar] = useState(false)
 
   useEffect(() => {
     cargar()
@@ -440,29 +438,13 @@ export default function DashboardPage() {
       {/* salud financiera: cuánto de lo que entra ya está comprometido en gastos fijos */}
       {d.totalIngresos > 0 && <SaludFinanciera fijos={d.gastosFijosMes} ingresos={d.totalIngresos} />}
 
-      {/* Luca + carga manual */}
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="text-sm font-bold text-primary">Cargar un movimiento</h2>
-        <button
-          onClick={() => setShowAgregar(true)}
-          className="flex items-center gap-1.5 rounded-xl bg-confirm px-3.5 py-2 text-xs font-semibold text-white hover:bg-confirm-hover"
-        >
-          + Cargar manualmente
-        </button>
-      </div>
+      {/* Luca */}
       <div className="grid grid-cols-1 gap-5 min-w-0 lg:grid-cols-[1fr_320px]">
         <LucaWidget onSaved={cargar} />
         <LucaMensaje estado={estadoLuca(sinDatos, tasaAhorro)}>
           {mensajeLuca(sinDatos, tasaAhorro, d.totalGastos)}
         </LucaMensaje>
       </div>
-
-      {showAgregar && (
-        <AgregarMovimientoModal
-          onClose={() => setShowAgregar(false)}
-          onSaved={cargar}
-        />
-      )}
 
       {/* esta semana */}
       {d.recientes.length > 0 && <EstaSemana movimientos={d.recientes} />}
