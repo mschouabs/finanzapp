@@ -7,7 +7,7 @@ import {
   GripVertical, Landmark, LineChart, Pencil, Percent, PiggyBank, Plus, Trash2, Wallet, X,
 } from 'lucide-react'
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import { BarraApilada, Dona, Leyenda, PALETA, Titulo, fmtK, tooltipStyle, type Porcion } from '@/components/ui/Piezas'
+import { BarraApilada, Dona, Leyenda, PALETA, SkeletonPagina, Titulo, fmtK, tooltipStyle, type Porcion } from '@/components/ui/Piezas'
 import { Modal } from '@/components/tarjetas/Modales'
 import { createClient } from '@/lib/supabase'
 import { COLORES_MARCA, marcaDeMedio, normalizar } from '@/lib/tarjetas'
@@ -343,7 +343,7 @@ export default function BilleterasPage() {
   const apps = Array.from(new Set(lineas.map(l => l.app))).sort()
 
   if (loading) {
-    return <div className="fa-card p-8 text-center"><p className="text-sm text-secondary">Cargando billeteras…</p></div>
+    return <SkeletonPagina kpis={3} />
   }
 
   /* ── tarjeta de una app ───────────────── */
@@ -508,7 +508,7 @@ export default function BilleterasPage() {
               {oculto ? <EyeOff size={15} /> : <Eye size={15} />}
             </button>
           </div>
-          <p className="fa-amount mt-2 text-4xl text-primary">{$(tot.total)}</p>
+          <p className="fa-num-hero mt-2 text-primary">{$(tot.total)}</p>
           {variacion !== null ? (
             <p className="mt-1.5 flex items-center gap-1 text-sm">
               {variacion >= 0
@@ -527,8 +527,8 @@ export default function BilleterasPage() {
         <div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <p className="text-xs text-secondary">Disponible</p>
-              <p className="fa-amount text-xl text-primary">{$(tot.liquido)}</p>
+              <p className="fa-label">Disponible</p>
+              <p className="fa-num-lg text-primary">{$(tot.liquido)}</p>
               <p className="text-sm font-semibold text-positive">{pctLiq}%</p>
               {rindeDisponibleMes > 0 && !oculto && (
                 <p className="mt-0.5 flex items-center gap-1 text-[11px] font-medium text-positive">
@@ -537,8 +537,8 @@ export default function BilleterasPage() {
               )}
             </div>
             <div className="border-l border-line pl-4">
-              <p className="text-xs text-secondary">Invertido</p>
-              <p className="fa-amount text-xl text-primary">{$(tot.invertido)}</p>
+              <p className="fa-label">Invertido</p>
+              <p className="fa-num-lg text-primary">{$(tot.invertido)}</p>
               <p className="text-sm font-semibold" style={{ color: 'var(--accent-violet, #8B5CF6)' }}>{pctInv}%</p>
             </div>
           </div>
