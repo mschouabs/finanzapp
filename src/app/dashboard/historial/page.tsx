@@ -6,7 +6,7 @@ import { ArrowDownRight, ArrowUpRight, ChevronDown, Download, Hash, Scale, Searc
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { createClient } from '@/lib/supabase'
 import { traerCotizaciones } from '@/lib/patrimonio'
-import { Kpi, Segmentado, Titulo, fmtK, fmtPesos, tooltipStyle } from '@/components/ui/Piezas'
+import { Kpi, Segmentado, SkeletonPagina, Titulo, fmtK, fmtPesos, tooltipStyle } from '@/components/ui/Piezas'
 
 /* ── Historial ────────────────────────────────────────────────────
    Todo lo que entró y salió, en un solo lugar: gastos variables (con
@@ -366,7 +366,7 @@ export default function HistorialPage() {
 
       {/* Lista agrupada por mes */}
       {loading ? (
-        <div className="fa-card p-10 text-center text-sm text-muted">Cargando movimientos…</div>
+        <SkeletonPagina kpis={4} />
       ) : filtrados.length === 0 ? (
         <div className="fa-card p-10 text-center">
           <p className="text-3xl">🔍</p>
@@ -409,8 +409,8 @@ export default function HistorialPage() {
                             </span>
                           </span>
                           <span className="shrink-0 text-right">
-                            <span className={`fa-amount block text-sm ${ing ? 'text-positive' : 'text-negative'}`}>{ing ? '+' : '−'}{fmtPesos(m.monto)}</span>
-                            {m.moneda !== 'ARS' && <span className="block text-[10px] text-muted">{m.moneda} {m.montoOriginal.toLocaleString('es-AR')}</span>}
+                            <span className={`fa-num-sm block ${ing ? 'text-positive' : 'text-negative'}`}>{ing ? '+' : '−'}{fmtPesos(m.monto)}</span>
+                            {m.moneda !== 'ARS' && <span className="fa-caption block">{m.moneda} {m.montoOriginal.toLocaleString('es-AR')}</span>}
                           </span>
                           <ChevronDown size={15} className={`shrink-0 text-muted transition-transform ${open ? 'rotate-180' : ''}`} />
                         </button>
