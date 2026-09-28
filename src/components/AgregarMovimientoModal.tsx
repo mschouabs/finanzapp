@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { X } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
-import { guardarGastoVariable, listarMediosDePago } from '@/lib/movimientos'
+import { guardarGastoVariable, ingresarABilletera, listarMediosDePago } from '@/lib/movimientos'
 import { CATEGORIAS } from '@/lib/categorias'
 
 type Tab = 'gasto' | 'ingreso'
@@ -18,10 +18,10 @@ const formGastoVacio = () => ({
 })
 
 const formFreelanceVacio = () => ({
-  cliente: '', descripcion: '', monto_total: '', monto_cobrado: '', fecha: hoyISO(),
+  cliente: '', descripcion: '', monto_total: '', monto_cobrado: '', fecha: hoyISO(), billetera: '', moneda: 'ARS' as 'ARS' | 'USD',
 })
 
-const formFijoVacio = () => ({ nombre: '', monto: '', monto_cobrado: '' })
+const formFijoVacio = () => ({ nombre: '', monto: '', monto_cobrado: '', billetera: '', moneda: 'ARS' as 'ARS' | 'USD' })
 
 const inputCls = 'rounded-lg border bg-field px-3 py-2.5 text-sm text-primary'
 
@@ -39,6 +39,7 @@ export function AgregarMovimientoModal({
   const [medios, setMedios] = useState<string[]>([])
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [aviso, setAviso] = useState('')
 
   const [formGasto, setFormGasto] = useState(formGastoVacio())
   const [formFreelance, setFormFreelance] = useState(formFreelanceVacio())
@@ -46,17 +47,18 @@ export function AgregarMovimientoModal({
 
   useEffect(() => {
     const supabase = createClient()
-    listarMediosDePago(supabase).then(setMedios).catch(() => {})
+    listarMediosDePago(supabase, true).then(setMedios).catch(() => {})
   }, [])
 
   async function guardarGasto() {
     if (!formGasto.nombre || !formGasto.monto) return
     setSaving(true)
     setError('')
+    setAviso('')
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { setSaving(false); return }
-    const { error: err } = await guardarGastoVariable(supabase, user.id, {
+    const { error: err, avisoSaldoNegativo } = await guardarGastoVariable(supabase, user.id, {
       nombre: formGasto.nombre,
       monto: Number(formGasto.monto),
       categoria: formGasto.categoria,
@@ -70,6 +72,12 @@ export function AgregarMovimientoModal({
     setSaving(false)
     if (err) { setError(err); return }
     onSaved?.()
+    if (avisoSaldoNegativo) {
+      /* el gasto se guardó bien: solo avisamos, no bloqueamos el cierre */
+      setAviso(avisoSaldoNegativo)
+      setFormGasto(formGastoVacio())
+      return
+    }
     onClose()
   }
 
@@ -77,19 +85,28 @@ export function AgregarMovimientoModal({
     if (!formFreelance.cliente || !formFreelance.monto_total) return
     setSaving(true)
     setError('')
+    setAviso('')
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { setSaving(false); return }
+    const cobrado = Number(formFreelance.monto_cobrado || '0')
     const { error: err } = await supabase.from('ingresos_freelance').insert({
       user_id: user.id,
       cliente: formFreelance.cliente,
       descripcion: formFreelance.descripcion,
       monto_total: Number(formFreelance.monto_total),
-      monto_cobrado: Number(formFreelance.monto_cobrado || '0'),
+      monto_cobrado: cobrado,
       fecha: formFreelance.fecha,
     })
+    if (err) { setSaving(false); setError('No se pudo guardar el ingreso.'); return }
+
+    if (formFreelance.billetera && cobrado > 0) {
+      const { error: errBill } = await ingresarABilletera(supabase, user.id, {
+        app: formFreelance.billetera, monto: cobrado, moneda: formFreelance.moneda,
+      })
+      if (errBill) { setSaving(false); setAviso(errBill); onSaved?.(); return }
+    }
     setSaving(false)
-    if (err) { setError('No se pudo guardar el ingreso.'); return }
     onSaved?.()
     onClose()
   }
@@ -98,6 +115,7 @@ export function AgregarMovimientoModal({
     if (!formFijo.nombre || !formFijo.monto) return
     setSaving(true)
     setError('')
+    setAviso('')
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { setSaving(false); return }
@@ -109,7 +127,7 @@ export function AgregarMovimientoModal({
        en vez de crear un duplicado (mismo criterio que en Trabajos). */
     const { data: existentes } = await supabase
       .from('ingresos_fijos')
-      .select('id, nombre')
+      .select('id, nombre, monto, monto_cobrado')
       .eq('user_id', user.id)
       .eq('activo', true)
 
@@ -121,8 +139,21 @@ export function AgregarMovimientoModal({
       ? await supabase.from('ingresos_fijos').update({ nombre: formFijo.nombre, monto, monto_cobrado }).eq('id', existente.id)
       : await supabase.from('ingresos_fijos').insert({ user_id: user.id, nombre: formFijo.nombre, monto, monto_cobrado, activo: true })
 
+    if (err) { setSaving(false); setError('No se pudo guardar el ingreso.'); return }
+
+    /* acreditamos solo la diferencia contra lo que ya se había cobrado,
+       para no duplicar plata si estás "actualizando" el mismo sueldo. */
+    const cobradoAntes = existente ? (existente.monto_cobrado ?? existente.monto) : 0
+    const cobradoAhora = monto_cobrado ?? monto
+    const delta = cobradoAhora - cobradoAntes
+
+    if (formFijo.billetera && delta > 0) {
+      const { error: errBill } = await ingresarABilletera(supabase, user.id, {
+        app: formFijo.billetera, monto: delta, moneda: formFijo.moneda,
+      })
+      if (errBill) { setSaving(false); setAviso(errBill); onSaved?.(); return }
+    }
     setSaving(false)
-    if (err) { setError('No se pudo guardar el ingreso.'); return }
     onSaved?.()
     onClose()
   }
@@ -217,13 +248,26 @@ export function AgregarMovimientoModal({
 
             {error && <p className="text-xs text-negative">{error}</p>}
 
-            <div className="mt-1 flex gap-2">
-              <button onClick={guardarGasto} disabled={saving || !formGasto.nombre || !formGasto.monto}
-                className="rounded-lg bg-confirm px-5 py-2.5 text-sm font-semibold text-white hover:bg-confirm-hover disabled:opacity-50">
-                {saving ? 'Guardando…' : 'Guardar gasto'}
-              </button>
-              <button onClick={onClose} className="rounded-lg px-4 py-2.5 text-sm text-secondary hover:bg-alternate">Cancelar</button>
-            </div>
+            {aviso ? (
+              <>
+                <p className="rounded-lg border p-3 text-xs text-secondary" style={{ borderColor: 'var(--accent-warning, #F5C451)' }}>
+                  ⚠️ {aviso}
+                </p>
+                <div className="mt-1 flex gap-2">
+                  <button onClick={onClose} className="rounded-lg bg-confirm px-5 py-2.5 text-sm font-semibold text-white hover:bg-confirm-hover">
+                    Listo
+                  </button>
+                </div>
+              </>
+            ) : (
+              <div className="mt-1 flex gap-2">
+                <button onClick={guardarGasto} disabled={saving || !formGasto.nombre || !formGasto.monto}
+                  className="rounded-lg bg-confirm px-5 py-2.5 text-sm font-semibold text-white hover:bg-confirm-hover disabled:opacity-50">
+                  {saving ? 'Guardando…' : 'Guardar gasto'}
+                </button>
+                <button onClick={onClose} className="rounded-lg px-4 py-2.5 text-sm text-secondary hover:bg-alternate">Cancelar</button>
+              </div>
+            )}
           </div>
         )}
 
@@ -253,7 +297,26 @@ export function AgregarMovimientoModal({
                 <input type="date" value={formFreelance.fecha}
                   onChange={e => setFormFreelance(p => ({ ...p, fecha: e.target.value }))} className={inputCls} />
 
+                <div className="flex gap-2">
+                  <select value={formFreelance.billetera} onChange={e => setFormFreelance(p => ({ ...p, billetera: e.target.value }))} className={`${inputCls} flex-1`}>
+                    <option value="">Se deposita en… (opcional)</option>
+                    {medios.map(m => <option key={m} value={m}>{m}</option>)}
+                  </select>
+                  <div className="flex overflow-hidden rounded-lg border text-xs font-semibold">
+                    {(['ARS', 'USD'] as const).map(m => (
+                      <button key={m} type="button" onClick={() => setFormFreelance(p => ({ ...p, moneda: m }))}
+                        className={`px-2.5 ${formFreelance.moneda === m ? 'bg-confirm text-white' : 'text-secondary hover:bg-card'}`}>
+                        {m}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                {formFreelance.billetera && (
+                  <p className="text-xs text-secondary">Lo que marques como "ya cobré" se suma al saldo de {formFreelance.billetera}.</p>
+                )}
+
                 {error && <p className="text-xs text-negative">{error}</p>}
+                {aviso && <p className="text-xs text-negative">{aviso}</p>}
 
                 <div className="mt-1 flex gap-2">
                   <button onClick={guardarFreelance} disabled={saving || !formFreelance.cliente || !formFreelance.monto_total}
@@ -271,11 +334,28 @@ export function AgregarMovimientoModal({
                   onChange={e => setFormFijo(p => ({ ...p, monto: e.target.value }))} className={inputCls} />
                 <input placeholder="Cobrado este mes (opcional)" type="number" value={formFijo.monto_cobrado}
                   onChange={e => setFormFijo(p => ({ ...p, monto_cobrado: e.target.value }))} className={inputCls} />
+
+                <div className="flex gap-2">
+                  <select value={formFijo.billetera} onChange={e => setFormFijo(p => ({ ...p, billetera: e.target.value }))} className={`${inputCls} flex-1`}>
+                    <option value="">Se deposita en… (opcional)</option>
+                    {medios.map(m => <option key={m} value={m}>{m}</option>)}
+                  </select>
+                  <div className="flex overflow-hidden rounded-lg border text-xs font-semibold">
+                    {(['ARS', 'USD'] as const).map(m => (
+                      <button key={m} type="button" onClick={() => setFormFijo(p => ({ ...p, moneda: m }))}
+                        className={`px-2.5 ${formFijo.moneda === m ? 'bg-confirm text-white' : 'text-secondary hover:bg-card'}`}>
+                        {m}
+                      </button>
+                    ))}
+                  </div>
+                </div>
                 <p className="text-xs text-secondary">
-                  Si ya existe un sueldo activo con este nombre, se actualiza en vez de duplicarse.
+                  Si ya existe un sueldo activo con este nombre, se actualiza en vez de duplicarse
+                  {formFijo.billetera && ' (solo se acredita la diferencia contra lo ya cobrado antes)'}.
                 </p>
 
                 {error && <p className="text-xs text-negative">{error}</p>}
+                {aviso && <p className="text-xs text-negative">{aviso}</p>}
 
                 <div className="mt-1 flex gap-2">
                   <button onClick={guardarFijo} disabled={saving || !formFijo.nombre || !formFijo.monto}

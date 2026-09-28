@@ -93,7 +93,7 @@ export async function resolverLineaDisponible(
 
 export async function guardarGastoVariable(
   supabase: Cliente, userId: string, g: NuevoGasto,
-): Promise<{ error: string | null }> {
+): Promise<{ error: string | null; avisoSaldoNegativo?: string }> {
   const medio = g.medio_pago || null
   const cuotas = Math.max(1, Math.round(Number(g.cuotas) || 1))
   /* en cuotas es siempre crédito */
@@ -166,7 +166,37 @@ export async function guardarGastoVariable(
       p_id: billetera_linea_id, p_delta: -Number(g.monto),
     })
     if (e2) return { error: `El gasto se guardó pero no se pudo descontar del saldo: ${e2.message}` }
+
+    /* si esa billetera no tenía (suficiente) efectivo cargado, el saldo
+       queda en negativo — avisamos por si se olvidó de cargarlo. */
+    const { data: linea } = await supabase
+      .from('inversiones').select('monto, app').eq('id', billetera_linea_id).single()
+    if (linea && Number(linea.monto) < 0) {
+      return {
+        error: null,
+        avisoSaldoNegativo:
+          `${linea.app} quedó con saldo negativo (${Math.round(Number(linea.monto)).toLocaleString('es-AR')}). ` +
+          `Puede que no tuvieras cargado ese efectivo en Finanzapp — revisá el saldo real en Billeteras.`,
+      }
+    }
   }
+  return { error: null }
+}
+
+/**
+ * Acredita un ingreso al saldo disponible de una billetera (la crea en $0
+ * si esa app todavía no tenía una línea de efectivo). Se usa desde el
+ * modal rápido de "nuevo ingreso" para que, igual que un gasto lo resta,
+ * un ingreso sume al saldo de la billetera elegida.
+ */
+export async function ingresarABilletera(
+  supabase: Cliente, userId: string, opts: { app: string; monto: number; moneda?: 'ARS' | 'USD' },
+): Promise<{ error: string | null }> {
+  if (!opts.app || !opts.monto) return { error: null }
+  const lineaId = await resolverLineaDisponible(supabase, userId, opts.app, opts.moneda ?? 'ARS')
+  if (!lineaId) return { error: 'No se encontró la billetera para acreditar el ingreso.' }
+  const { error } = await supabase.rpc('ajustar_saldo', { p_id: lineaId, p_delta: Number(opts.monto) })
+  if (error) return { error: `El ingreso se guardó pero no se pudo acreditar a la billetera: ${error.message}` }
   return { error: null }
 }
 
@@ -243,11 +273,19 @@ export async function deshacerPago(supabase: Cliente, consumos: ConsumoTarjeta[]
   }
 }
 
-/** Apps/tarjetas disponibles para elegir "con qué pagaste". */
-export async function listarMediosDePago(supabase: Cliente): Promise<string[]> {
+/**
+ * Apps/tarjetas disponibles para elegir "con qué pagaste".
+ * Por defecto solo las que ya tienen efectivo disponible cargado; con
+ * `todas: true` devuelve TODAS tus billeteras (incluidas las que solo
+ * tienen plata invertida) — si elegís una sin efectivo cargado, el gasto
+ * igual se guarda y esa billetera queda en negativo (con aviso).
+ */
+export async function listarMediosDePago(supabase: Cliente, todas = false): Promise<string[]> {
   const [{ data: ts }, { data: ls }] = await Promise.all([
     supabase.from('tarjetas_cuentas').select('nombre'),
-    supabase.from('inversiones').select('app').eq('es_disponible', true),
+    todas
+      ? supabase.from('inversiones').select('app')
+      : supabase.from('inversiones').select('app').eq('es_disponible', true),
   ])
   const nombres: string[] = []
   for (const n of [...(ts ?? []).map(t => t.nombre as string), ...(ls ?? []).map(l => l.app as string)]) {
