@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import {
-  ArrowDownRight, ArrowUpRight, CalendarDays, PiggyBank, TrendingDown, TrendingUp,
+  ArrowDownRight, ArrowUpRight, CalendarDays, PiggyBank, Plus, TrendingDown, TrendingUp,
 } from 'lucide-react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
@@ -440,22 +440,29 @@ export default function DashboardPage() {
       {/* salud financiera: cuánto de lo que entra ya está comprometido en gastos fijos */}
       {d.totalIngresos > 0 && <SaludFinanciera fijos={d.gastosFijosMes} ingresos={d.totalIngresos} />}
 
-      {/* Luca + carga manual */}
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="text-sm font-bold text-primary">Cargar un movimiento</h2>
+      {/* Luca + carga manual: mismo peso visual para las dos formas de cargar un movimiento */}
+      <div className="grid grid-cols-1 gap-5 min-w-0 lg:grid-cols-2">
+        <LucaWidget onSaved={cargar} />
         <button
           onClick={() => setShowAgregar(true)}
-          className="flex items-center gap-1.5 rounded-xl bg-confirm px-3.5 py-2 text-xs font-semibold text-white hover:bg-confirm-hover"
+          className="fa-card flex flex-col items-center justify-center gap-3 p-6 text-center transition-colors hover:bg-alternate"
         >
-          + Cargar manualmente
+          <span
+            className="flex h-[72px] w-[72px] items-center justify-center rounded-full shadow-lg"
+            style={{ background: 'var(--accent-confirm)' }}
+          >
+            <Plus size={34} color="white" strokeWidth={2.2} />
+          </span>
+          <div>
+            <h2 className="text-sm font-extrabold text-primary">Cargar manualmente</h2>
+            <p className="mt-1 text-xs text-secondary">Nuevo gasto o ingreso, sin pasar por Luca</p>
+          </div>
         </button>
       </div>
-      <div className="grid grid-cols-1 gap-5 min-w-0 lg:grid-cols-[1fr_320px]">
-        <LucaWidget onSaved={cargar} />
-        <LucaMensaje estado={estadoLuca(sinDatos, tasaAhorro)}>
-          {mensajeLuca(sinDatos, tasaAhorro, d.totalGastos)}
-        </LucaMensaje>
-      </div>
+
+      <LucaMensaje estado={estadoLuca(sinDatos, tasaAhorro)}>
+        {mensajeLuca(sinDatos, tasaAhorro, d.totalGastos)}
+      </LucaMensaje>
 
       {showAgregar && (
         <AgregarMovimientoModal

@@ -108,6 +108,11 @@ export default function BilleterasPage() {
 
   const [lineaEdit, setLineaEdit] = useState<{ id: string; nombre: string; monto: string; tasa: string } | null>(null)
   const [appEdit, setAppEdit] = useState<{ app: string; nombre: string } | null>(null)
+  /* al cambiar el saldo a mano, preguntamos si la diferencia es plata que
+     entró (cuenta como ingreso del mes) o solo una corrección de carga */
+  const [preguntaSaldo, setPreguntaSaldo] = useState<{
+    id: string; nombre: string; app: string; nombreAnterior: string; tasa: number; diferencia: number
+  } | null>(null)
 
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState({ app: '', nombre: '', tipo: 'efectivo', moneda: 'ARS', monto: '' })
@@ -243,11 +248,43 @@ export default function BilleterasPage() {
     const tasa = lineaEdit.tasa.trim() === '' ? 0 : Number(lineaEdit.tasa.replace(',', '.'))
     if (isNaN(monto) || isNaN(tasa) || !lineaEdit.nombre.trim()) return
     const supabase = createClient()
+
+    const anterior = lineas.find(l => l.id === lineaEdit.id)
+    const diferencia = anterior ? monto - Number(anterior.monto) : 0
+
     const { error: e } = await supabase.from('inversiones')
       .update({ monto, nombre: lineaEdit.nombre.trim(), tasa_anual: tasa }).eq('id', lineaEdit.id)
     if (e) { setError('No se pudo guardar.'); return }
+
+    /* si cambió el saldo de una línea en pesos disponibles, preguntamos
+       si esa diferencia fue plata que entró (ingreso) o solo una
+       corrección porque estaba mal cargado */
+    if (anterior?.es_disponible && anterior.moneda === 'ARS' && Math.abs(diferencia) >= 1) {
+      setPreguntaSaldo({
+        id: lineaEdit.id, nombre: lineaEdit.nombre.trim(), app: anterior.app,
+        nombreAnterior: anterior.nombre, tasa, diferencia,
+      })
+    }
     setLineaEdit(null)
     cargar()
+  }
+
+  /** Registra la diferencia de un ajuste de saldo como ingreso del mes. */
+  async function anotarComoIngreso() {
+    if (!preguntaSaldo) return
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (user) {
+      await supabase.from('ingresos_freelance').insert({
+        user_id: user.id,
+        cliente: preguntaSaldo.app,
+        descripcion: 'Ajuste de saldo en Billeteras',
+        monto_total: preguntaSaldo.diferencia,
+        monto_cobrado: preguntaSaldo.diferencia,
+        fecha: new Date().toISOString().split('T')[0],
+      })
+    }
+    setPreguntaSaldo(null)
   }
 
   async function borrarLinea(l: LineaSaldo) {
@@ -683,6 +720,42 @@ export default function BilleterasPage() {
 
       {transfiriendo && (
         <Transferir lineas={lineas} cot={cot} onTransferir={transferir} onCerrar={() => setTransfiriendo(false)} />
+      )}
+
+      {preguntaSaldo && (
+        <Modal titulo="Cambiaste el saldo" onCerrar={() => setPreguntaSaldo(null)}>
+          {preguntaSaldo.diferencia > 0 ? (
+            <>
+              <p className="text-sm text-secondary">
+                Sumaste {fmtARS(preguntaSaldo.diferencia)} al saldo de <b>{preguntaSaldo.app}</b>. ¿Es plata que entró
+                (la anotamos como ingreso del mes en Trabajos), o solo estabas corrigiendo un saldo mal cargado?
+              </p>
+              <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+                <button onClick={anotarComoIngreso}
+                  className="flex-1 rounded-lg bg-confirm px-4 py-2.5 text-sm font-semibold text-white hover:bg-confirm-hover">
+                  Fue un ingreso
+                </button>
+                <button onClick={() => setPreguntaSaldo(null)}
+                  className="flex-1 rounded-lg border px-4 py-2.5 text-sm font-medium text-secondary hover:bg-alternate">
+                  Solo era una corrección
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="text-sm text-secondary">
+                Restaste {fmtARS(Math.abs(preguntaSaldo.diferencia))} del saldo de <b>{preguntaSaldo.app}</b>. Lo dejamos
+                como una corrección de saldo (no se anota como gasto).
+              </p>
+              <div className="mt-4 flex">
+                <button onClick={() => setPreguntaSaldo(null)}
+                  className="flex-1 rounded-lg bg-confirm px-4 py-2.5 text-sm font-semibold text-white hover:bg-confirm-hover">
+                  Listo
+                </button>
+              </div>
+            </>
+          )}
+        </Modal>
       )}
     </div>
   )
