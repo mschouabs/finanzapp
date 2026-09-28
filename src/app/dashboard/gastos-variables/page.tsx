@@ -9,6 +9,8 @@ import {
 import { createClient } from '@/lib/supabase'
 import { borrarGastoVariable, guardarGastoVariable, listarMediosDePago, montoEnPesos } from '@/lib/movimientos'
 import { traerCotizaciones } from '@/lib/patrimonio'
+import { SkeletonPagina } from '@/components/ui/Piezas'
+import { LucaMensaje } from '@/components/luca/LucaMensaje'
 
 interface GastoVariable {
   id: string
@@ -438,6 +440,10 @@ export default function GastosPage() {
 
   const inputCls = 'rounded-lg border bg-field px-3 py-2.5 text-sm text-primary'
 
+  if (loading && gastosVar.length === 0 && gastosFijos.length === 0) {
+    return <SkeletonPagina kpis={3} />
+  }
+
   return (
     <div className="space-y-6 overflow-x-hidden">
       {/* Header */}
@@ -484,11 +490,14 @@ export default function GastosPage() {
         <Kpi label="Fijos" valor={fmtFull(totalFijos)} />
         <Kpi label="Total del período" valor={fmtFull(totalVar + totalFijos)} fuerte />
       </div>
-      {rango.tipo === 'mes' && variacionVsAnterior !== null && (
-        <p className="-mt-3 text-xs text-secondary">
-          {variacionVsAnterior >= 0 ? '📈' : '📉'} {Math.abs(variacionVsAnterior)}% {variacionVsAnterior >= 0 ? 'más' : 'menos'} que el mes pasado
-          <span className="text-muted"> ({fmtFull(totalVarAnt)})</span>
-        </p>
+
+      {/* Luca: insight real, calculado con los mismos datos del período */}
+      {rango.tipo === 'mes' && variacionVsAnterior !== null && Math.abs(variacionVsAnterior) >= 5 && (
+        <LucaMensaje estado={variacionVsAnterior >= 0 ? 'sad' : 'celebration'} variante="panel" className="p-4">
+          {variacionVsAnterior >= 0
+            ? <>Detecté que tus gastos variables subieron <b>{variacionVsAnterior}%</b> vs. el mes pasado ({fmtFull(totalVarAnt)} → {fmtFull(totalVar)}).</>
+            : <>Tus gastos variables bajaron <b>{Math.abs(variacionVsAnterior)}%</b> vs. el mes pasado ({fmtFull(totalVarAnt)} → {fmtFull(totalVar)}). ¡Bien ahí!</>}
+        </LucaMensaje>
       )}
 
       {/* Carga por lenguaje natural */}
@@ -944,8 +953,8 @@ export default function GastosPage() {
 function Kpi({ label, valor, fuerte }: { label: string; valor: string; fuerte?: boolean }) {
   return (
     <div className="fa-card px-4 py-3">
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-secondary">{label}</p>
-      <p className={`fa-amount ${fuerte ? 'text-xl' : 'text-lg'} text-primary`}>{valor}</p>
+      <p className="fa-label">{label}</p>
+      <p className={fuerte ? 'fa-num-lg text-primary' : 'fa-num-md text-primary'}>{valor}</p>
     </div>
   )
 }
