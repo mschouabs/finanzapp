@@ -671,3 +671,30 @@ export function progresoMetas(s: Snapshot): ProgresoMeta[] {
     return { id: m.id, nombre: m.nombre, emoji: m.emoji || '🎯', pct: (actual / m.objetivo) * 100, actual, objetivo: m.objetivo, moneda: m.moneda }
   }).sort((a, b) => b.pct - a.pct)
 }
+
+/* ── foto mensual del patrimonio ──────────────────────────────── */
+
+/**
+ * Guarda (o actualiza) la foto del mes en `patrimonio_mensual`: con eso
+ * se arma la evolución y la comparación contra el mes anterior.
+ */
+export async function guardarFotoPatrimonio(supabase: Cliente, s: Snapshot) {
+  if (s.lineas.length === 0) return
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return
+  const p = patrimonio(s)
+  await supabase.from('patrimonio_mensual').upsert(
+    {
+      user_id: user.id,
+      mes: claveMes(s.hoy),
+      total_ars: Math.round(p.activos),
+      detalle: {
+        liquido: Math.round(p.liquido), invertido: Math.round(p.invertido),
+        deuda_tarjetas: Math.round(p.deuda), neto: Math.round(p.neto),
+        dolar: s.cot.dolar, btc_usd: s.cot.btcUsd,
+      },
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: 'user_id,mes' },
+  )
+}

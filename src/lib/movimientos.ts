@@ -268,6 +268,38 @@ export async function editarGastoVariable(
   return { error: null }
 }
 
+/**
+ * Pasa las cuotas cargadas con el criterio viejo (2ª cuota en adelante con
+ * la fecha de vencimiento de su resumen) al nuevo: una por mes desde la
+ * primera. Solo cambia `fecha`; montos, pagos y `resumen` quedan igual.
+ * Es idempotente: si ya está todo bien, no escribe nada.
+ */
+export async function repararFechasDeCuotas(supabase: Cliente): Promise<number> {
+  const { data, error } = await supabase
+    .from('gastos_variables').select('id, compra_id, cuota_numero, cuotas_total, fecha')
+    .not('compra_id', 'is', null)
+  if (error || !data) return 0
+  const filas = data as { id: string; compra_id: string; cuota_numero: number | null; cuotas_total: number | null; fecha: string }[]
+  const porCompra = new Map<string, typeof filas>()
+  for (const f of filas) {
+    if ((f.cuotas_total ?? 1) < 2 || !f.fecha) continue
+    porCompra.set(f.compra_id, [...(porCompra.get(f.compra_id) ?? []), f])
+  }
+  const cambios: { id: string; fecha: string }[] = []
+  for (const cs of Array.from(porCompra.values())) {
+    const orden = [...cs].sort((a, b) => (a.cuota_numero ?? 1) - (b.cuota_numero ?? 1))
+    const base = orden[0]
+    for (const c of orden.slice(1)) {
+      const esperada = aISO(mismoDiaEnMeses(base.fecha, (c.cuota_numero ?? 1) - (base.cuota_numero ?? 1)))
+      if (c.fecha.slice(0, 10) !== esperada) cambios.push({ id: c.id, fecha: esperada })
+    }
+  }
+  for (const c of cambios) {
+    await supabase.from('gastos_variables').update({ fecha: c.fecha }).eq('id', c.id)
+  }
+  return cambios.length
+}
+
 /* ── Pago de resúmenes ─────────────────────────────────────────── */
 
 export interface ConsumoTarjeta {
