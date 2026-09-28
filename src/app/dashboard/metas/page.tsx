@@ -313,7 +313,7 @@ export default function MetasPage() {
       </div>
 
       {/* Metas automáticas */}
-      <div className="grid gap-5 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-5 min-w-0 lg:grid-cols-2">
         <section className="fa-card fa-lift flex flex-wrap items-center gap-5 p-5">
           <AnilloProgreso pct={metaAhorro > 0 ? (tasaAhorro / metaAhorro) * 100 : 0} size={110} grosor={11} color={colorAhorro}>
             <span className="fa-amount text-xl text-primary">{Math.round(tasaAhorro)}%</span>

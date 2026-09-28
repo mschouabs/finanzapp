@@ -175,7 +175,7 @@ export default function ViajesPage() {
 
       {/* Gráficos */}
       {datosGrafico.length > 0 && (
-        <div className="grid gap-5 lg:grid-cols-[1.1fr_1fr]">
+        <div className="grid grid-cols-1 gap-5 min-w-0 lg:grid-cols-[1.1fr_1fr]">
           <section className="fa-card p-5">
             <Titulo
               titulo="Cuánto costó cada viaje"

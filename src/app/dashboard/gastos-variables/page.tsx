@@ -517,8 +517,8 @@ export default function GastosPage() {
 
       {/* Gráficos */}
       {porCategoria.length > 0 && (
-        <div className="grid gap-5 lg:grid-cols-[380px_1fr]">
-          <section className="fa-card p-5">
+        <div className="grid grid-cols-1 gap-5 min-w-0 lg:grid-cols-[380px_1fr]">
+          <section className="fa-card p-5 min-w-0">
             <div className="flex items-start justify-between gap-2">
               <div>
                 <h2 className="text-base font-bold text-primary">¿En qué se te va la plata?</h2>
@@ -582,8 +582,8 @@ export default function GastosPage() {
             </ul>
           </section>
 
-          <div className="flex flex-col gap-5">
-            <section className="fa-card p-5">
+          <div className="flex min-w-0 flex-col gap-5">
+            <section className="fa-card p-5 min-w-0">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
                   <h2 className="text-base font-bold text-primary">{esMesUnico ? 'Gasto por día' : 'Gasto por mes'}</h2>
@@ -637,7 +637,7 @@ export default function GastosPage() {
               </div>
             </section>
 
-            <section className="fa-card p-5">
+            <section className="fa-card p-5 min-w-0">
               <h2 className="text-base font-bold text-primary">¿Con qué pagaste?</h2>
               <ul className="mt-3 space-y-2.5">
                 {porMedio.map(m => {
@@ -646,7 +646,7 @@ export default function GastosPage() {
                   return (
                     <li key={m.name}>
                       <div className="flex justify-between gap-2 text-xs">
-                        <span className="truncate text-secondary">{m.name}</span>
+                        <span className="min-w-0 flex-1 truncate text-secondary">{m.name}</span>
                         <span className="fa-amount shrink-0 text-primary">{fmtFull(m.value)}</span>
                       </div>
                       <div className="mt-1 h-2 overflow-hidden rounded-full" style={{ background: 'var(--border-color)' }}>
@@ -659,7 +659,7 @@ export default function GastosPage() {
             </section>
 
             {topGastos.length > 0 && (
-              <section className="fa-card p-5">
+              <section className="fa-card p-5 min-w-0">
                 <h2 className="text-base font-bold text-primary">Top 5 gastos</h2>
                 <p className="mt-0.5 text-xs text-secondary">Los movimientos más grandes del período</p>
                 <ul className="mt-3 space-y-2">

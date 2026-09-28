@@ -425,7 +425,7 @@ export default function ViajeDetallePage() {
 
       {/* Gráficos: categorías, días y monedas */}
       {gastos.length > 0 && (
-        <div className="grid gap-5 lg:grid-cols-2">
+        <div className="grid grid-cols-1 gap-5 min-w-0 lg:grid-cols-2">
           <section className="fa-card p-5">
             <Titulo
               titulo="En qué se fue"

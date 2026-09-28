@@ -461,7 +461,7 @@ export default function BilleterasPage() {
       {error && <p className="text-sm text-negative">{error}</p>}
 
       {/* Patrimonio */}
-      <section className="fa-card grid gap-6 p-5 lg:grid-cols-[1.1fr_1.4fr_auto] lg:items-center">
+      <section className="fa-card grid grid-cols-1 gap-6 p-5 min-w-0 lg:grid-cols-[1.1fr_1.4fr_auto] lg:items-center">
         <div>
           <div className="flex items-center gap-2">
             <Wallet size={17} className="text-positive" />

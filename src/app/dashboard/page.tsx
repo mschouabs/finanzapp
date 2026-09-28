@@ -386,7 +386,7 @@ export default function DashboardPage() {
       {patrimonio && patrimonio.total !== 0 && <TarjetaPatrimonio p={patrimonio} />}
 
       {/* balance + tasa de ahorro */}
-      <div className="grid gap-5 lg:grid-cols-[1fr_320px]">
+      <div className="grid grid-cols-1 gap-5 min-w-0 lg:grid-cols-[1fr_320px]">
         <section className="fa-card p-5">
           <h2 className="text-sm font-semibold text-secondary">Balance del mes</h2>
 
@@ -439,7 +439,7 @@ export default function DashboardPage() {
       {d.totalIngresos > 0 && <SaludFinanciera fijos={d.gastosFijosMes} ingresos={d.totalIngresos} />}
 
       {/* Luca */}
-      <div className="grid gap-5 lg:grid-cols-[1fr_320px]">
+      <div className="grid grid-cols-1 gap-5 min-w-0 lg:grid-cols-[1fr_320px]">
         <LucaWidget onSaved={cargar} />
         <LucaMensaje estado={estadoLuca(sinDatos, tasaAhorro)}>
           {mensajeLuca(sinDatos, tasaAhorro, d.totalGastos)}
@@ -496,7 +496,7 @@ export default function DashboardPage() {
       )}
 
       {/* gráficos */}
-      <div className="grid gap-5 lg:grid-cols-[1fr_380px]">
+      <div className="grid grid-cols-1 gap-5 min-w-0 lg:grid-cols-[1fr_380px]">
         <section className="fa-card p-5">
           <h2 className="text-base font-bold text-primary">Evolución de tus finanzas</h2>
           <p className="mt-0.5 text-xs text-secondary">Ingresos vs. gastos, últimos 6 meses</p>
