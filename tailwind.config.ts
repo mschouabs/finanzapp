@@ -27,6 +27,8 @@ export default {
         confirm: "var(--accent-confirm)",
         "confirm-hover": "var(--accent-confirm-hover)",
         info: "var(--accent-secondary)",
+        warning: "var(--accent-warning)",
+        violet: "var(--accent-violet)",
       },
       borderColor: {
         DEFAULT: "var(--border-color)",

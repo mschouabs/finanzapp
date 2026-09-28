@@ -1,6 +1,10 @@
 'use client'
 
-export type LucaEstado = 'idle' | 'thinking' | 'celebration' | 'sad' | 'warning'
+/* Estados base + los del nuevo lenguaje de Luca (escuchando, insight,
+   guardando, éxito). Todos son sutiles: cambian ojos y boca, nada más. */
+export type LucaEstado =
+  | 'idle' | 'thinking' | 'celebration' | 'sad' | 'warning'
+  | 'listening' | 'insight' | 'saving' | 'success'
 
 interface Props {
   estado?: LucaEstado
@@ -70,12 +74,79 @@ function FaceWarning() {
   )
 }
 
+/* Escuchando: ojos abiertos y una onda de "te oigo" en la boca */
+function FaceListening() {
+  return (
+    <>
+      <ellipse cx="25" cy="30" rx="5.5" ry="7" fill="#22c55e" />
+      <ellipse cx="51" cy="30" rx="5.5" ry="7" fill="#22c55e" />
+      <rect x="27" y="44" width="3" height="6" rx="1.5" fill="#22c55e">
+        <animate attributeName="height" values="4;9;4" dur="0.9s" repeatCount="indefinite" />
+        <animate attributeName="y" values="45;42.5;45" dur="0.9s" repeatCount="indefinite" />
+      </rect>
+      <rect x="36.5" y="42" width="3" height="10" rx="1.5" fill="#22c55e">
+        <animate attributeName="height" values="10;4;10" dur="0.9s" repeatCount="indefinite" />
+        <animate attributeName="y" values="42;45;42" dur="0.9s" repeatCount="indefinite" />
+      </rect>
+      <rect x="46" y="44" width="3" height="6" rx="1.5" fill="#22c55e">
+        <animate attributeName="height" values="4;8;4" dur="0.9s" begin="0.3s" repeatCount="indefinite" />
+        <animate attributeName="y" values="45;43;45" dur="0.9s" begin="0.3s" repeatCount="indefinite" />
+      </rect>
+    </>
+  )
+}
+
+/* Insight: detectó algo. Mirada atenta y un brillo arriba */
+function FaceInsight() {
+  return (
+    <>
+      <ellipse cx="25" cy="31" rx="5.5" ry="6" fill="#63A9FF" />
+      <ellipse cx="51" cy="31" rx="5.5" ry="6" fill="#63A9FF" />
+      <ellipse cx="23.5" cy="29" rx="1.6" ry="1.9" fill="white" opacity="0.7" />
+      <ellipse cx="49.5" cy="29" rx="1.6" ry="1.9" fill="white" opacity="0.7" />
+      <path d="M 28 46 Q 38 50 48 46" stroke="#63A9FF" strokeWidth="2.5" fill="none" strokeLinecap="round" />
+      <path d="M 60 16 l 1.6 3.4 3.4 1.6 -3.4 1.6 -1.6 3.4 -1.6 -3.4 -3.4 -1.6 3.4 -1.6 z" fill="#63A9FF">
+        <animate attributeName="opacity" values="0.3;1;0.3" dur="2.2s" repeatCount="indefinite" />
+      </path>
+    </>
+  )
+}
+
+/* Guardando: un arco que gira entre los ojos */
+function FaceSaving() {
+  return (
+    <>
+      <ellipse cx="25" cy="30" rx="5" ry="3" fill="#22c55e" />
+      <ellipse cx="51" cy="30" rx="5" ry="3" fill="#22c55e" />
+      <g>
+        <path d="M 32 46 A 6 6 0 1 1 38 52" stroke="#22c55e" strokeWidth="2.5" fill="none" strokeLinecap="round" />
+        <animateTransform attributeName="transform" type="rotate" from="0 38 46" to="360 38 46" dur="0.9s" repeatCount="indefinite" />
+      </g>
+    </>
+  )
+}
+
+/* Éxito: ojos felices (arcos) y sonrisa, sin estrellas: más sobrio que "celebration" */
+function FaceSuccess() {
+  return (
+    <>
+      <path d="M 19 32 Q 25 24 31 32" stroke="#22c55e" strokeWidth="3" fill="none" strokeLinecap="round" />
+      <path d="M 45 32 Q 51 24 57 32" stroke="#22c55e" strokeWidth="3" fill="none" strokeLinecap="round" />
+      <path d="M 24 44 Q 38 55 52 44" stroke="#22c55e" strokeWidth="2.8" fill="none" strokeLinecap="round" />
+    </>
+  )
+}
+
 const FACES = {
   idle: FaceIdle,
   thinking: FaceThinking,
   celebration: FaceCelebration,
   sad: FaceSad,
   warning: FaceWarning,
+  listening: FaceListening,
+  insight: FaceInsight,
+  saving: FaceSaving,
+  success: FaceSuccess,
 }
 
 export function LucaAvatar({ estado = 'idle', size = 40, className }: Props) {

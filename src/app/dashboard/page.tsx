@@ -358,6 +358,16 @@ export default function DashboardPage() {
         <p className="mt-1 text-sm text-secondary">Este es tu panorama financiero actual.</p>
       </header>
 
+      {/* acceso al piloto del nuevo Resumen (preview, no reemplaza a este) */}
+      <Link href="/dashboard/nuevo-resumen"
+        className="flex items-center gap-3 rounded-xl border px-4 py-3 text-sm transition-colors hover:bg-alternate"
+        style={{ borderColor: 'color-mix(in srgb, var(--accent-secondary) 40%, var(--border-color))' }}>
+        <span className="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider"
+          style={{ background: 'color-mix(in srgb, var(--accent-secondary) 16%, transparent)', color: 'var(--accent-secondary)' }}>Preview</span>
+        <span className="flex-1 text-primary">Probá el nuevo Resumen: patrimonio, plata libre, Luca e interacciones nuevas.</span>
+        <span className="font-semibold text-secondary">Abrir →</span>
+      </Link>
+
       {/* vencimientos de tarjeta */}
       {avisos.length > 0 && (
         <div className="flex flex-col gap-2">

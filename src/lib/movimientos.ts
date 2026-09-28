@@ -13,6 +13,14 @@ import { aISO, fechasDeResumen, resumenDeCompra, sumarMeses } from './ciclos'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Cliente = SupabaseClient<any, any, any>
 
+/** Lo que se guardó, para poder deshacerlo con borrarGastoVariable. */
+export interface GastoGuardado {
+  id: string
+  monto: number
+  billetera_linea_id: string | null
+  compra_id: string | null
+}
+
 export interface NuevoGasto {
   nombre: string
   monto: number
@@ -93,7 +101,7 @@ export async function resolverLineaDisponible(
 
 export async function guardarGastoVariable(
   supabase: Cliente, userId: string, g: NuevoGasto,
-): Promise<{ error: string | null; avisoSaldoNegativo?: string }> {
+): Promise<{ error: string | null; avisoSaldoNegativo?: string; guardado?: GastoGuardado }> {
   const medio = g.medio_pago || null
   const cuotas = Math.max(1, Math.round(Number(g.cuotas) || 1))
   /* en cuotas es siempre crédito */
@@ -152,8 +160,15 @@ export async function guardarGastoVariable(
     filas = [{ ...base, monto: g.monto, fecha: g.fecha, billetera_linea_id }]
   }
 
-  const { error } = await supabase.from('gastos_variables').insert(filas)
+  const { data: insertadas, error } = await supabase.from('gastos_variables').insert(filas).select('id')
   if (error) return { error: error.message }
+  /* lo necesario para poder deshacer la carga (borrarGastoVariable) */
+  const guardado: GastoGuardado = {
+    id: ((insertadas ?? []) as { id: string }[])[0]?.id ?? '',
+    monto: Number(g.monto),
+    billetera_linea_id,
+    compra_id: (filas[0]?.compra_id as string | null | undefined) ?? null,
+  }
 
   /* Si pagaste a crédito con una app que teníamos solo como cuenta,
      pasa a figurar también como tarjeta. */
@@ -165,7 +180,7 @@ export async function guardarGastoVariable(
     const { error: e2 } = await supabase.rpc('ajustar_saldo', {
       p_id: billetera_linea_id, p_delta: -Number(g.monto),
     })
-    if (e2) return { error: `El gasto se guardó pero no se pudo descontar del saldo: ${e2.message}` }
+    if (e2) return { error: `El gasto se guardó pero no se pudo descontar del saldo: ${e2.message}`, guardado }
 
     /* si esa billetera no tenía (suficiente) efectivo cargado, el saldo
        queda en negativo — avisamos por si se olvidó de cargarlo. */
@@ -177,10 +192,11 @@ export async function guardarGastoVariable(
         avisoSaldoNegativo:
           `${linea.app} quedó con saldo negativo (${Math.round(Number(linea.monto)).toLocaleString('es-AR')}). ` +
           `Puede que no tuvieras cargado ese efectivo en Finanzapp — revisá el saldo real en Billeteras.`,
+        guardado,
       }
     }
   }
-  return { error: null }
+  return { error: null, guardado }
 }
 
 /**

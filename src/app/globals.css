@@ -194,6 +194,90 @@ a:focus-visible,
 }
 .fa-aparecer { animation: fa-aparecer .4s cubic-bezier(.2,.8,.2,1) both; }
 
+/* ══ Sistema de movimiento ═════════════════════════════════════
+   Tres duraciones y dos curvas para TODA la app. Nada dura más que
+   EMPHASIS: el usuario nunca espera a una animación.
+     fast     (140ms) → hover, press, toggles, tooltips
+     standard (240ms) → expandir/colapsar, cambiar de vista, tabs
+     emphasis (380ms) → entrada de paneles, números, gráficos
+   Todo se apaga con prefers-reduced-motion (ver más abajo).      */
+:root {
+  --dur-fast: 140ms;
+  --dur-std: 240ms;
+  --dur-emph: 380ms;
+  --ease-out: cubic-bezier(.2, .8, .2, 1);
+  --ease-in-out: cubic-bezier(.65, 0, .35, 1);
+  --glow-positive: color-mix(in srgb, var(--accent-positive) 14%, transparent);
+  --glow-negative: color-mix(in srgb, var(--accent-negative) 14%, transparent);
+  --glow-info: color-mix(in srgb, var(--accent-secondary) 14%, transparent);
+}
+
+/* Botón que responde al toque (press) */
+.fa-press {
+  transition: transform var(--dur-fast) var(--ease-out), background-color var(--dur-fast) ease,
+    border-color var(--dur-fast) ease, color var(--dur-fast) ease, opacity var(--dur-fast) ease;
+}
+.fa-press:active { transform: scale(.97); }
+
+/* Aparece al entrar en pantalla (lo activa <Revelar>) */
+.fa-reveal { opacity: 0; transform: translateY(10px); }
+.fa-reveal[data-visible="true"] {
+  opacity: 1; transform: none;
+  transition: opacity var(--dur-emph) var(--ease-out), transform var(--dur-emph) var(--ease-out);
+}
+
+/* Entrada de la pantalla */
+@keyframes fa-page-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.fa-page-in { animation: fa-page-in var(--dur-std) var(--ease-out) both; }
+
+/* Resalta un elemento que acaba de cambiar o llegar (ej: el movimiento recién cargado) */
+@keyframes fa-flash { 0% { background-color: var(--glow-positive); } 100% { background-color: transparent; } }
+.fa-flash { animation: fa-flash 1.8s var(--ease-out); }
+
+/* Un número que cambió: tinte breve en la dirección del cambio */
+@keyframes fa-tint-up { 0%, 40% { color: var(--accent-positive); } 100% { color: inherit; } }
+@keyframes fa-tint-down { 0%, 40% { color: var(--accent-negative); } 100% { color: inherit; } }
+.fa-tint-up { animation: fa-tint-up 1.4s var(--ease-out); }
+.fa-tint-down { animation: fa-tint-down 1.4s var(--ease-out); }
+
+/* Barras que crecen desde su base al cargar */
+@keyframes fa-grow-x { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+.fa-grow-x { transform-origin: left center; animation: fa-grow-x 560ms var(--ease-out) both; }
+@keyframes fa-grow-y { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+
+/* Expandir / colapsar sin medir alturas: grid 0fr → 1fr */
+.fa-colapsable { display: grid; grid-template-rows: 0fr; transition: grid-template-rows var(--dur-std) var(--ease-out); }
+.fa-colapsable[data-abierto="true"] { grid-template-rows: 1fr; }
+.fa-colapsable > * { overflow: hidden; min-height: 0; }
+
+/* Popovers, menús y hojas */
+@keyframes fa-pop { from { opacity: 0; transform: translateY(-4px) scale(.98); } to { opacity: 1; transform: none; } }
+.fa-pop { animation: fa-pop var(--dur-fast) var(--ease-out) both; transform-origin: top right; }
+@keyframes fa-sheet-up { from { transform: translateY(100%); } to { transform: none; } }
+.fa-sheet-up { animation: fa-sheet-up var(--dur-std) var(--ease-out) both; }
+@keyframes fa-toast-in { from { opacity: 0; transform: translateY(12px) scale(.98); } to { opacity: 1; transform: none; } }
+.fa-toast-in { animation: fa-toast-in var(--dur-std) var(--ease-out) both; }
+
+/* Línea de gráfico que se dibuja una sola vez (pathLength=1 en el SVG) */
+@keyframes fa-draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+.fa-draw { stroke-dasharray: 1; stroke-dashoffset: 0; animation: fa-draw 900ms var(--ease-out) both; }
+
+/* Superficie "panel" del nuevo lenguaje: menos caja, más plano */
+.fa-panel {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 16px;
+}
+.fa-hairline { border-color: var(--border-subtle); }
+
+@media (prefers-reduced-motion: reduce) {
+  .fa-press, .fa-press:active, .fa-colapsable { transition: none; transform: none; }
+  .fa-reveal, .fa-reveal[data-visible="true"] { opacity: 1; transform: none; transition: none; }
+  .fa-page-in, .fa-flash, .fa-tint-up, .fa-tint-down, .fa-grow-x, .fa-pop,
+  .fa-sheet-up, .fa-toast-in, .fa-draw { animation: none; }
+  .fa-grafico path { animation: none !important; }
+}
+
 /* Barra de scroll discreta, en tono del tema */
 * {
   scrollbar-width: thin;
