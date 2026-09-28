@@ -8,7 +8,7 @@ import { Bar, BarChart, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 
 import { createClient } from '@/lib/supabase'
 import { ViajeModal } from '@/components/ViajeModal'
 import { GrillaOrdenable, type HandleProps } from '@/components/GrillaOrdenable'
-import { Kpi, PALETA, Segmentado, Titulo, fmtK, tooltipStyle } from '@/components/ui/Piezas'
+import { Kpi, PALETA, Segmentado, SkeletonPagina, Titulo, fmtK, tooltipStyle } from '@/components/ui/Piezas'
 import {
   colorPresupuesto, duracionDias, estadoViaje, fmtARS, fmtCorto, fmtRango, type Viaje,
 } from '@/lib/viajes'
@@ -130,7 +130,7 @@ export default function ViajesPage() {
   }, [])
 
   if (loading) {
-    return <div className="fa-card p-8 text-center"><p className="text-sm text-secondary">Cargando viajes…</p></div>
+    return <SkeletonPagina kpis={4} />
   }
 
   const arrastrable = filtro === 'todos' && visibles.length > 1
@@ -340,13 +340,13 @@ function TarjetaViaje({ v, total, handle, arrastrando }: { v: Viaje; total: numb
         <div className="mt-auto pt-4">
           <div className="flex items-end justify-between gap-2">
             <div>
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-secondary">Gastado</p>
-              <p className="fa-amount text-xl text-primary">{fmtCorto(total)}</p>
+              <p className="fa-label">Gastado</p>
+              <p className="fa-num-lg text-primary">{fmtCorto(total)}</p>
             </div>
             {dias && total > 0 && (
               <div className="text-right">
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-secondary">Por día</p>
-                <p className="fa-amount text-sm text-secondary">{fmtCorto(total / dias)}</p>
+                <p className="fa-label">Por día</p>
+                <p className="fa-num-sm text-secondary">{fmtCorto(total / dias)}</p>
               </div>
             )}
           </div>

@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
 import { ArrowLeft, Plus, Pencil, Archive, Trash2, X } from 'lucide-react'
 import { Bar, BarChart, CartesianGrid, Cell, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import { Dona, Leyenda, Titulo, fmtK, tooltipStyle, type Porcion } from '@/components/ui/Piezas'
+import { Dona, Leyenda, SkeletonPagina, Titulo, fmtK, tooltipStyle, type Porcion } from '@/components/ui/Piezas'
 import { createClient } from '@/lib/supabase'
 import { ViajeModal } from '@/components/ViajeModal'
 import {
@@ -252,11 +252,7 @@ export default function ViajeDetallePage() {
 
   /* ── Render ── */
   if (loading) {
-    return (
-      <div className="fa-card p-8 text-center">
-        <p className="text-sm text-secondary">Cargando viaje…</p>
-      </div>
-    )
+    return <SkeletonPagina kpis={3} />
   }
 
   if (!viaje) {
