@@ -2,13 +2,15 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { Coins, LineChart as IconoLinea, Pencil, Percent, PiggyBank, Plus, RefreshCw, Trash2, TrendingUp, Wallet } from 'lucide-react'
-import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { Coins, LineChart as IconoLinea, Pencil, Plus, RefreshCw, Trash2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { aPesos, esLiquida, traerCotizaciones, type Cotizaciones, type LineaSaldo } from '@/lib/patrimonio'
-import { Dona, Kpi, Leyenda, PALETA, Segmentado, SkeletonPagina, Titulo, fmtK, fmtPesos, tooltipStyle, type Porcion } from '@/components/ui/Piezas'
+import { Dona, Leyenda, PALETA, SkeletonPagina, fmtK, fmtPesos, type Porcion } from '@/components/ui/Piezas'
+import { Encabezado, NumeroAnimado, Pestanas, Revelar, Toasts, useToasts } from '@/components/resumen/base'
+import { GraficoMensual } from '@/components/resumen/GraficoMensual'
+import { LucaAvatar } from '@/components/luca/LucaAvatar'
+import { EVENTO_DATOS } from '@/lib/eventos'
 import { Modal } from '@/components/tarjetas/Modales'
-import { LucaMensaje } from '@/components/luca/LucaMensaje'
 
 type Riesgo = 'conservador' | 'moderado' | 'alto'
 
@@ -45,6 +47,7 @@ export default function PortfolioPage() {
   const [focoRiesgo, setFocoRiesgo] = useState<string | null>(null)
   const [focoTipo, setFocoTipo] = useState<string | null>(null)
   const [editando, setEditando] = useState<LineaSaldo | 'nuevo' | null>(null)
+  const toasts = useToasts()
 
   const cargar = useCallback(async () => {
     const supabase = createClient()
@@ -89,11 +92,10 @@ export default function PortfolioPage() {
   const meses = Number(horizonte)
   const proyeccion = Array.from({ length: meses + 1 }, (_, m) => {
     const d = new Date()
-    d.setMonth(d.getMonth() + m)
+    const k = new Date(d.getFullYear(), d.getMonth() + m, 1)
     return {
-      mes: m === 0 ? 'Hoy' : d.toLocaleDateString('es-AR', { month: 'short' }),
+      mes: `${k.getFullYear()}-${String(k.getMonth() + 1).padStart(2, '0')}`,
       valor: Math.round(base.reduce((s, l) => s + valor(l) * Math.pow(1 + tna(l) / 100 / 12, m), 0)),
-      sinRendir: Math.round(total),
     }
   })
   const finalProy = proyeccion[proyeccion.length - 1]?.valor ?? 0
@@ -103,11 +105,15 @@ export default function PortfolioPage() {
     .filter(l => !focoTipo || (TIPOS[l.tipo] ? l.tipo : 'otro') === focoTipo)
 
   async function borrar(l: LineaSaldo) {
-    if (!window.confirm(`¿Borrar "${l.nombre}"?`)) return
     const supabase = createClient()
+    const { data: fila } = await supabase.from('inversiones').select('*').eq('id', l.id).single()
     await supabase.from('inversiones').delete().eq('id', l.id)
     setEditando(null)
-    cargar()
+    await cargar()
+    toasts.mostrar({
+      texto: `Borraste "${l.nombre}"`,
+      deshacer: fila ? async () => { await createClient().from('inversiones').insert(fila); await cargar() } : undefined,
+    }, 8000)
   }
 
   async function guardar(d: DatosActivo): Promise<string | null> {
@@ -127,9 +133,18 @@ export default function PortfolioPage() {
       const etiqueta = lineas.find(l => l.app === fila.app)?.etiqueta ?? null
       const { error } = await supabase.from('inversiones').insert({ ...fila, user_id: user.id, etiqueta, es_disponible: false })
       if (error) return 'No se pudo agregar.'
+      /* si la plata salió de una cuenta, se descuenta de ahí (antes la
+         inversión se sumaba sin restar nada y el patrimonio se duplicaba) */
+      if (d.origen) {
+        const { error: e2 } = await supabase.rpc('ajustar_saldo', { p_id: d.origen, p_delta: -fila.monto })
+        if (e2) toasts.mostrar({ texto: 'La inversión se guardó, pero no se pudo descontar de la cuenta de origen.', tono: 'error' }, 8000)
+      }
     }
+    const nuevo = editando === 'nuevo'
     setEditando(null)
-    cargar()
+    await cargar()
+    window.dispatchEvent(new Event(EVENTO_DATOS))
+    toasts.mostrar({ texto: nuevo ? `Agregaste ${fila.nombre}${d.origen ? ' y se descontó de tu cuenta' : ''}.` : 'Cambios guardados.' }, 4000)
     return null
   }
 
@@ -140,124 +155,130 @@ export default function PortfolioPage() {
   const apps = Array.from(new Set(lineas.map(l => l.app))).sort()
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="fa-page-in mx-auto flex max-w-[1480px] flex-col gap-7 pb-6">
       {/* Encabezado */}
-      <div className="flex flex-wrap items-start justify-between gap-3">
+      <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-extrabold text-primary">Portfolio</h1>
-          <p className="mt-1 text-sm text-secondary">Cuánto tenés invertido, cuánto rinde y cuánto riesgo estás corriendo.</p>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-muted">Portfolio</p>
+          <h1 className="mt-0.5 text-xl font-extrabold tracking-tight text-primary lg:text-2xl">Tus inversiones</h1>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {cot.dolar && <Chip label="Dólar blue" valor={fmtPesos(cot.dolar)} />}
           {cot.btcUsd && <Chip label="BTC" valor={`US$ ${Math.round(cot.btcUsd).toLocaleString('es-AR')}`} />}
           <button onClick={actualizarCot} aria-label="Actualizar cotizaciones" title={cotAt ? `Actualizado ${cotAt.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}` : ''}
-            className="rounded-xl border p-2.5 text-secondary hover:bg-alternate hover:text-primary">
+            className="fa-press flex h-11 w-11 items-center justify-center rounded-xl border text-secondary hover:bg-alternate hover:text-primary fa-hairline">
             <RefreshCw size={15} />
           </button>
           <button onClick={() => setEditando('nuevo')}
-            className="flex min-h-[44px] items-center gap-1.5 rounded-xl bg-confirm px-4 py-2 text-sm font-semibold text-white hover:bg-confirm-hover">
+            className="fa-press flex h-11 items-center gap-1.5 rounded-xl bg-confirm px-4 text-sm font-semibold text-white hover:bg-confirm-hover">
             <Plus size={16} strokeWidth={2.5} /> Agregar activo
           </button>
         </div>
-      </div>
+      </header>
 
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <Segmentado
+        <Pestanas etiqueta="Qué incluir"
           opciones={[{ key: 'inversiones', label: 'Solo inversiones' }, { key: 'todo', label: 'Todo (con cuentas)' }] as const}
-          valor={alcance} onCambio={v => { setAlcance(v); setFocoRiesgo(null); setFocoTipo(null) }}
-        />
-        <Link href="/dashboard/billeteras" className="text-xs font-semibold text-secondary underline underline-offset-2 hover:text-primary">
-          Ver por billetera →
-        </Link>
+          valor={alcance} onCambio={v => { setAlcance(v); setFocoRiesgo(null); setFocoTipo(null) }} />
+        <Link href="/dashboard/billeteras" className="text-xs font-semibold text-info hover:underline">Ver por billetera →</Link>
       </div>
 
       {base.length === 0 ? (
-        <div className="fa-card p-10 text-center">
-          <p className="text-4xl">📈</p>
-          <p className="mt-3 font-medium text-secondary">No hay inversiones cargadas</p>
-          <p className="mt-1 text-sm text-muted">Tocá “Agregar activo” para empezar.</p>
+        <div className="rounded-2xl border border-dashed p-10 text-center fa-hairline">
+          <LucaAvatar estado="idle" size={56} className="mx-auto" />
+          <p className="mt-3 font-semibold text-primary">Todavía no cargaste inversiones</p>
+          <p className="mx-auto mt-1 max-w-sm text-sm text-secondary">Plazos fijos, FCI, CEDEARs o cripto: cargalos con su TNA y te muestro cuánto rinden y cuánto riesgo corrés.</p>
+          <button onClick={() => setEditando('nuevo')} className="fa-press mt-4 rounded-lg bg-confirm px-4 py-2 text-sm font-semibold text-white">Agregar activo</button>
         </div>
       ) : (
         <>
-          {/* KPIs */}
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-            <Kpi label="Total" valor={fmtK(total)} icono={<Wallet size={17} />} tono="var(--accent-positive)" sub={`${base.length} activos`} />
-            <Kpi label="Rinde por mes" valor={fmtK(rendMes)} icono={<PiggyBank size={17} />} tono="var(--accent-secondary)" sub="estimado con la TNA" />
-            <Kpi label="Rinde por año" valor={fmtK(rendMes * 12)} icono={<TrendingUp size={17} />} tono="var(--accent-violet)" sub="sin reinvertir" />
-            <Kpi label="TNA promedio" valor={`${tnaPromedio.toFixed(1).replace('.', ',')}%`} icono={<Percent size={17} />} tono="var(--accent-warning)" sub="ponderada por monto" />
-          </div>
+          {/* lo principal */}
+          <section aria-label="Resumen del portfolio" className="grid gap-6 lg:grid-cols-12 lg:items-end">
+            <div className="lg:col-span-4">
+              <p className="fa-label">{alcance === 'todo' ? 'Total (con cuentas)' : 'Total invertido'}</p>
+              <NumeroAnimado valor={total} contarAlInicio className="mt-1 block text-[clamp(2.2rem,3.8vw,3rem)] font-extrabold leading-none tracking-tight tabular-nums text-primary" />
+              <p className="mt-2 text-xs text-secondary">{base.length} activos · en pesos al dólar de hoy</p>
+            </div>
+            <div className="grid grid-cols-3 gap-x-6 lg:col-span-8">
+              {[
+                { l: 'Rinde por mes', v: fmtK(rendMes), s: 'estimado con la TNA' },
+                { l: 'Rinde por año', v: fmtK(rendMes * 12), s: 'sin reinvertir' },
+                { l: 'TNA promedio', v: `${tnaPromedio.toFixed(1).replace('.', ',')}%`, s: 'ponderada por monto' },
+              ].map(x => (
+                <div key={x.l}>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.04em] text-secondary">{x.l}</p>
+                  <p className="mt-1 text-lg font-bold tabular-nums text-primary">{x.v}</p>
+                  <p className="text-[11px] text-muted">{x.s}</p>
+                </div>
+              ))}
+            </div>
+          </section>
 
-          {porTipo[0] && total > 0 && (
-            <LucaMensaje estado="idle" variante="panel" className="p-4">
-              Tu mayor exposición está en <b>{porTipo[0].label}</b>: {Math.round((porTipo[0].valor / total) * 100)}%
-              de tu portfolio ({fmtK(porTipo[0].valor)}).
-            </LucaMensaje>
-          )}
+          {porTipo[0] && total > 0 && (() => {
+            const pctTop = Math.round((porTipo[0].valor / total) * 100)
+            const alto = porRiesgo.find(r => r.key === 'alto')
+            const pctAlto = alto ? Math.round((alto.valor / total) * 100) : 0
+            const sinRendir = base.filter(l => tna(l) === 0 && !['acciones', 'cedear', 'cripto'].includes(l.tipo)).reduce((a, l) => a + valor(l), 0)
+            return (
+              <div className="flex items-start gap-3 rounded-2xl border px-4 py-3"
+                style={{ borderColor: 'color-mix(in srgb, var(--accent-positive) 22%, var(--border-subtle))', background: 'color-mix(in srgb, var(--accent-positive) 4%, var(--bg-card))' }}>
+                <LucaAvatar estado={pctTop >= 60 || pctAlto >= 50 ? 'warning' : 'insight'} size={30} />
+                <div className="space-y-1 text-sm leading-relaxed text-primary">
+                  <p>Tu mayor exposición está en <b>{porTipo[0].label}</b>: {pctTop}% del portfolio ({fmtK(porTipo[0].valor)}){pctTop >= 60 ? '. Está bastante concentrado.' : '.'}</p>
+                  {pctAlto > 0 && <p className="text-secondary">El {pctAlto}% está en activos de riesgo alto.</p>}
+                  {sinRendir > 0 && <p className="text-secondary">{fmtK(sinRendir)} figuran sin TNA cargada: si rinden algo, cargala para que la proyección sea real.</p>}
+                </div>
+              </div>
+            )
+          })()}
 
-          {/* Gráficos */}
-          <div className="grid gap-5 xl:grid-cols-3">
-            <section className="fa-card p-5">
-              <Titulo titulo="Riesgo" sub="Tocá para filtrar los activos" />
+          {/* análisis */}
+          <div className="grid gap-7 xl:grid-cols-12">
+            <Revelar className="fa-panel p-6 xl:col-span-3">
+              <Encabezado titulo="Riesgo" sub="Tocá para filtrar los activos" />
               <div className="mt-4 flex flex-col items-center gap-3">
                 <Dona datos={porRiesgo} size={150} activo={focoRiesgo} onElegir={k => setFocoRiesgo(f => (f === k ? null : k))}
                   centro={<><span className="text-[10px] font-semibold uppercase tracking-wide text-secondary">Total</span><span className="fa-amount text-base text-primary">{fmtK(total)}</span></>} />
                 <Leyenda datos={porRiesgo} fmt={fmtK} activo={focoRiesgo} onElegir={k => setFocoRiesgo(f => (f === k ? null : k))} />
               </div>
-            </section>
+            </Revelar>
 
-            <section className="fa-card p-5">
-              <Titulo titulo="Tipo de activo" sub="FCI, plazo fijo, cripto, CEDEARs…" />
+            <Revelar className="fa-panel p-6 xl:col-span-3" demora={40}>
+              <Encabezado titulo="Tipo de activo" sub="FCI, plazo fijo, cripto, CEDEARs…" />
               <div className="mt-4 flex flex-col items-center gap-3">
                 <Dona datos={porTipo} size={150} activo={focoTipo} onElegir={k => setFocoTipo(f => (f === k ? null : k))}
                   centro={<><span className="text-[10px] font-semibold uppercase tracking-wide text-secondary">Tipos</span><span className="fa-amount text-base text-primary">{porTipo.length}</span></>} />
                 <Leyenda datos={porTipo} fmt={fmtK} activo={focoTipo} onElegir={k => setFocoTipo(f => (f === k ? null : k))} max={6} />
               </div>
-            </section>
+            </Revelar>
 
-            <section className="fa-card flex flex-col p-5">
-              <Titulo titulo="Proyección" sub="Si dejás todo invertido con las tasas actuales"
-                derecha={<Segmentado opciones={HORIZONTES} valor={horizonte} onCambio={setHorizonte} />} />
+            <Revelar className="fa-panel flex flex-col p-6 xl:col-span-6" demora={80}>
+              <Encabezado titulo="Proyección" sub="Si dejás todo invertido con las tasas actuales"
+                derecha={<Pestanas etiqueta="Horizonte" opciones={HORIZONTES} valor={horizonte} onCambio={setHorizonte} />} />
               <div className="mt-4 flex items-end justify-between gap-2">
                 <div>
                   <p className="text-[11px] text-secondary">En {meses} meses tendrías</p>
-                  <p className="fa-amount text-2xl text-primary">{fmtK(finalProy)}</p>
+                  <NumeroAnimado valor={finalProy} className="block text-2xl font-extrabold tabular-nums text-primary" />
                 </div>
-                <p className="rounded-full px-2.5 py-1 text-xs font-bold text-positive" style={{ background: 'var(--riesgo-bajo-tint)' }}>
+                <p className="rounded-full px-2.5 py-1 text-xs font-bold tabular-nums text-positive" style={{ background: 'var(--glow-positive)' }}>
                   +{fmtK(finalProy - total)}
                 </p>
               </div>
-              <div className="mt-3 h-[150px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={proyeccion} margin={{ top: 4, right: 4, bottom: 0, left: -14 }}>
-                    <defs>
-                      <linearGradient id="gradProy" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="var(--accent-violet)" stopOpacity={0.4} />
-                        <stop offset="100%" stopColor="var(--accent-violet)" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid stroke="var(--border-color)" strokeDasharray="3 3" vertical={false} />
-                    <XAxis dataKey="mes" tick={{ fill: 'var(--text-muted)', fontSize: 10 }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
-                    <YAxis domain={['dataMin', 'dataMax']} tickFormatter={(v: number) => fmtK(v)} tick={{ fill: 'var(--text-muted)', fontSize: 10 }} axisLine={false} tickLine={false} width={56} />
-                    <Tooltip contentStyle={tooltipStyle} formatter={(v: number, n: string) => [fmtPesos(v), n === 'valor' ? 'Con rendimiento' : 'Sin rendir']} />
-                    <Area type="monotone" dataKey="sinRendir" stroke="var(--text-muted)" strokeDasharray="4 4" fill="none" />
-                    <Area type="monotone" dataKey="valor" stroke="var(--accent-violet)" strokeWidth={2.5} fill="url(#gradProy)" />
-                  </AreaChart>
-                </ResponsiveContainer>
+              <div className="mt-3">
+                <GraficoMensual key={horizonte} datos={proyeccion.map(p => ({ mes: p.mes, patrimonio: p.valor }))} modo="patrimonio" etiquetaSerie="Proyectado" alto={190} />
               </div>
-              <p className="fa-caption mt-2">
-                ⚠️ Proyección matemática con la TNA actual de cada activo, no un resultado garantizado: tasas y mercados cambian.
-              </p>
-            </section>
+              <p className="fa-caption mt-2">Proyección matemática con interés compuesto y la TNA actual de cada activo. No es un resultado garantizado: tasas y mercados cambian.</p>
+            </Revelar>
           </div>
 
           {/* Activos */}
-          <section className="flex flex-col gap-4 border-t border-line pt-5">
-            <Titulo
+          <section className="flex flex-col gap-4">
+            <Encabezado
               titulo="Tus activos"
               sub={focoRiesgo || focoTipo ? 'Filtrado desde los gráficos' : 'Tocá un activo para editarlo'}
               derecha={(focoRiesgo || focoTipo) ? (
-                <button onClick={() => { setFocoRiesgo(null); setFocoTipo(null) }} className="rounded-full border px-2.5 py-1 text-[11px] text-secondary hover:bg-alternate">
-                  Quitar filtros
+                <button onClick={() => { setFocoRiesgo(null); setFocoTipo(null) }} className="fa-press rounded-full border px-2.5 py-1 text-xs text-secondary hover:bg-alternate fa-hairline">
+                  Quitar filtros ×
                 </button>
               ) : undefined}
             />
@@ -268,7 +289,7 @@ export default function PortfolioPage() {
                 const pct = total > 0 ? (v / total) * 100 : 0
                 return (
                   <button key={l.id} onClick={() => setEditando(l)}
-                    className="fa-card fa-lift group relative flex flex-col overflow-hidden p-4 text-left">
+                    className="fa-panel fa-lift group relative flex flex-col overflow-hidden p-4 text-left">
                     <span aria-hidden="true" className="absolute inset-y-0 left-0 w-1" style={{ background: r.tono }} />
                     <div className="flex items-start gap-3">
                       <IconoActivo l={l} />
@@ -306,11 +327,13 @@ export default function PortfolioPage() {
         <EditarActivo
           inicial={editando === 'nuevo' ? undefined : editando}
           apps={apps}
+          cuentas={lineas.filter(l => esLiquida(l) && l.moneda !== 'BTC')}
           onGuardar={guardar}
           onBorrar={editando !== 'nuevo' ? () => borrar(editando) : undefined}
           onCerrar={() => setEditando(null)}
         />
       )}
+      <Toasts items={toasts.items} onCerrar={toasts.cerrar} />
     </div>
   )
 }
@@ -335,11 +358,13 @@ function IconoActivo({ l }: { l: LineaSaldo }) {
 
 /* ── Alta / edición de un activo ─────────────────────────────────── */
 
-interface DatosActivo { nombre: string; app: string; tipo: string; moneda: string; monto: string; tasa: string; riesgo: Riesgo }
+interface DatosActivo { nombre: string; app: string; tipo: string; moneda: string; monto: string; tasa: string; riesgo: Riesgo; origen: string }
 
-function EditarActivo({ inicial, apps, onGuardar, onBorrar, onCerrar }: {
+function EditarActivo({ inicial, apps, cuentas, onGuardar, onBorrar, onCerrar }: {
   inicial?: LineaSaldo
   apps: string[]
+  /** cuentas líquidas de las que puede salir la plata (solo al crear) */
+  cuentas: LineaSaldo[]
   onGuardar: (d: DatosActivo) => Promise<string | null>
   onBorrar?: () => void
   onCerrar: () => void
@@ -352,7 +377,9 @@ function EditarActivo({ inicial, apps, onGuardar, onBorrar, onCerrar }: {
     monto: inicial ? String(Number(inicial.monto)) : '',
     tasa: inicial?.tasa_anual ? String(inicial.tasa_anual) : '',
     riesgo: inicial ? riesgoDe(inicial) : 'conservador',
+    origen: '',
   })
+  const cuentasMoneda = cuentas.filter(c => c.moneda === d.moneda)
   const [error, setError] = useState<string | null>(null)
   const [guardando, setGuardando] = useState(false)
   const input = 'w-full rounded-lg border bg-field px-3 py-2.5 text-sm text-primary'
@@ -399,6 +426,18 @@ function EditarActivo({ inicial, apps, onGuardar, onBorrar, onCerrar }: {
           <label className={label} htmlFor="a-tasa">TNA % (opcional)</label>
           <input id="a-tasa" type="number" inputMode="decimal" value={d.tasa} onChange={e => setD({ ...d, tasa: e.target.value })} className={input} />
         </div>
+        {!inicial && (
+          <div className="col-span-2">
+            <label className={label} htmlFor="a-origen">¿De dónde sale la plata?</label>
+            <select id="a-origen" value={d.origen} onChange={e => setD({ ...d, origen: e.target.value })} className={input}>
+              <option value="">No descontar (ya la tenía invertida)</option>
+              {cuentasMoneda.map(c => (
+                <option key={c.id} value={c.id}>{c.etiqueta || c.app} · {c.nombre} ({fmtNativo(c)})</option>
+              ))}
+            </select>
+            {d.origen && <p className="mt-1 text-[11px] text-muted">Se descuenta de esa cuenta, así tu patrimonio no se cuenta dos veces.</p>}
+          </div>
+        )}
         <div>
           <span className={label}>Riesgo</span>
           <div className="flex overflow-hidden rounded-lg border">

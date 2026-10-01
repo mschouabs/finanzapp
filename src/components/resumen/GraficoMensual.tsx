@@ -168,7 +168,7 @@ export function GraficoMensual({ datos, modo, mesSel, onElegir, alto = 240, etiq
           const ultimo = pts[pts.length - 1]
           return (
             <g key={`${modo}-${s.key}-${datos.length}`}>
-              {area && <path d={area} fill={color} opacity={0.1} className="fa-fade-in" />}
+              {area && <path d={area} fill={color} fillOpacity={0.1} className="fa-fade-in" />}
               <path d={d} fill="none" stroke={color} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round"
                 pathLength={1} className="fa-draw" />
               {/* punto final + etiqueta directa (solo el último valor) */}
