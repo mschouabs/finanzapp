@@ -34,6 +34,7 @@ import {
   type Consumo, type EstadoTarjeta, type TarjetaInfo,
 } from '@/lib/resumenes'
 import { diasEntre, fechasDeResumen, sumarMeses } from '@/lib/ciclos'
+import { cobrosDeFreelance } from '@/lib/ingresos'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Cliente = SupabaseClient<any, any, any>
@@ -131,7 +132,7 @@ export async function cargarSnapshot(supabase: Cliente, hoy = new Date()): Promi
     supabase.from('gastos_variables').select('*').gte('fecha', desde),
     supabase.from('gastos_fijos').select('*'),
     supabase.from('ingresos_fijos').select('*'),
-    supabase.from('ingresos_freelance').select('*').gte('fecha', desde),
+    supabase.from('ingresos_freelance').select('*'),
     supabase.from('viajes').select('id, nombre, emoji'),
     supabase.from('viaje_gastos').select('id, viaje_id, concepto, categoria, monto_ars, fecha').gte('fecha', desde),
     supabase.from('secciones').select('id, nombre, tipo, emoji'),
@@ -187,14 +188,16 @@ export async function cargarSnapshot(supabase: Cliente, hoy = new Date()): Promi
       monto_cobrado: r.monto_cobrado == null ? null : num(r.monto_cobrado), created_at: str(r.created_at),
       ...('cobrado_mes' in r ? { cobrado_mes: (r.cobrado_mes as string | null) ?? null } : {}),
     })),
-    freelance: ((rFree.data ?? []) as Fila[]).filter(r => str(r.fecha)).map(r => ({
-      id: str(r.id),
-      titulo: str(r.cliente) || str(r.descripcion) || str(r.nombre) || 'Ingreso',
-      /* mismo criterio que el Resumen actual: lo cobrado; si no hay dato, el total */
-      monto: num(r.monto_cobrado ?? r.monto_total ?? r.monto),
-      fecha: str(r.fecha),
-      created_at: str(r.created_at),
-    })),
+    /* un registro por cobro: cada cobro cuenta en el mes en que entró */
+    freelance: ((rFree.data ?? []) as Fila[]).filter(r => str(r.fecha)).flatMap(r =>
+      cobrosDeFreelance(r).filter(c => c.fecha >= desde).map((c, i) => ({
+        id: i ? `${str(r.id)}:${i}` : str(r.id),
+        titulo: str(r.cliente) || str(r.descripcion) || str(r.nombre) || 'Ingreso',
+        monto: c.monto,
+        fecha: c.fecha,
+        created_at: str(r.created_at),
+      }))),
+
     viajes: ((rViajeGastos.data ?? []) as Fila[]).filter(r => str(r.fecha)).map(r => ({
       id: str(r.id), viaje: viajeNombre.get(str(r.viaje_id)) ?? 'Viaje', concepto: str(r.concepto) || 'Gasto de viaje',
       categoria: str(r.categoria), monto: num(r.monto_ars), fecha: str(r.fecha),

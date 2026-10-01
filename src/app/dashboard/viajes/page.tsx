@@ -2,22 +2,23 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
-import { Calendar, ChevronLeft, ChevronRight, GripVertical, MapPin, Plane, Plus, Timer, Wallet } from 'lucide-react'
-import { Bar, BarChart, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { Calendar, ChevronLeft, ChevronRight, GripVertical, MapPin, Plus } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { ViajeModal } from '@/components/ViajeModal'
 import { GrillaOrdenable, type HandleProps } from '@/components/GrillaOrdenable'
-import { Kpi, PALETA, Segmentado, SkeletonPagina, Titulo, fmtK, tooltipStyle } from '@/components/ui/Piezas'
+import { PALETA, SkeletonPagina } from '@/components/ui/Piezas'
+import { LucaAvatar } from '@/components/luca/LucaAvatar'
+import { Encabezado, NumeroAnimado, Pestanas } from '@/components/resumen/base'
+import { useAlCambiarDatos } from '@/lib/eventos'
 import {
-  colorPresupuesto, duracionDias, estadoViaje, fmtARS, fmtCorto, fmtRango, type Viaje,
+  colorPresupuesto, duracionDias, estadoViaje, fmtARS, fmtCorto, fmtRango, proyeccionViaje, type Viaje,
 } from '@/lib/viajes'
 import { hoyISO } from '@/lib/fechas'
 
 type ViajeOrd = Viaje & { orden?: number | null }
 type Filtro = 'todos' | 'activos' | 'realizados'
 type Orden = 'recientes' | 'gasto' | 'alfabetico' | 'personal'
-interface GastoMin { viaje_id: string; monto_ars: number | null; fecha: string | null }
+interface GastoMin { viaje_id: string; monto_ars: number | null; fecha: string | null; categoria: string }
 
 const ORDEN_KEY = 'viajes_orden'
 const DIA = 86_400_000
@@ -32,7 +33,6 @@ function colorViaje(id: string) {
 }
 
 export default function ViajesPage() {
-  const router = useRouter()
   const [viajes, setViajes] = useState<ViajeOrd[]>([])
   const [gastos, setGastos] = useState<GastoMin[]>([])
   const [loading, setLoading] = useState(true)
@@ -43,7 +43,6 @@ export default function ViajesPage() {
   const [anio, setAnio] = useState(new Date().getFullYear())
 
   const cargar = useCallback(async () => {
-    setLoading(true)
     try {
       const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
@@ -52,7 +51,7 @@ export default function ViajesPage() {
         supabase.from('viajes').select('*')
           .order('fecha_inicio', { ascending: false, nullsFirst: false })
           .order('created_at', { ascending: false }),
-        supabase.from('viaje_gastos').select('viaje_id, monto_ars, fecha'),
+        supabase.from('viaje_gastos').select('viaje_id, monto_ars, fecha, categoria'),
       ])
       setViajes((vs ?? []) as ViajeOrd[])
       setGastos((gs ?? []) as GastoMin[])
@@ -71,6 +70,7 @@ export default function ViajesPage() {
       if (o && ['recientes', 'gasto', 'alfabetico', 'personal'].includes(o)) setOrden(o)
     } catch { /* sin storage */ }
   }, [cargar])
+  useAlCambiarDatos(cargar)
 
   const cambiarOrden = (o: Orden) => {
     setOrden(o)
@@ -129,88 +129,114 @@ export default function ViajesPage() {
     await Promise.all(ids.map((id, i) => supabase.from('viajes').update({ orden: i }).eq('id', id)))
   }, [])
 
-  if (loading) {
-    return <SkeletonPagina kpis={4} />
-  }
+  if (loading) return <SkeletonPagina kpis={2} />
 
   const arrastrable = filtro === 'todos' && visibles.length > 1
+  const maxGraf = Math.max(...datosGrafico.map(d => d.valor), 1)
+  const destacado = enCurso ?? proximo
+
+  /* Luca: viaje en curso vs. presupuesto, o el próximo y cuánto costó en promedio uno parecido */
+  let luca = ''
+  const proyEnCurso = enCurso ? proyeccionViaje(enCurso, gastos.filter(g => g.viaje_id === enCurso.id)) : null
+  if (enCurso && enCurso.presupuesto && proyEnCurso && (gastado[enCurso.id] ?? 0) > 0) {
+    const p = proyEnCurso.proyectado
+    luca = p > enCurso.presupuesto
+      ? `En ${enCurso.nombre} el día a día va a ${fmtARS(proyEnCurso.ritmo)} (sin vuelos ni alojamiento): a este ritmo terminás ${fmtARS(p - enCurso.presupuesto)} arriba del presupuesto.`
+      : `En ${enCurso.nombre} vas bien: a este ritmo terminás ${fmtARS(enCurso.presupuesto - p)} debajo del presupuesto.`
+  } else if (proximo && costoDia > 0 && duracionDias(proximo)) {
+    const est = costoDia * (duracionDias(proximo) ?? 0)
+    luca = `Para ${proximo.nombre} (${duracionDias(proximo)} días), a tu costo promedio de ${fmtARS(costoDia)} por día serían unos ${fmtARS(est)}${proximo.presupuesto ? ` — tu presupuesto es ${fmtARS(proximo.presupuesto)}` : ''}.`
+  } else if (conGasto.length > 1) {
+    const caro = [...conGasto].sort((a, b) => gastado[b.id] - gastado[a.id])[0]
+    luca = `Tu viaje más caro fue ${caro.nombre} (${fmtARS(gastado[caro.id])}); en promedio un viaje te cuesta ${fmtARS(promedioViaje)}.`
+  }
 
   return (
-    <div className="flex flex-col gap-6">
-      {/* Encabezado */}
-      <div className="flex flex-wrap items-start justify-between gap-3">
+    <div className="fa-page-in flex flex-col gap-8">
+      <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-extrabold text-primary">✈️ Viajes</h1>
-          <p className="mt-1 text-sm text-secondary">
-            {viajes.length} {viajes.length === 1 ? 'viaje' : 'viajes'} · cada gasto en su moneda, convertido a pesos
-          </p>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-muted">Viajes</p>
+          <h1 className="mt-0.5 text-xl font-extrabold tracking-tight text-primary lg:text-2xl">Tus viajes</h1>
         </div>
-        <button
-          onClick={() => setModal(true)}
-          className="flex min-h-[44px] items-center gap-1.5 rounded-xl bg-confirm px-4 py-2 text-sm font-semibold text-white hover:bg-confirm-hover"
-        >
+        <button onClick={() => setModal(true)}
+          className="fa-press flex h-11 items-center gap-1.5 rounded-xl bg-confirm px-4 text-sm font-semibold text-white hover:bg-confirm-hover">
           <Plus size={16} strokeWidth={2.5} /> Nuevo viaje
         </button>
-      </div>
+      </header>
 
-      {/* Viaje en curso / próximo */}
-      {(enCurso || proximo) && (
-        <BannerViaje v={(enCurso ?? proximo)!} gastado={gastado[(enCurso ?? proximo)!.id] ?? 0} />
+      {destacado && <BannerViaje v={destacado} gastado={gastado[destacado.id] ?? 0} />}
+
+      {viajes.length > 0 && (
+        <section aria-label="Resumen de viajes" className="grid gap-6 lg:grid-cols-12 lg:items-end">
+          <div className="lg:col-span-5">
+            <p className="fa-label">Gastado en viajes en {anioActual}</p>
+            <NumeroAnimado valor={gastadoAnio} contarAlInicio
+              className="mt-1 block text-[clamp(2.2rem,3.8vw,3rem)] font-extrabold leading-none tracking-tight tabular-nums text-primary" />
+            <p className="mt-2 text-xs text-secondary">{viajes.length} {viajes.length === 1 ? 'viaje cargado' : 'viajes cargados'} · cada gasto en su moneda, pasado a pesos</p>
+          </div>
+          <dl className="grid grid-cols-3 gap-4 lg:col-span-7">
+            <div>
+              <dt className="fa-label">Por viaje</dt>
+              <dd className="mt-1 text-lg font-bold tabular-nums text-primary">{promedioViaje ? fmtCorto(promedioViaje) : '—'}</dd>
+            </div>
+            <div>
+              <dt className="fa-label">Por día</dt>
+              <dd className="mt-1 text-lg font-bold tabular-nums text-primary">{costoDia ? fmtCorto(costoDia) : '—'}</dd>
+            </div>
+            <div>
+              <dt className="fa-label">{enCurso ? 'De viaje' : 'Próximo'}</dt>
+              <dd className="mt-1 truncate text-lg font-bold text-primary">
+                {enCurso ? enCurso.nombre : proximo ? `en ${diasHasta(proximo.fecha_inicio!)} días` : '—'}
+              </dd>
+            </div>
+          </dl>
+        </section>
       )}
 
-      {/* KPIs */}
-      {viajes.length > 0 && (
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <Kpi label={`Gastado en ${anioActual}`} valor={fmtK(gastadoAnio)} icono={<Wallet size={17} />} tono="var(--accent-negative)"
-            sub={`${gastos.filter(g => (g.fecha ?? '').startsWith(String(anioActual))).length} gastos`} />
-          <Kpi label="Promedio por viaje" valor={fmtK(promedioViaje)} icono={<Plane size={17} />} tono="var(--accent-secondary)"
-            sub={`${conGasto.length} con gastos`} />
-          <Kpi label="Costo por día" valor={fmtK(costoDia)} icono={<Calendar size={17} />} tono="var(--accent-violet)"
-            sub="promedio de todos tus viajes" />
-          <Kpi label={enCurso ? 'Estás de viaje' : 'Próximo viaje'} icono={<Timer size={17} />} tono="var(--accent-positive)"
-            valor={enCurso ? enCurso.nombre : proximo ? `${diasHasta(proximo.fecha_inicio!)} días` : '—'}
-            sub={enCurso ? 'que lo disfrutes 🌴' : proximo ? `${proximo.emoji} ${proximo.nombre}` : 'ninguno cargado'} />
+      {luca && (
+        <div className="flex items-start gap-3 rounded-2xl border px-4 py-3"
+          style={{ borderColor: 'color-mix(in srgb, var(--accent-secondary) 22%, var(--border-subtle))', background: 'color-mix(in srgb, var(--accent-secondary) 4%, var(--bg-card))' }}>
+          <LucaAvatar estado="insight" size={30} />
+          <p className="text-sm leading-relaxed text-primary">{luca}</p>
         </div>
       )}
 
-      {/* Gráficos */}
       {datosGrafico.length > 0 && (
-        <div className="grid grid-cols-1 gap-5 min-w-0 lg:grid-cols-[1.1fr_1fr]">
-          <section className="fa-card p-5">
-            <Titulo
-              titulo="Cuánto costó cada viaje"
+        <div className="grid min-w-0 grid-cols-1 gap-8 lg:grid-cols-[1.1fr_1fr]">
+          <section aria-labelledby="t-costo" className="min-w-0">
+            <Encabezado id="t-costo" titulo="Cuánto costó cada viaje"
               sub={vistaGrafico === 'total' ? 'Total en pesos' : 'Promedio por día de viaje'}
-              derecha={<Segmentado opciones={[{ key: 'total', label: 'Total' }, { key: 'dia', label: 'Por día' }] as const} valor={vistaGrafico} onCambio={setVistaGrafico} />}
-            />
-            <div className="mt-4" style={{ height: Math.max(160, datosGrafico.length * 38) }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={datosGrafico} layout="vertical" margin={{ top: 0, right: 12, bottom: 0, left: 0 }}>
-                  <XAxis type="number" hide />
-                  <YAxis type="category" dataKey="nombre" width={130} tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} axisLine={false} tickLine={false} />
-                  <Tooltip contentStyle={tooltipStyle} cursor={{ fill: 'var(--bg-alternate)' }} formatter={(v: number) => [fmtARS(v), vistaGrafico === 'total' ? 'Total' : 'Por día']} />
-                  <Bar dataKey="valor" radius={[0, 6, 6, 0]} barSize={18} onClick={(d: unknown) => { const x = d as { id?: string; payload?: { id?: string } } | null; const id = x?.id ?? x?.payload?.id; if (id) router.push(`/dashboard/viajes/${id}`) }} style={{ cursor: 'pointer' }}>
-                    {datosGrafico.map(d => <Cell key={d.id} fill={d.color} />)}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
+              derecha={<Pestanas etiqueta="Ver costo" opciones={[{ key: 'total', label: 'Total' }, { key: 'dia', label: 'Por día' }] as const} valor={vistaGrafico} onCambio={setVistaGrafico} />} />
+            <ul className="mt-4 space-y-1">
+              {datosGrafico.map((d, i) => (
+                <li key={d.id}>
+                  <Link href={`/dashboard/viajes/${d.id}`} className="fa-press block rounded-lg px-2 py-1.5 hover:bg-alternate">
+                    <span className="flex items-center gap-2 text-sm">
+                      <span className="flex-1 truncate text-primary">{d.nombre}</span>
+                      <span className="font-semibold tabular-nums text-primary">{fmtARS(d.valor)}</span>
+                    </span>
+                    <span className="mt-1.5 block h-1.5 overflow-hidden rounded-full" style={{ background: 'var(--border-subtle)' }}>
+                      <span className="fa-grow-x block h-full rounded-full" style={{ width: `${(d.valor / maxGraf) * 100}%`, background: d.color, animationDelay: `${i * 40}ms` }} />
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
           </section>
-
           <LineaDeTiempo viajes={viajes} anio={anio} setAnio={setAnio} gastado={gastado} />
         </div>
       )}
 
-      {/* Filtros */}
       {viajes.length > 1 && (
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <Segmentado
+          <Pestanas etiqueta="Filtrar viajes"
             opciones={[{ key: 'todos', label: 'Todos' }, { key: 'activos', label: 'Activos' }, { key: 'realizados', label: 'Realizados' }] as const}
-            valor={filtro} onCambio={setFiltro}
-          />
+            valor={filtro} onCambio={setFiltro} />
           <div className="flex items-center gap-2">
             {arrastrable && <span className="hidden text-[11px] text-muted sm:inline">Arrastrá desde <GripVertical size={11} className="inline" /> para ordenarlos a mano</span>}
-            <select value={orden} onChange={e => cambiarOrden(e.target.value as Orden)}
-              className="rounded-lg border bg-field px-2.5 py-1.5 text-xs text-secondary">
+            <label className="sr-only" htmlFor="orden-viajes">Ordenar</label>
+            <select id="orden-viajes" value={orden} onChange={e => cambiarOrden(e.target.value as Orden)}
+              className="h-9 rounded-lg border bg-field px-2.5 text-xs text-secondary">
               <option value="recientes">Más recientes</option>
               <option value="gasto">Mayor gasto</option>
               <option value="alfabetico">Alfabético</option>
@@ -220,16 +246,15 @@ export default function ViajesPage() {
         </div>
       )}
 
-      {/* Lista */}
       {visibles.length === 0 ? (
-        <div className="fa-card p-10 text-center">
+        <div className="fa-panel p-10 text-center">
           <div className="text-4xl">🗺️</div>
           <p className="mt-3 text-sm font-semibold text-primary">
             {viajes.length === 0 ? 'Todavía no cargaste ningún viaje' : 'Sin viajes para este filtro'}
           </p>
           <p className="mx-auto mt-2 max-w-sm text-xs leading-relaxed text-secondary">
             {viajes.length === 0
-              ? 'Creá un viaje y después cargá cada gasto en la moneda en que lo pagaste. FinanzApp lo convierte a pesos para que veas el total real.'
+              ? 'Creá un viaje y cargá cada gasto en la moneda en que lo pagaste. FinanzApp lo pasa a pesos para que veas el total real.'
               : 'Probá con otro filtro.'}
           </p>
         </div>
@@ -277,7 +302,7 @@ function TarjetaViaje({ v, total, handle, arrastrando }: { v: Viaje; total: numb
 
   return (
     <div
-      className={`fa-card relative flex h-full flex-col overflow-hidden ${arrastrando ? '' : 'fa-lift'}`}
+      className={`fa-panel relative flex h-full flex-col overflow-hidden ${arrastrando ? '' : 'fa-lift'}`}
       style={{
         ...(v.archivado ? { opacity: 0.8 } : {}),
         ...(arrastrando ? { boxShadow: '0 18px 40px rgba(0,0,0,.35)', outline: `2px solid ${color}` } : {}),
@@ -289,7 +314,7 @@ function TarjetaViaje({ v, total, handle, arrastrando }: { v: Viaje; total: numb
         <span aria-hidden="true" className="pointer-events-none absolute -right-6 -top-10 text-[96px] leading-none opacity-15">{v.emoji}</span>
         <div className="relative flex items-start gap-2">
           {handle && (
-            <button type="button" {...handle} className="-ml-1 rounded p-1 text-white/70 hover:bg-white/10 hover:text-white">
+            <button type="button" {...handle} aria-label="Arrastrar para ordenar" className="-ml-1 grid h-8 w-8 place-items-center rounded text-white/70 hover:bg-white/10 hover:text-white">
               <GripVertical size={15} />
             </button>
           )}
@@ -346,7 +371,7 @@ function TarjetaViaje({ v, total, handle, arrastrando }: { v: Viaje; total: numb
             {dias && total > 0 && (
               <div className="text-right">
                 <p className="fa-label">Por día</p>
-                <p className="fa-num-sm text-secondary">{fmtCorto(total / dias)}</p>
+                <p className="fa-num-sm text-secondary">{fmtCorto(total / (diaActual ? Math.min(diaActual, dias) : dias))}</p>
               </div>
             )}
           </div>
@@ -435,15 +460,15 @@ function LineaDeTiempo({ viajes, anio, setAnio, gastado }: {
   const anios = Array.from(new Set(viajes.filter(v => v.fecha_inicio).map(v => Number(v.fecha_inicio!.slice(0, 4)))))
 
   return (
-    <section className="fa-card p-5">
-      <Titulo
+    <section className="min-w-0" aria-labelledby="t-tiempo">
+      <Encabezado id="t-tiempo"
         titulo="Línea de tiempo"
         sub={`${delAnio.length} ${delAnio.length === 1 ? 'viaje' : 'viajes'} en ${anio}`}
         derecha={
-          <div className="flex items-center gap-1 rounded-lg bg-alternate p-1">
-            <button onClick={() => setAnio(anio - 1)} aria-label="Año anterior" className="rounded-md p-1 text-secondary hover:bg-card hover:text-primary"><ChevronLeft size={15} /></button>
+          <div className="flex items-center gap-1 rounded-lg bg-alternate p-0.5">
+            <button onClick={() => setAnio(anio - 1)} aria-label="Año anterior" className="fa-press grid h-8 w-8 place-items-center rounded-md text-secondary hover:bg-card hover:text-primary"><ChevronLeft size={15} /></button>
             <span className="min-w-[44px] text-center text-xs font-semibold text-primary">{anio}</span>
-            <button onClick={() => setAnio(anio + 1)} aria-label="Año siguiente" className="rounded-md p-1 text-secondary hover:bg-card hover:text-primary"><ChevronRight size={15} /></button>
+            <button onClick={() => setAnio(anio + 1)} aria-label="Año siguiente" className="fa-press grid h-8 w-8 place-items-center rounded-md text-secondary hover:bg-card hover:text-primary"><ChevronRight size={15} /></button>
           </div>
         }
       />

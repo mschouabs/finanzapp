@@ -9,6 +9,9 @@ import { fmtMonto, type Seccion } from '@/lib/secciones'
 import { detectarCategoria } from '@/lib/parser'
 import { detectarMedioPago } from '@/lib/tarjetas'
 import { fmtK } from '@/components/ui/Piezas'
+import { LucaAvatar } from '@/components/luca/LucaAvatar'
+import { Confirmar, Toasts, useToasts } from '@/components/resumen/base'
+import { EVENTO_DATOS } from '@/lib/eventos'
 import { hoyISO } from '@/lib/fechas'
 
 /* ── Importar ─────────────────────────────────────────────────────
@@ -64,6 +67,8 @@ export default function ImportarPage() {
   const [historial, setHistorial] = useState<Importacion[]>([])
   const [deshaciendo, setDeshaciendo] = useState<string | null>(null)
   const [error, setError] = useState('')
+  const [aDeshacer, setADeshacer] = useState<Importacion | null>(null)
+  const toasts = useToasts()
   const fileRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -228,6 +233,7 @@ export default function ImportarPage() {
       setHistorial(nuevo.slice(0, 10))
       setUltima(imp)
       setPaso(4)
+      window.dispatchEvent(new Event(EVENTO_DATOS))
       setTabla(null)
       if (fileRef.current) fileRef.current.value = ''
     } catch {
@@ -236,13 +242,25 @@ export default function ImportarPage() {
     setImportando(false)
   }
 
-  async function deshacer(imp: Importacion) {
-    if (!window.confirm(`¿Borrar los ${imp.ids.length} registros que importaste de "${imp.archivo}"?`)) return
+  /* pide confirmación con el diálogo propio (antes: window.confirm) */
+  const deshacer = (imp: Importacion) => setADeshacer(imp)
+
+  async function confirmarDeshacer(imp: Importacion) {
+    setADeshacer(null)
     setDeshaciendo(imp.id)
     const supabase = createClient()
+    let fallo = false
     for (let i = 0; i < imp.ids.length; i += 100) {
-      await supabase.from(imp.tabla).delete().in('id', imp.ids.slice(i, i + 100))
+      const { error: e } = await supabase.from(imp.tabla).delete().in('id', imp.ids.slice(i, i + 100))
+      if (e) fallo = true
     }
+    if (fallo) {
+      setDeshaciendo(null)
+      toasts.mostrar({ texto: 'No se pudo deshacer toda la importación. Probá de nuevo.', tono: 'error' }, 6000)
+      return
+    }
+    window.dispatchEvent(new Event(EVENTO_DATOS))
+    toasts.mostrar({ texto: `Borraste los ${imp.ids.length} registros de "${imp.archivo}".` }, 5000)
     const nuevo = leerHistorial().filter(h => h.id !== imp.id)
     guardarHistorial(nuevo)
     setHistorial(nuevo)
@@ -259,20 +277,21 @@ export default function ImportarPage() {
   const visibles = verSolo === 'duplicadas' ? filas.filter(f => f.duplicado) : filas
 
   return (
-    <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-2xl font-extrabold text-primary">📥 Importar movimientos</h1>
+    <div className="fa-page-in flex flex-col gap-6">
+      <header>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-muted">Importar</p>
+        <h1 className="mt-0.5 text-xl font-extrabold tracking-tight text-primary lg:text-2xl">Traé tus movimientos</h1>
         <p className="mt-1 text-sm text-secondary">Subí el CSV del banco o la billetera. Se procesa en tu navegador: el archivo no se sube a ningún servidor.</p>
-      </div>
+      </header>
 
       {/* Stepper */}
-      <ol className="fa-card flex items-center gap-2 overflow-x-auto p-4">
+      <ol className="flex items-center gap-2 overflow-x-auto py-1" aria-label="Pasos">
         {PASOS.map((p, i) => {
           const n = i + 1
           const hecho = paso > n
           const actual = paso === n
           return (
-            <li key={p} className="flex min-w-0 flex-1 items-center gap-2">
+            <li key={p} className="flex min-w-0 flex-1 items-center gap-2" aria-current={actual ? 'step' : undefined}>
               <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold transition-all"
                 style={hecho
                   ? { background: 'var(--accent-positive)', color: '#fff' }
@@ -281,7 +300,7 @@ export default function ImportarPage() {
                   : { background: 'var(--bg-alternate)', color: 'var(--text-muted)' }}>
                 {hecho ? <Check size={15} /> : n}
               </span>
-              <span className={`whitespace-nowrap text-xs font-semibold ${actual ? 'text-primary' : 'text-muted'}`}>{p}</span>
+              <span className={`whitespace-nowrap text-xs font-semibold ${actual ? "text-primary" : "hidden text-muted sm:inline"}`}>{p}</span>
               {n < PASOS.length && <span className="mx-1 h-0.5 min-w-[16px] flex-1 rounded" style={{ background: hecho ? 'var(--accent-positive)' : 'var(--border-color)' }} />}
             </li>
           )
@@ -319,7 +338,7 @@ export default function ImportarPage() {
       {/* Paso 2: emparejar + destino */}
       {paso === 2 && tabla && (
         <div className="fa-aparecer flex flex-col gap-5">
-          <div className="fa-card p-5">
+          <div className="fa-panel p-5">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h2 className="text-sm font-bold text-primary">Emparejá las columnas</h2>
               <span className="rounded-full bg-alternate px-2.5 py-1 text-[11px] text-secondary">{archivo} · {tabla.filas.length} filas</span>
@@ -350,7 +369,7 @@ export default function ImportarPage() {
             </label>
           </div>
 
-          <div className="fa-card p-5">
+          <div className="fa-panel p-5">
             <h2 className="text-sm font-bold text-primary">¿Dónde van?</h2>
             <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
               {[...DESTINOS_FIJOS.map(d => ({ id: d.id as string, label: d.label, ayuda: d.ayuda })),
@@ -391,8 +410,20 @@ export default function ImportarPage() {
             <Resumen label="No se pueden leer" valor={String(invalidas)} sub={invalidas ? 'sin monto o en cero' : 'todas bien'} tono={invalidas ? 'var(--accent-negative)' : 'var(--accent-positive)'} />
           </div>
 
+          {(duplicadas > 0 || invalidas > 0 || porCat.length > 0) && (
+            <div className="flex items-start gap-3 rounded-2xl border px-4 py-3"
+              style={{ borderColor: 'color-mix(in srgb, var(--accent-secondary) 22%, var(--border-subtle))', background: 'color-mix(in srgb, var(--accent-secondary) 4%, var(--bg-card))' }}>
+              <LucaAvatar estado={duplicadas > 0 ? 'warning' : 'insight'} size={30} />
+              <p className="text-sm leading-relaxed text-primary">
+                {duplicadas > 0 ? `Encontré ${duplicadas} ${duplicadas === 1 ? 'fila que ya tenías' : 'filas que ya tenías'} y las dejé afuera; revisalas si querés sumarlas igual. ` : ''}
+                {invalidas > 0 ? `${invalidas} ${invalidas === 1 ? 'fila no tiene' : 'filas no tienen'} monto y no se van a importar. ` : ''}
+                {porCat.length > 0 ? `Lo más grande es ${porCat[0][0]} (${fmtK(porCat[0][1])}).` : ''}
+              </p>
+            </div>
+          )}
+
           {porCat.length > 0 && (
-            <div className="fa-card p-5">
+            <div className="fa-panel p-5">
               <h2 className="text-sm font-bold text-primary">Así queda por categoría</h2>
               <ul className="mt-3 space-y-2">
                 {porCat.map(([cat, v]) => (
@@ -407,7 +438,7 @@ export default function ImportarPage() {
             </div>
           )}
 
-          <div className="fa-card overflow-hidden">
+          <div className="fa-panel overflow-hidden">
             <div className="flex flex-wrap items-center justify-between gap-3 p-4">
               <p className="text-xs text-secondary">
                 {aImportar.length} listas{omitidas.size > 0 && ` · ${omitidas.size} descartadas`} · tocá una fila para incluirla o descartarla
@@ -480,7 +511,7 @@ export default function ImportarPage() {
 
       {/* Paso 4: listo */}
       {paso === 4 && ultima && (
-        <div className="fa-card fa-aparecer flex flex-col items-center gap-3 p-10 text-center">
+        <div className="fa-panel fa-aparecer flex flex-col items-center gap-3 p-10 text-center">
           <span className="flex h-16 w-16 items-center justify-center rounded-full text-3xl" style={{ background: 'var(--riesgo-bajo-tint)' }}>✅</span>
           <p className="text-lg font-bold text-primary">Importaste {ultima.ids.length} {ultima.ids.length === 1 ? 'registro' : 'registros'}</p>
           <p className="text-sm text-secondary">{fmtK(ultima.total)} a {ultima.destino}</p>
@@ -498,7 +529,7 @@ export default function ImportarPage() {
 
       {/* Historial de importaciones */}
       {historial.length > 0 && (
-        <section className="fa-card overflow-hidden">
+        <section className="fa-panel overflow-hidden">
           <div className="flex items-center gap-2 border-b border-line p-4">
             <History size={16} className="text-secondary" />
             <h2 className="text-sm font-bold text-primary">Importaciones recientes</h2>
@@ -522,13 +553,20 @@ export default function ImportarPage() {
           </ul>
         </section>
       )}
+
+      {aDeshacer && (
+        <Confirmar peligro accion="Borrar registros" titulo="¿Deshacer esta importación?"
+          detalle={<>Se borran los {aDeshacer.ids.length} registros que importaste de «{aDeshacer.archivo}».</>}
+          onConfirmar={() => confirmarDeshacer(aDeshacer)} onCancelar={() => setADeshacer(null)} />
+      )}
+      <Toasts items={toasts.items} onCerrar={toasts.cerrar} />
     </div>
   )
 }
 
 function Resumen({ label, valor, sub, tono }: { label: string; valor: string; sub: string; tono: string }) {
   return (
-    <div className="fa-card fa-lift relative overflow-hidden p-4">
+    <div className="fa-panel fa-lift relative overflow-hidden p-4">
       <span aria-hidden="true" className="absolute inset-x-0 top-0 h-1" style={{ background: tono }} />
       <p className="fa-label">{label}</p>
       <p className="fa-num-xl mt-1 text-primary">{valor}</p>

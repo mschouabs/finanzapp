@@ -2,13 +2,16 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { ArrowDownRight, ArrowUpRight, ChevronDown, Download, Hash, Scale, Search, X } from 'lucide-react'
-import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { ChevronDown, Download, Search, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { traerCotizaciones } from '@/lib/patrimonio'
-import { Kpi, Segmentado, SkeletonPagina, Titulo, fmtK, fmtPesos, tooltipStyle } from '@/components/ui/Piezas'
+import { SkeletonPagina, fmtK, fmtPesos } from '@/components/ui/Piezas'
+import { LucaAvatar } from '@/components/luca/LucaAvatar'
+import { Encabezado, NumeroAnimado, Pestanas, Toasts, fmt, useToasts } from '@/components/resumen/base'
+import { GraficoMensual } from '@/components/resumen/GraficoMensual'
+import { useAlCambiarDatos } from '@/lib/eventos'
 import { hoyISO } from '@/lib/fechas'
-import { cobradoDelMes } from '@/lib/ingresos'
+import { cobradoDelMes, cobrosDeFreelance } from '@/lib/ingresos'
 import { editarGastoVariable } from '@/lib/movimientos'
 
 /* ── Historial ────────────────────────────────────────────────────
@@ -98,8 +101,9 @@ export default function HistorialPage() {
   const [edit, setEdit] = useState({ nombre: '', monto: '', categoria: '', fecha: '' })
   const [guardando, setGuardando] = useState(false)
 
+  const toasts = useToasts()
+
   const cargar = useCallback(async () => {
-    setLoading(true)
     const supabase = createClient()
     const [cot, { data: gv }, { data: gf }, { data: iff }, { data: inf }, { data: secs }, { data: vg }, { data: vs }, { data: ts }] = await Promise.all([
       traerCotizaciones(),
@@ -153,14 +157,12 @@ export default function HistorialPage() {
       }),
       ...activos(gf as Fila[] | null).flatMap(r => expandirFijo(r, 'gasto-fijo', () => num(r.monto), 'gf')),
       ...activos(iff as Fila[] | null).flatMap(r => expandirFijo(r, 'ingreso-fijo', m => cobradoDelMes(r, m), 'iff')),
-      ...((inf ?? []) as Fila[]).map(r => {
-        const m = num(r.monto_cobrado ?? r.monto_total ?? r.monto)
-        return {
-          id: 'inf-' + str(r.id), origenId: str(r.id), tipo: 'ingreso-freelance' as Tipo,
-          descripcion: str(r.descripcion) || str(r.cliente) || str(r.nombre) || 'Freelance',
-          monto: m, moneda: 'ARS', montoOriginal: m, fecha: fechaDe(r), categoria: 'Freelance',
-        }
-      }),
+      /* freelance: un movimiento por cobro, en la fecha en que entró */
+      ...((inf ?? []) as Fila[]).flatMap(r => cobrosDeFreelance(r).map((c, i) => ({
+        id: `inf-${str(r.id)}-${i}`, origenId: str(r.id), tipo: 'ingreso-freelance' as Tipo,
+        descripcion: str(r.descripcion) || str(r.cliente) || str(r.nombre) || 'Freelance',
+        monto: c.monto, moneda: 'ARS', montoOriginal: c.monto, fecha: c.fecha, categoria: str(r.cliente) || 'Freelance',
+      }))),
       ...((vg ?? []) as Fila[]).map(r => ({
         id: 'vg-' + str(r.id), origenId: str(r.id), tipo: 'gasto-viaje' as Tipo,
         descripcion: str(r.concepto), monto: num(r.monto_ars), moneda: str(r.moneda) || 'ARS',
@@ -186,6 +188,7 @@ export default function HistorialPage() {
   }, [])
 
   useEffect(() => { cargar() }, [cargar])
+  useAlCambiarDatos(cargar)
 
   /* ── filtros ─────────────────────────────── */
   const [fDesde, fHasta] = useMemo(() => {
@@ -217,12 +220,13 @@ export default function HistorialPage() {
   const totGas = filtrados.filter(m => !esIngreso(m.tipo)).reduce((s, m) => s + m.monto, 0)
 
   const porMes = useMemo(() => {
-    const acc: Record<string, { mes: string; ingresos: number; gastos: number }> = {}
+    const acc: Record<string, { mes: string; ingresos: number; gastos: number; balance: number }> = {}
     for (const m of filtrados) {
       const k = m.fecha.slice(0, 7)
-      acc[k] = acc[k] ?? { mes: k, ingresos: 0, gastos: 0 }
+      acc[k] = acc[k] ?? { mes: k, ingresos: 0, gastos: 0, balance: 0 }
       if (esIngreso(m.tipo)) acc[k].ingresos += m.monto
       else acc[k].gastos += m.monto
+      acc[k].balance = acc[k].ingresos - acc[k].gastos
     }
     return Object.values(acc).sort((a, b) => a.mes.localeCompare(b.mes)).slice(-12)
   }, [filtrados])
@@ -262,12 +266,18 @@ export default function HistorialPage() {
     if (!edit.nombre.trim() || !Number(edit.monto)) return
     setGuardando(true)
     const supabase = createClient()
-    await editarGastoVariable(supabase, m.origenId, {
+    const antes = { nombre: m.descripcion, monto: m.montoOriginal, categoria: m.categoria || 'varios', fecha: m.fecha }
+    const r = await editarGastoVariable(supabase, m.origenId, {
       nombre: edit.nombre.trim(), monto: Number(edit.monto), categoria: edit.categoria || 'varios', fecha: edit.fecha,
     })
     setGuardando(false)
+    if (r && 'error' in r && r.error) { toasts.mostrar({ texto: 'No se pudo guardar el cambio.', tono: 'error' }, 5000); return }
     setAbierto(null)
     cargar()
+    toasts.mostrar({
+      texto: `Guardaste ${edit.nombre.trim()}.`,
+      deshacer: async () => { await editarGastoVariable(createClient(), m.origenId, antes); cargar() },
+    }, 7000)
   }
 
   function exportarCSV() {
@@ -289,89 +299,112 @@ export default function HistorialPage() {
 
   const hayFiltros = filtro !== 'todos' || rango !== '3m' || q
 
+  if (loading) return <SkeletonPagina kpis={2} />
+
+  /* Luca: el mejor y el peor mes de lo que estás viendo (solo meses cerrados) */
+  const cerrados = porMes.filter(x => x.mes < claveMes(new Date()))
+  let luca = ''
+  if (cerrados.length >= 3) {
+    const mejor = cerrados.reduce((a, b) => (b.balance > a.balance ? b : a))
+    const peor = cerrados.reduce((a, b) => (b.balance < a.balance ? b : a))
+    const prom = cerrados.reduce((s2, x) => s2 + x.balance, 0) / cerrados.length
+    luca = `En estos ${cerrados.length} meses cerrados te quedaron en promedio ${fmt(prom)} por mes. El mejor fue ${etiquetaMes(mejor.mes)} (${fmt(mejor.balance)}) y el más flojo ${etiquetaMes(peor.mes)} (${fmt(peor.balance)}).`
+  }
+  const mesElegido = rango === 'custom' && desde && hasta && desde.slice(0, 7) === hasta.slice(0, 7) ? desde.slice(0, 7) : null
+
   return (
-    <div className="flex flex-col gap-6">
-      {/* Encabezado */}
-      <div className="flex flex-wrap items-start justify-between gap-3">
+    <div className="fa-page-in flex flex-col gap-8">
+      <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-extrabold text-primary">📋 Historial</h1>
-          <p className="mt-1 text-sm text-secondary">Todo lo que entró y salió, en un solo lugar.</p>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-muted">Historial</p>
+          <h1 className="mt-0.5 text-xl font-extrabold tracking-tight text-primary lg:text-2xl">Todo lo que entró y salió</h1>
         </div>
         <button onClick={exportarCSV} disabled={!filtrados.length}
-          className="flex min-h-[44px] items-center gap-1.5 rounded-xl border px-4 py-2 text-sm font-semibold text-primary hover:bg-alternate disabled:opacity-40">
+          className="fa-press flex h-11 items-center gap-1.5 rounded-xl border px-4 text-sm font-semibold text-primary hover:bg-alternate disabled:opacity-40 fa-hairline">
           <Download size={16} /> Exportar CSV
         </button>
-      </div>
+      </header>
 
-      {/* Filtros */}
-      <div className="fa-card flex flex-col gap-3 p-4">
+      {/* Hero: neto del período elegido */}
+      <section aria-label="Resultado del período" className="grid gap-6 lg:grid-cols-12 lg:items-end">
+        <div className="lg:col-span-5">
+          <p className="fa-label">Te quedó en el período</p>
+          <NumeroAnimado valor={totIng - totGas} contarAlInicio
+            className={`mt-1 block text-[clamp(2.2rem,3.8vw,3rem)] font-extrabold leading-none tracking-tight tabular-nums ${totIng - totGas >= 0 ? 'text-primary' : 'text-negative'}`} />
+          <p className="mt-2 text-xs text-secondary">
+            {filtrados.length.toLocaleString('es-AR')} movimientos · {rango === 'custom' ? (desde && hasta ? `${desde.split('-').reverse().join('/')} al ${hasta.split('-').reverse().join('/')}` : 'elegí las fechas') : RANGOS.find(r => r.key === rango)?.label.toLowerCase()}
+          </p>
+        </div>
+        <dl className="grid grid-cols-2 gap-4 lg:col-span-7">
+          <div>
+            <dt className="fa-label">Entró</dt>
+            <dd className="mt-1 text-xl font-bold tabular-nums text-positive">+{fmt(totIng)}</dd>
+          </div>
+          <div>
+            <dt className="fa-label">Salió</dt>
+            <dd className="mt-1 text-xl font-bold tabular-nums text-negative">−{fmt(totGas)}</dd>
+          </div>
+        </dl>
+      </section>
+
+      {luca && (
+        <div className="flex items-start gap-3 rounded-2xl border px-4 py-3"
+          style={{ borderColor: 'color-mix(in srgb, var(--accent-secondary) 22%, var(--border-subtle))', background: 'color-mix(in srgb, var(--accent-secondary) 4%, var(--bg-card))' }}>
+          <LucaAvatar estado="insight" size={30} />
+          <p className="text-sm leading-relaxed text-primary">{luca}</p>
+        </div>
+      )}
+
+      {porMes.length > 1 && (
+        <section aria-labelledby="t-mes">
+          <Encabezado id="t-mes" titulo="Mes a mes" sub="Lo que entró y lo que salió · tocá un mes para verlo solo" />
+          <div className="mt-4">
+            <GraficoMensual datos={porMes} modo="flujo" mesSel={mesElegido} onElegir={irAlMes} alto={230} />
+          </div>
+        </section>
+      )}
+
+      {/* Filtros (fijos arriba al bajar) */}
+      <div className="sticky top-0 z-20 -mx-4 flex flex-col gap-3 border-b px-4 py-3 backdrop-blur fa-hairline lg:-mx-2 lg:px-2"
+        style={{ background: 'color-mix(in srgb, var(--bg-page) 88%, transparent)' }}>
         <div className="flex flex-wrap items-center gap-2">
           <div className="relative min-w-[200px] flex-1">
             <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
-            <input value={busqueda} onChange={e => setBusqueda(e.target.value)} placeholder="Buscar por descripción, categoría, tarjeta o viaje…"
-              className="w-full rounded-lg border bg-field py-2.5 pl-9 pr-3 text-sm text-primary" />
+            <label htmlFor="h-buscar" className="sr-only">Buscar</label>
+            <input id="h-buscar" type="search" value={busqueda} onChange={e => setBusqueda(e.target.value)} placeholder="Buscar descripción, categoría, tarjeta o viaje…"
+              className="h-11 w-full rounded-lg border bg-field pl-9 pr-3 text-sm text-primary" />
           </div>
-          <Segmentado opciones={RANGOS} valor={rango} onCambio={setRango} />
+          <Pestanas etiqueta="Período" opciones={RANGOS} valor={rango} onCambio={setRango} />
         </div>
         {rango === 'custom' && (
           <div className="flex flex-wrap items-center gap-2 text-xs text-secondary">
-            Desde <input type="date" value={desde} onChange={e => setDesde(e.target.value)} className="rounded-lg border bg-field px-2.5 py-1.5 text-sm text-primary" />
-            hasta <input type="date" value={hasta} onChange={e => setHasta(e.target.value)} className="rounded-lg border bg-field px-2.5 py-1.5 text-sm text-primary" />
+            <label htmlFor="h-desde">Desde</label> <input id="h-desde" type="date" value={desde} onChange={e => setDesde(e.target.value)} className="h-9 rounded-lg border bg-field px-2.5 text-sm text-primary" />
+            <label htmlFor="h-hasta">hasta</label> <input id="h-hasta" type="date" value={hasta} onChange={e => setHasta(e.target.value)} className="h-9 rounded-lg border bg-field px-2.5 text-sm text-primary" />
           </div>
         )}
-        <div className="flex flex-wrap items-center gap-1.5">
-          {FILTROS.map(f => (
-            <button key={f.key} onClick={() => setFiltro(f.key)}
-              className="rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors"
-              style={filtro === f.key
-                ? { background: 'var(--accent-confirm)', borderColor: 'var(--accent-confirm)', color: '#fff' }
-                : { color: 'var(--text-secondary)' }}>
-              {f.label}
-            </button>
-          ))}
+        <div className="-mx-1 flex items-center gap-1.5 overflow-x-auto px-1 pb-0.5">
+          {FILTROS.map(f => {
+            const on = filtro === f.key
+            return (
+              <button key={f.key} onClick={() => setFiltro(f.key)} aria-pressed={on}
+                className="fa-press h-8 shrink-0 rounded-full border px-3 text-xs font-semibold fa-hairline"
+                style={on ? { background: 'var(--text-primary)', borderColor: 'var(--text-primary)', color: 'var(--bg-page)' } : { color: 'var(--text-secondary)' }}>
+                {f.label}
+              </button>
+            )
+          })}
           {hayFiltros && (
             <button onClick={() => { setFiltro('todos'); setRango('3m'); setBusqueda('') }}
-              className="ml-auto flex items-center gap-1 rounded-full px-2.5 py-1.5 text-xs text-muted hover:bg-alternate hover:text-primary">
+              className="fa-press ml-auto flex h-8 shrink-0 items-center gap-1 rounded-full px-2.5 text-xs text-muted hover:bg-alternate hover:text-primary">
               <X size={12} /> Limpiar
             </button>
           )}
         </div>
       </div>
 
-      {/* KPIs */}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Kpi label="Movimientos" valor={filtrados.length.toLocaleString('es-AR')} icono={<Hash size={17} />} tono="var(--accent-secondary)" />
-        <Kpi label="Ingresos" valor={fmtK(totIng)} icono={<ArrowUpRight size={17} />} tono="var(--accent-positive)" />
-        <Kpi label="Gastos" valor={fmtK(totGas)} icono={<ArrowDownRight size={17} />} tono="var(--accent-negative)" />
-        <Kpi label="Neto" valor={fmtK(totIng - totGas)} icono={<Scale size={17} />} tono={totIng - totGas >= 0 ? 'var(--accent-positive)' : 'var(--accent-negative)'} />
-      </div>
-
-      {/* Gráfico mensual */}
-      {porMes.length > 0 && (
-        <section className="fa-card p-5">
-          <Titulo titulo="Mes a mes" sub="Ingresos contra gastos de lo que estás viendo · tocá un mes para verlo solo" />
-          <div className="mt-4 h-[220px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={porMes} margin={{ top: 4, right: 4, bottom: 0, left: -10 }} barGap={3}
-                onClick={(e: unknown) => { const k = (e as { activeLabel?: string } | null)?.activeLabel; if (k) irAlMes(k) }}>
-                <CartesianGrid stroke="var(--border-color)" strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="mes" tickFormatter={etiquetaMesCorta} tick={{ fill: 'var(--text-muted)', fontSize: 11 }} axisLine={false} tickLine={false} />
-                <YAxis tickFormatter={(v: number) => fmtK(v)} tick={{ fill: 'var(--text-muted)', fontSize: 10 }} axisLine={false} tickLine={false} />
-                <Tooltip contentStyle={tooltipStyle} labelFormatter={etiquetaMes} formatter={(v: number) => fmtPesos(v)} cursor={{ fill: 'var(--bg-alternate)' }} />
-                <Legend wrapperStyle={{ fontSize: 12, color: 'var(--text-secondary)' }} />
-                <Bar dataKey="ingresos" name="Ingresos" fill="var(--accent-positive)" radius={[4, 4, 0, 0]} style={{ cursor: 'pointer' }} />
-                <Bar dataKey="gastos" name="Gastos" fill="var(--accent-negative)" radius={[4, 4, 0, 0]} style={{ cursor: 'pointer' }} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </section>
-      )}
-
       {/* Lista agrupada por mes */}
-      {loading ? (
-        <SkeletonPagina kpis={4} />
-      ) : filtrados.length === 0 ? (
-        <div className="fa-card p-10 text-center">
+      {filtrados.length === 0 ? (
+        <div className="fa-panel p-10 text-center">
           <p className="text-3xl">🔍</p>
           <p className="mt-2 text-sm text-secondary">{movs.length === 0 ? 'No hay movimientos registrados' : 'Nada con estos filtros'}</p>
         </div>
@@ -380,8 +413,8 @@ export default function HistorialPage() {
           {grupos.map(g => {
             const st = subtotalMes(g.mes)
             return (
-              <section key={g.mes} className="fa-card overflow-hidden">
-                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line bg-alternate px-4 py-2.5">
+              <section key={g.mes} className="fa-panel overflow-hidden">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b px-4 py-2.5 fa-hairline">
                   <p className="text-sm font-bold capitalize text-primary">{etiquetaMes(g.mes)} <span className="ml-1 text-xs font-normal text-muted">{st.cant} movimientos</span></p>
                   <p className="flex gap-3 text-xs font-semibold">
                     <span className="text-positive">+{fmtK(st.ing)}</span>
@@ -462,6 +495,7 @@ export default function HistorialPage() {
           )}
         </div>
       )}
+      <Toasts items={toasts.items} onCerrar={toasts.cerrar} />
     </div>
   )
 }

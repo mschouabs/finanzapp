@@ -194,3 +194,26 @@ export function colorPresupuesto(pct: number): string {
   if (pct >= 80) return 'var(--riesgo-medio)'
   return 'var(--accent-positive)'
 }
+
+/* ── Proyección de un viaje en curso ─────────────────────────────
+   Vuelos, alojamiento y trámites se pagan una vez (casi siempre al
+   principio): no se proyectan. Lo demás se proyecta al ritmo diario. */
+const PAGO_UNICO = new Set(['alojamiento', 'vuelos', 'tramites'])
+
+export function proyeccionViaje(
+  v: Viaje, gastos: { categoria: string; monto_ars: number | null }[],
+): { transcurridos: number; dias: number; ritmo: number; proyectado: number } | null {
+  if (estadoViaje(v) !== 'en_curso' || !v.fecha_inicio) return null
+  const dias = duracionDias(v)
+  if (!dias) return null
+  const transcurridos = Math.min(dias, Math.max(1,
+    Math.round((new Date(hoyISO() + 'T12:00:00').getTime() - new Date(v.fecha_inicio + 'T12:00:00').getTime()) / 86_400_000) + 1))
+  let unico = 0, diario = 0
+  for (const g of gastos) {
+    const k = getCategoriaViaje(g.categoria).key
+    if (PAGO_UNICO.has(k)) unico += Number(g.monto_ars) || 0
+    else diario += Number(g.monto_ars) || 0
+  }
+  const ritmo = diario / transcurridos
+  return { transcurridos, dias, ritmo, proyectado: unico + ritmo * dias }
+}

@@ -7,8 +7,9 @@ import { aPesos, traerCotizaciones, type Cotizaciones, type LineaSaldo } from '@
 import { GrillaOrdenable, type HandleProps } from '@/components/GrillaOrdenable'
 import { AnilloProgreso, SkeletonPagina, fmtK, fmtPesos } from '@/components/ui/Piezas'
 import { Modal } from '@/components/tarjetas/Modales'
-import { LucaMensaje } from '@/components/luca/LucaMensaje'
-import { cobradoDelMes } from '@/lib/ingresos'
+import { LucaAvatar } from '@/components/luca/LucaAvatar'
+import { NumeroAnimado, Toasts, useToasts } from '@/components/resumen/base'
+import { cobradoDelMes, cobradoFreelanceEnMes } from '@/lib/ingresos'
 
 /* ── Metas ────────────────────────────────────────────────────────
    Arriba, dos metas "automáticas" que salen de tus números (cuánto
@@ -56,6 +57,8 @@ export default function MetasPage() {
   const [editando, setEditando] = useState<Meta | 'nueva' | null>(null)
   const [aportando, setAportando] = useState<string | null>(null)
   const [montoAporte, setMontoAporte] = useState('')
+  const [logro, setLogro] = useState<string | null>(null)
+  const toasts = useToasts()
 
   const cargar = useCallback(async () => {
     const supabase = createClient()
@@ -69,7 +72,7 @@ export default function MetasPage() {
     const [c, { data: iff }, { data: inf }, { data: gf }, { data: gv }, { data: vg }, { data: inv }, metasRes] = await Promise.all([
       traerCotizaciones(),
       supabase.from('ingresos_fijos').select('*'),
-      supabase.from('ingresos_freelance').select('*').gte('fecha', desde).lte('fecha', hasta),
+      supabase.from('ingresos_freelance').select('*'),
       supabase.from('gastos_fijos').select('monto, activo'),
       supabase.from('gastos_variables').select('monto, moneda').gte('fecha', desde).lte('fecha', hasta),
       supabase.from('viaje_gastos').select('monto_ars').gte('fecha', desde).lte('fecha', hasta),
@@ -84,7 +87,7 @@ export default function MetasPage() {
     const activos = (rows: Fila[] | null) => (rows ?? []).filter(r => r.activo !== false)
     setIngresos(
       activos(iff as Fila[]).reduce((s, r) => s + cobradoDelMes(r), 0) +
-      ((inf ?? []) as Fila[]).reduce((s, r) => s + num(r.monto_cobrado ?? r.monto_total ?? r.monto), 0)
+      ((inf ?? []) as Fila[]).reduce((s, r) => s + cobradoFreelanceEnMes(r, mes), 0)
     )
     setFijos(activos(gf as Fila[]).reduce((s, r) => s + num(r.monto), 0))
     /* los gastos en dólares se pasan a pesos (antes se sumaban como si fueran pesos) */
@@ -188,22 +191,45 @@ export default function MetasPage() {
   }
 
   async function borrarMeta(m: Meta) {
-    if (!window.confirm(`¿Borrar la meta "${m.nombre}"?`)) return
     const supabase = createClient()
+    const { data: fila } = await supabase.from('metas').select('*').eq('id', m.id).single()
     await supabase.from('metas').delete().eq('id', m.id)
     setEditando(null)
-    cargar()
+    await cargar()
+    toasts.mostrar({
+      texto: `Borraste la meta "${m.nombre}"`,
+      deshacer: fila ? async () => { await createClient().from('metas').insert(fila); await cargar() } : undefined,
+    }, 8000)
   }
 
   async function aportar(m: Meta) {
     const monto = Number(montoAporte.replace(',', '.'))
     if (!monto) return
     const supabase = createClient()
-    const nuevo = Math.max(0, (Number(m.aportado) || 0) + monto)
+    const antes = Number(m.aportado) || 0
+    const nuevo = Math.max(0, antes + monto)
+    const objetivo = Number(m.monto_objetivo) || 0
     setMetas(prev => prev.map(x => (x.id === m.id ? { ...x, aportado: nuevo } : x)))
     setAportando(null)
     setMontoAporte('')
-    await supabase.from('metas').update({ aportado: nuevo }).eq('id', m.id)
+    const { error } = await supabase.from('metas').update({ aportado: nuevo }).eq('id', m.id)
+    if (error) {
+      setMetas(prev => prev.map(x => (x.id === m.id ? { ...x, aportado: antes } : x)))
+      toasts.mostrar({ texto: 'No se pudo guardar el aporte.', tono: 'error' }, 5000)
+      return
+    }
+    const deshacer = async () => {
+      setMetas(prev => prev.map(x => (x.id === m.id ? { ...x, aportado: antes } : x)))
+      await createClient().from('metas').update({ aportado: antes }).eq('id', m.id)
+    }
+    /* llegar al objetivo merece un momento propio (sobrio, sin confeti) */
+    if (objetivo > 0 && antes < objetivo && nuevo >= objetivo) {
+      setLogro(m.id)
+      setTimeout(() => setLogro(null), 2600)
+      toasts.mostrar({ texto: `¡Lograste "${m.nombre}"! ${fmtMoneda(objetivo, m.moneda)} juntados.`, deshacer }, 9000)
+    } else {
+      toasts.mostrar({ texto: `Sumaste ${fmtMoneda(monto, m.moneda)} a ${m.nombre}.`, deshacer }, 6000)
+    }
   }
 
   const reordenar = useCallback(async (ids: string[]) => {
@@ -270,19 +296,19 @@ export default function MetasPage() {
 
     return (
       <div
-        className={`fa-card relative flex h-full flex-col p-5 ${arrastrando ? '' : 'fa-lift'}`}
+        className={`fa-panel relative flex h-full flex-col p-5 ${arrastrando ? '' : 'fa-lift'} ${logro === m.id ? 'fa-logro' : ''}`}
         style={arrastrando
           ? { boxShadow: '0 18px 40px rgba(0,0,0,.35)', outline: `2px solid ${color}` }
-          : lograda ? { borderColor: 'var(--accent-positive)' } : undefined}
+          : lograda ? { borderColor: 'color-mix(in srgb, var(--accent-positive) 55%, var(--border-subtle))' } : undefined}
       >
         <div className="flex items-center gap-2">
-          <button type="button" {...handle} className="-ml-1 rounded p-1 text-muted hover:bg-alternate hover:text-primary">
+          <button type="button" {...handle} className="-ml-1 flex h-8 w-7 items-center justify-center rounded text-muted hover:bg-alternate hover:text-primary">
             <GripVertical size={16} />
           </button>
           <span className="text-2xl">{m.emoji || '🎯'}</span>
           <h3 className="min-w-0 flex-1 truncate text-sm font-bold text-primary">{m.nombre}</h3>
-          {lograda && <span className="rounded-full px-2 py-0.5 text-[10px] font-bold text-positive" style={{ background: 'var(--riesgo-bajo-tint)' }}>🎉 LOGRADA</span>}
-          <button onClick={() => setEditando(m)} aria-label={`Editar ${m.nombre}`} className="rounded p-1 text-muted hover:bg-alternate hover:text-primary">
+          {lograda && <span className="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-positive" style={{ background: 'var(--glow-positive)' }}>Lograda</span>}
+          <button onClick={() => setEditando(m)} aria-label={`Editar ${m.nombre}`} className="flex h-8 w-8 items-center justify-center rounded-lg text-muted hover:bg-alternate hover:text-primary">
             <Pencil size={14} />
           </button>
         </div>
@@ -292,7 +318,7 @@ export default function MetasPage() {
             <span className="fa-num-md text-primary">{Math.min(Math.round(pct), 999)}%</span>
           </AnilloProgreso>
           <div className="min-w-0">
-            <p className="fa-num-lg text-primary">{fmtMoneda(actual, m.moneda)}</p>
+            <NumeroAnimado valor={actual} formato={n => fmtMoneda(n, m.moneda)} className="block text-xl font-extrabold tabular-nums text-primary" />
             <p className="fa-caption">de {fmtMoneda(objetivo, m.moneda)}</p>
             {!lograda && <p className="fa-caption mt-1">Faltan {fmtMoneda(faltante, m.moneda)}</p>}
             {m.billetera_app && (
@@ -339,6 +365,9 @@ export default function MetasPage() {
                 <Plus size={14} /> Aportar
               </button>
             )}
+            {aportando !== m.id && (
+              <p className="mt-1.5 text-center text-[10px] text-muted">Lo que aportás queda apartado acá; no mueve plata de tus cuentas.</p>
+            )}
           </div>
         )}
       </div>
@@ -346,31 +375,55 @@ export default function MetasPage() {
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
+    <div className="fa-page-in mx-auto flex max-w-[1480px] flex-col gap-7 pb-6">
+      <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-extrabold text-primary">Metas</h1>
-          <p className="mt-1 text-sm text-secondary">
-            {metas.length > 0 ? `${metas.length} ${metas.length === 1 ? 'meta' : 'metas'} · ${logradas} ${logradas === 1 ? 'lograda' : 'logradas'}` : 'Tus objetivos y a qué ritmo vas'}
-          </p>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-muted">Metas</p>
+          <h1 className="mt-0.5 text-xl font-extrabold tracking-tight text-primary lg:text-2xl">Hacia dónde vas</h1>
         </div>
         {!tablaFalta && (
           <button onClick={() => setEditando('nueva')}
-            className="flex min-h-[44px] items-center gap-1.5 rounded-xl bg-confirm px-4 py-2 text-sm font-semibold text-white hover:bg-confirm-hover">
+            className="fa-press flex h-11 items-center gap-1.5 rounded-xl bg-confirm px-4 text-sm font-semibold text-white hover:bg-confirm-hover">
             <Plus size={16} strokeWidth={2.5} /> Nueva meta
           </button>
         )}
-      </div>
+      </header>
+
+      {metas.length > 0 && (() => {
+        const totObj = metas.reduce((a, m) => a + (Number(m.monto_objetivo) || 0) * (m.moneda === 'USD' ? dolar : 1), 0)
+        const totAct = metas.reduce((a, m) => a + Math.min(actualDe(m), Number(m.monto_objetivo) || 0) * (m.moneda === 'USD' ? dolar : 1), 0)
+        const pctTot = totObj > 0 ? (totAct / totObj) * 100 : 0
+        return (
+          <section aria-label="Progreso total" className="grid gap-6 lg:grid-cols-12 lg:items-end">
+            <div className="lg:col-span-5">
+              <p className="fa-label">Juntado para tus metas</p>
+              <NumeroAnimado valor={totAct} contarAlInicio className="mt-1 block text-[clamp(2.2rem,3.8vw,3rem)] font-extrabold leading-none tracking-tight tabular-nums text-primary" />
+              <p className="mt-2 text-xs text-secondary">de {fmtPesos(totObj)} en total · en pesos al dólar de hoy</p>
+            </div>
+            <div className="lg:col-span-7">
+              <div className="flex items-baseline justify-between text-sm">
+                <span className="text-secondary">{metas.length} {metas.length === 1 ? 'meta' : 'metas'} · {logradas} {logradas === 1 ? 'lograda' : 'logradas'}</span>
+                <span className="font-bold tabular-nums text-primary">{Math.round(pctTot)}%</span>
+              </div>
+              <div className="mt-2 h-2.5 overflow-hidden rounded-full" style={{ background: 'var(--border-subtle)' }}>
+                <div className="fa-grow-x h-full rounded-full" style={{ width: `${Math.min(100, pctTot)}%`, background: 'var(--accent-positive)' }} />
+              </div>
+            </div>
+          </section>
+        )
+      })()}
 
       {lucaInsight && (
-        <LucaMensaje estado="idle" variante="panel" className="p-4">
-          {lucaInsight}
-        </LucaMensaje>
+        <div className="flex items-start gap-3 rounded-2xl border px-4 py-3"
+          style={{ borderColor: 'color-mix(in srgb, var(--accent-positive) 22%, var(--border-subtle))', background: 'color-mix(in srgb, var(--accent-positive) 4%, var(--bg-card))' }}>
+          <LucaAvatar estado="insight" size={30} />
+          <p className="text-sm leading-relaxed text-primary">{lucaInsight}</p>
+        </div>
       )}
 
       {/* Metas automáticas */}
       <div className="grid grid-cols-1 gap-5 min-w-0 lg:grid-cols-2">
-        <section className="fa-card fa-lift flex flex-wrap items-center gap-5 p-5">
+        <section className="fa-panel fa-lift flex flex-wrap items-center gap-5 p-5">
           <AnilloProgreso pct={metaAhorro > 0 ? (tasaAhorro / metaAhorro) * 100 : 0} size={110} grosor={11} color={colorAhorro}>
             <span className="fa-num-lg text-primary">{Math.round(tasaAhorro)}%</span>
             <span className="fa-label">de {metaAhorro}%</span>
@@ -403,7 +456,7 @@ export default function MetasPage() {
           </div>
         </section>
 
-        <section className="fa-card fa-lift flex flex-wrap items-center gap-5 p-5">
+        <section className="fa-panel fa-lift flex flex-wrap items-center gap-5 p-5">
           <AnilloProgreso pct={pctCubierto} size={110} grosor={11} color={colorCubierto}>
             <span className="fa-num-lg text-primary">{Math.round(pctCubierto)}%</span>
             <span className="fa-label">cubierto</span>
@@ -426,11 +479,11 @@ export default function MetasPage() {
       </div>
 
       {/* Metas propias */}
-      <section className="flex flex-col gap-4 border-t border-line pt-5">
+      <section className="flex flex-col gap-4">
         <div className="flex items-start gap-3">
-          <Target size={20} className="mt-0.5 text-positive" />
+          <Target size={18} className="mt-0.5 text-positive" />
           <div>
-            <h2 className="text-lg font-bold text-primary">Tus metas</h2>
+            <h2 className="text-[15px] font-bold text-primary">Tus metas</h2>
             <p className="text-xs text-secondary">Arrastralas desde <GripVertical size={11} className="inline" /> para ordenarlas. Si la vinculás a una billetera, el progreso se actualiza solo con ese saldo.</p>
           </div>
         </div>
@@ -469,6 +522,7 @@ export default function MetasPage() {
           onCerrar={() => setEditando(null)}
         />
       )}
+      <Toasts items={toasts.items} onCerrar={toasts.cerrar} />
     </div>
   )
 }

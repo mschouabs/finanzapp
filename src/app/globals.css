@@ -262,6 +262,14 @@ a:focus-visible,
 @keyframes fa-draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
 .fa-draw { stroke-dasharray: 1; stroke-dashoffset: 0; animation: fa-draw 900ms var(--ease-out) both; }
 
+/* Meta lograda: un anillo de luz que se expande una sola vez (sobrio) */
+@keyframes fa-logro {
+  0%   { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent-positive) 55%, transparent); }
+  60%  { box-shadow: 0 0 0 14px color-mix(in srgb, var(--accent-positive) 0%, transparent); }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+.fa-logro { animation: fa-logro 1.2s var(--ease-out) 2; }
+
 /* Superficie "panel" del nuevo lenguaje: menos caja, más plano */
 .fa-panel {
   background: var(--bg-card);
@@ -276,6 +284,7 @@ a:focus-visible,
   .fa-page-in, .fa-flash, .fa-tint-up, .fa-tint-down, .fa-grow-x, .fa-pop,
   .fa-sheet-up, .fa-toast-in, .fa-draw { animation: none; }
   .fa-grafico path { animation: none !important; }
+  .fa-logro { animation: none; }
 }
 
 /* Barra de scroll discreta, en tono del tema */

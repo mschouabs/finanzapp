@@ -59,3 +59,24 @@ export async function guardarIngresoFijo(
   const r2 = await escribir(datos)
   return { error: r2.error }
 }
+
+/* ── Freelance: cada cobro cuenta en el mes en que entró ──────────
+   `cobros` guarda los cobros parciales [{fecha, monto}]. Lo cobrado que
+   no tenga detalle (proyectos viejos) se toma en la fecha del proyecto. */
+
+export interface Cobro { fecha: string; monto: number }
+
+export function cobrosDeFreelance(r: Fila): Cobro[] {
+  const lista: Cobro[] = Array.isArray(r.cobros)
+    ? (r.cobros as Fila[]).filter(c => c && c.fecha).map(c => ({ fecha: String(c.fecha).slice(0, 10), monto: Number(c.monto) || 0 }))
+    : []
+  const cobrado = r.monto_cobrado == null ? n(r.monto_total) ?? 0 : n(r.monto_cobrado) ?? 0
+  const conDetalle = lista.reduce((a, c) => a + c.monto, 0)
+  const resto = cobrado - conDetalle
+  if (resto > 0.5 && r.fecha) lista.push({ fecha: String(r.fecha).slice(0, 10), monto: resto })
+  return lista.sort((a, b) => a.fecha.localeCompare(b.fecha))
+}
+
+/** Lo cobrado de ese proyecto dentro de `mes` (YYYY-MM). */
+export const cobradoFreelanceEnMes = (r: Fila, mes: string) =>
+  cobrosDeFreelance(r).filter(c => c.fecha.startsWith(mes)).reduce((a, c) => a + c.monto, 0)
