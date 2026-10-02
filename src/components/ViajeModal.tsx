@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase'
+import { useDialogo } from '@/lib/dialogo'
 import type { Viaje } from '@/lib/viajes'
 
 const EMOJIS = ['✈️', '🏖️', '🏔️', '🗺️', '🚗', '🚢', '🎒', '🏝️', '🗼', '🎿', '🛶', '🏕️']
@@ -16,6 +17,7 @@ export function ViajeModal({
   onClose: () => void
   onSaved: () => void
 }) {
+  const dialogo = useDialogo<HTMLDivElement>(onClose)
   const editando = Boolean(viaje)
 
   const [nombre, setNombre] = useState(viaje?.nombre ?? '')
@@ -82,9 +84,9 @@ export function ViajeModal({
       className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 p-4 py-10"
       onClick={onClose}
     >
-      <div className="fa-card w-full max-w-lg p-6" onClick={e => e.stopPropagation()}>
+      <div ref={dialogo} role="dialog" aria-modal="true" aria-labelledby="viaje-modal-titulo" className="fa-card fa-pop w-full max-w-lg p-6" onClick={e => e.stopPropagation()}>
         <div className="mb-5 flex items-center justify-between">
-          <h2 className="text-base font-extrabold text-primary">
+          <h2 id="viaje-modal-titulo" className="text-base font-extrabold text-primary">
             {editando ? 'Editar viaje' : 'Nuevo viaje'}
           </h2>
           <button

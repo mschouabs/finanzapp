@@ -7,6 +7,8 @@
 
 import type { LucaEstado } from '@/components/luca/LucaAvatar'
 import {
+  categorias as categoriasDe, compromisos as compromisosDe, flujoDelMes, momentoDelMes, patrimonio as patrimonioDe,
+  progresoMetas, ritmoDeGasto,
   nombreMes, type Compromisos, type Flujo, type Momento, type Patrimonio, type ProgresoMeta, type Ritmo,
   type Categoria, type Snapshot, claveMes, isoLocal, mesDeISO,
 } from './nucleo'
@@ -201,4 +203,15 @@ export function generarInsights({ s, p, flujo, ritmo, comp, cats, metas, momento
   }
 
   return out.sort((a, b) => b.prioridad - a.prioridad)
+}
+
+/** Los insights de hoy a partir del snapshot (mismo cálculo que el Resumen). */
+export function insightsDe(s: Snapshot): Insight[] {
+  const p = patrimonioDe(s)
+  const comp = compromisosDe(s, 30)
+  const actual = claveMes(s.hoy)
+  return generarInsights({
+    s, p, comp, flujo: flujoDelMes(s, actual), ritmo: ritmoDeGasto(s), cats: categoriasDe(s, actual),
+    metas: progresoMetas(s), momento: momentoDelMes(s.hoy).momento,
+  })
 }

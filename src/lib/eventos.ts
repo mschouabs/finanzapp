@@ -15,3 +15,6 @@ export function useAlCambiarDatos(recargar: () => void) {
     return () => window.removeEventListener(EVENTO_DATOS, h)
   }, [recargar])
 }
+
+/** Pide abrir el formulario de "Nuevo movimiento" (lo escucha la barra lateral). */
+export const EVENTO_NUEVO = 'finanzapp:nuevo-movimiento'

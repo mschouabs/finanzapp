@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase'
+import { useDialogo } from '@/lib/dialogo'
 import {
   PLANTILLAS,
   normalizarCampos,
@@ -35,6 +36,7 @@ export function SeccionModal({
   onClose: () => void
   onCreated: () => void
 }) {
+  const dialogo = useDialogo<HTMLDivElement>(onClose)
   const [paso, setPaso] = useState<1 | 2>(1)
   const [plantilla, setPlantilla] = useState<Plantilla | null>(null)
   const [nombre, setNombre] = useState('')
@@ -121,8 +123,9 @@ export function SeccionModal({
       className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 p-4 py-10"
     >
       <div
+        ref={dialogo} role="dialog" aria-modal="true" aria-label="Nueva sección"
         onClick={e => e.stopPropagation()}
-        className="fa-card w-full max-w-2xl p-6"
+        className="fa-card fa-pop w-full max-w-2xl p-6"
       >
         <div className="mb-5 flex items-start justify-between gap-4">
           <div>

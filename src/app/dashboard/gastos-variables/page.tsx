@@ -536,7 +536,7 @@ export default function MovimientosPage() {
 
   const lista = (
     <section aria-labelledby="t-lista" className="min-w-0">
-      <div className="sticky top-0 z-20 -mx-1 flex flex-wrap items-center gap-2 px-1 pb-3 pt-1 lg:top-14" style={{ background: 'var(--bg-page)' }}>
+      <div className="sticky top-[var(--header-h)] z-20 -mx-1 flex flex-wrap items-center gap-2 px-1 pb-3 pt-1" style={{ background: 'var(--bg-page)' }}>
         <h2 id="t-lista" className="mr-auto text-[15px] font-bold text-primary">
           {visibles.length} {visibles.length === 1 ? 'movimiento' : 'movimientos'}
           <span className="ml-2 text-xs font-normal tabular-nums text-secondary">{fmt(visibles.reduce((a, f) => a + f.pesos, 0))}</span>

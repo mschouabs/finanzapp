@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { X } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
+import { useDialogo } from '@/lib/dialogo'
 import { guardarGastoVariable, ingresarABilletera, listarMediosDePago } from '@/lib/movimientos'
 import { CATEGORIAS } from '@/lib/categorias'
 import { hoyISO } from '@/lib/fechas'
@@ -35,6 +36,7 @@ export function AgregarMovimientoModal({
   onSaved?: () => void
   defaultTab?: Tab
 }) {
+  const dialogo = useDialogo<HTMLDivElement>(onClose)
   const [tab, setTab] = useState<Tab>(defaultTab)
   const [subIngreso, setSubIngreso] = useState<SubIngreso>('freelance')
   const [medios, setMedios] = useState<string[]>([])
@@ -163,10 +165,10 @@ export function AgregarMovimientoModal({
   return (
     <div className="fixed inset-0 z-[60] flex items-end justify-center sm:items-center">
       <div className="absolute inset-0 bg-black/60 fa-fade-in" onClick={onClose} />
-      <div className="fa-card relative z-10 max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-b-none p-5 sm:rounded-b-2xl">
+      <div ref={dialogo} role="dialog" aria-modal="true" aria-labelledby="nuevo-mov-titulo" className="fa-card fa-sheet-up relative z-10 max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-b-none p-5 sm:rounded-b-2xl">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-base font-extrabold text-primary">Nuevo movimiento</h2>
-          <button onClick={onClose} aria-label="Cerrar" className="rounded-lg p-1.5 text-secondary hover:bg-alternate hover:text-primary">
+          <h2 id="nuevo-mov-titulo" className="text-base font-extrabold text-primary">Nuevo movimiento</h2>
+          <button onClick={onClose} aria-label="Cerrar" className="grid h-10 w-10 place-items-center rounded-lg text-secondary hover:bg-alternate hover:text-primary">
             <X size={18} />
           </button>
         </div>

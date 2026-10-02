@@ -8,9 +8,7 @@
 
 import { useMemo, useState } from 'react'
 import { ChevronLeft, ChevronRight, Search, Trash2, Undo2, X } from 'lucide-react'
-import {
-  Bar, BarChart, Cell, Pie, PieChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis,
-} from 'recharts'
+import { Dona } from '@/components/ui/Piezas'
 import { etiquetaMes, fmtDiaMes, sumarMeses } from '@/lib/ciclos'
 import { enPesos, infoResumen, type Consumo, type EstadoTarjeta, type ResumenInfo, type TarjetaInfo } from '@/lib/resumenes'
 import { Modal } from './Modales'
@@ -30,11 +28,6 @@ const ESTADO: Record<string, { label: string; color: string }> = {
   pagado: { label: 'Pagado', color: 'var(--accent-positive)' },
   futuro: { label: 'Futuro', color: 'var(--text-muted)' },
   vacio: { label: 'Sin consumos', color: 'var(--text-muted)' },
-}
-
-const tooltipStyle = {
-  background: 'var(--bg-card)', border: '1px solid var(--border-color)',
-  borderRadius: 10, fontSize: 12, color: 'var(--text-primary)',
 }
 
 export function DetalleTarjeta({ e, tarjetas, dolar, onCerrar, onPagar, onDeshacer, onMover, onBorrar }: {
@@ -136,16 +129,9 @@ export function DetalleTarjeta({ e, tarjetas, dolar, onCerrar, onPagar, onDeshac
             <p className="mt-6 text-center text-xs text-muted">Sin consumos en este resumen</p>
           ) : (
             <div className="flex items-center gap-3">
-              <div className="h-[140px] w-[140px] shrink-0">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie data={porCategoria} dataKey="value" nameKey="name" innerRadius={38} outerRadius={62} paddingAngle={2} stroke="none" isAnimationActive={false}
-                      onClick={(d: { name?: string; payload?: { name?: string } }) => { const k = d?.payload?.name ?? d?.name; if (k) setCat(c => (c === k ? null : k)) }}>
-                      {porCategoria.map(c => <Cell key={c.name} fill={colorCat(c.name)} opacity={cat && cat !== c.name ? 0.25 : 1} />)}
-                    </Pie>
-                    <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => fmt(v)} />
-                  </PieChart>
-                </ResponsiveContainer>
+              <div className="shrink-0">
+                <Dona size={130} grosor={18} activo={cat} onElegir={k => setCat(c => (c === k ? null : k))}
+                  datos={porCategoria.map(c => ({ key: c.name, label: c.name, valor: c.value, color: colorCat(c.name) }))} />
               </div>
               <ul className="min-w-0 flex-1 space-y-0.5">
                 {porCategoria.map(c => (
@@ -166,22 +152,27 @@ export function DetalleTarjeta({ e, tarjetas, dolar, onCerrar, onPagar, onDeshac
         <section>
           <h3 className="text-sm font-bold text-primary">Tus resúmenes</h3>
           <p className="text-[11px] text-muted">Tocá una barra para verlo{promedio > 0 ? ` · promedio ${fmtCorto(promedio)}` : ''}</p>
-          <div className="mt-2 h-[140px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={evolucion} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
-                <XAxis dataKey="mes" tick={{ fill: 'var(--text-muted)', fontSize: 10 }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fill: 'var(--text-muted)', fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={(v: number) => fmtCorto(v)} />
-                <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => [fmt(v), 'Total']} cursor={{ fill: 'rgba(127,127,127,.12)' }} />
-                {promedio > 0 && <ReferenceLine y={promedio} stroke="var(--text-muted)" strokeDasharray="4 4" />}
-                <Bar dataKey="total" radius={[4, 4, 0, 0]}
-                  onClick={(d: { clave?: string; payload?: { clave?: string } }) => { const k = d?.payload?.clave ?? d?.clave; if (k) setClave(k) }}>
-                  {evolucion.map(x => (
-                    <Cell key={x.clave} cursor="pointer"
-                      fill={x.clave === clave ? colorTarjeta(t.marca) : x.futuro ? 'var(--border-color)' : 'color-mix(in srgb, var(--text-muted) 60%, transparent)'} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+          <div className="relative mt-3 flex h-[140px] items-end gap-1.5">
+            {promedio > 0 && (
+              <span aria-hidden="true" className="pointer-events-none absolute inset-x-0 border-t border-dashed"
+                style={{ bottom: `calc(18px + ${(promedio / Math.max(...evolucion.map(x => x.total), 1)) * 110}px)`, borderColor: 'var(--text-muted)', opacity: 0.6 }} />
+            )}
+            {evolucion.map((x, i) => {
+              const max = Math.max(...evolucion.map(y => y.total), 1)
+              const on = x.clave === clave
+              return (
+                <button key={x.clave} onClick={() => setClave(x.clave)} aria-label={`${x.mes}: ${fmt(x.total)}`} aria-pressed={on}
+                  title={`${x.mes}: ${fmt(x.total)}`}
+                  className="group flex h-full flex-1 flex-col items-center justify-end gap-1">
+                  <span className="fa-grow-y block w-full max-w-[28px] rounded-t"
+                    style={{
+                      height: Math.max(x.total > 0 ? 3 : 0, (x.total / max) * 110), animationDelay: `${i * 30}ms`,
+                      background: on ? colorTarjeta(t.marca) : x.futuro ? 'var(--border-color)' : 'color-mix(in srgb, var(--text-muted) 60%, transparent)',
+                    }} />
+                  <span className={`text-[10px] capitalize ${on ? 'font-semibold text-primary' : 'text-muted'}`}>{x.mes.slice(0, 3)}</span>
+                </button>
+              )
+            })}
           </div>
         </section>
       </div>

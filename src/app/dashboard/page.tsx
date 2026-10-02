@@ -25,11 +25,12 @@ import { esLiquida } from '@/lib/patrimonio'
 import { infoResumen, type ResumenInfo, type TarjetaInfo } from '@/lib/resumenes'
 import { borrarGastoVariable, guardarGastoVariable, pagarConsumos, repararFechasDeCuotas } from '@/lib/movimientos'
 import {
-  actividad, cargarSnapshot, guardarFotoPatrimonio, categorias, claveMes, compromisos, flujoDelMes, momentoDelMes, nombreMes,
+  actividad, guardarFotoPatrimonio, categorias, claveMes, compromisos, flujoDelMes, momentoDelMes, nombreMes,
   patrimonio, progresoMetas, ritmoDeGasto, serieMensual, seriePatrimonio,
   type Compromiso, type Snapshot,
 } from '@/lib/finanzas/nucleo'
 import { generarInsights } from '@/lib/finanzas/insights'
+import { snapshotCompartido } from '@/lib/finanzas/compartido'
 import { sumarMeses } from '@/lib/ciclos'
 import { AgregarMovimientoModal } from '@/components/AgregarMovimientoModal'
 import { PagarResumen } from '@/components/tarjetas/Modales'
@@ -73,7 +74,7 @@ export default function ResumenPage() {
   const cargar = useCallback(async (silencioso = false) => {
     if (!silencioso) setEstado('cargando')
     try {
-      const s = await cargarSnapshot(createClient())
+      const s = await snapshotCompartido(true)
       const prev = snapRef.current
       if (prev && silencioso) {
         /* lo que llegó recién se resalta en Actividad */

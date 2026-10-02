@@ -192,7 +192,7 @@ a:focus-visible,
   from { opacity: 0; transform: translateY(8px); }
   to   { opacity: 1; transform: none; }
 }
-.fa-aparecer { animation: fa-aparecer .4s cubic-bezier(.2,.8,.2,1) both; }
+.fa-aparecer { animation: fa-aparecer .4s cubic-bezier(.2,.8,.2,1) backwards; }
 
 /* ══ Sistema de movimiento ═════════════════════════════════════
    Tres duraciones y dos curvas para TODA la app. Nada dura más que
@@ -228,7 +228,8 @@ a:focus-visible,
 
 /* Entrada de la pantalla */
 @keyframes fa-page-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
-.fa-page-in { animation: fa-page-in var(--dur-std) var(--ease-out) both; }
+/* "backwards": al terminar no deja transform puesto (si no, los modales fixed quedan atrapados en la página) */
+.fa-page-in { animation: fa-page-in var(--dur-std) var(--ease-out) backwards; }
 
 /* Resalta un elemento que acaba de cambiar o llegar (ej: el movimiento recién cargado) */
 @keyframes fa-flash { 0% { background-color: var(--glow-positive); } 100% { background-color: transparent; } }
@@ -395,3 +396,7 @@ a:focus-visible,
   * { scrollbar-width: none; }
   *::-webkit-scrollbar { display: none; }
 }
+
+/* alto del header global (buscador + avisos): lo usan las barras fijas */
+:root { --header-h: 57px; }
+@media (min-width: 1024px) { :root { --header-h: 65px; } }

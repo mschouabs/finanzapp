@@ -1,36 +1,31 @@
 'use client'
 
-import { useEffect, useState, type ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { X } from 'lucide-react'
 import { MARCAS } from '@/lib/tarjetas'
 import { etiquetaMes, fmtDiaMes } from '@/lib/ciclos'
 import type { ResumenInfo, TarjetaInfo } from '@/lib/resumenes'
 import type { LineaSaldo } from '@/lib/patrimonio'
 import { fmt } from './TarjetaVisual'
+import { useDialogo } from '@/lib/dialogo'
 
 /* ── Modal genérico ─────────────────────────────────────────────── */
 
 export function Modal({ titulo, onCerrar, children, ancho = 'max-w-lg' }: {
   titulo: ReactNode; onCerrar: () => void; children: ReactNode; ancho?: string
 }) {
-  useEffect(() => {
-    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') onCerrar() }
-    window.addEventListener('keydown', esc)
-    const prev = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    return () => { window.removeEventListener('keydown', esc); document.body.style.overflow = prev }
-  }, [onCerrar])
+  const ref = useDialogo<HTMLDivElement>(onCerrar)
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-0 sm:items-center sm:p-4" onClick={onCerrar}>
       <div
-        role="dialog" aria-modal="true"
+        ref={ref} role="dialog" aria-modal="true" aria-labelledby="modal-titulo"
         onClick={e => e.stopPropagation()}
-        className={`fa-card flex max-h-[92vh] w-full ${ancho} flex-col overflow-hidden rounded-b-none sm:rounded-2xl`}
+        className={`fa-card fa-pop flex max-h-[92vh] w-full ${ancho} flex-col overflow-hidden rounded-b-none sm:rounded-2xl`}
       >
         <div className="flex items-center justify-between gap-3 border-b border-line px-5 py-4">
-          <div className="min-w-0 text-base font-bold text-primary">{titulo}</div>
-          <button onClick={onCerrar} aria-label="Cerrar" className="rounded p-1.5 text-muted hover:bg-alternate hover:text-primary"><X size={18} /></button>
+          <div id="modal-titulo" className="min-w-0 text-base font-bold text-primary">{titulo}</div>
+          <button onClick={onCerrar} aria-label="Cerrar" className="grid h-10 w-10 place-items-center rounded-lg text-muted hover:bg-alternate hover:text-primary"><X size={18} /></button>
         </div>
         <div className="overflow-y-auto p-5">{children}</div>
       </div>

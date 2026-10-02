@@ -12,9 +12,9 @@ import { createClient } from '@/lib/supabase'
 import { ThemeSelector } from '@/components/ThemeSelector'
 import { SeccionModal } from '@/components/SeccionModal'
 import { AgregarMovimientoModal } from '@/components/AgregarMovimientoModal'
-import { LucaAvatar } from '@/components/luca/LucaAvatar'
 import type { Seccion } from '@/lib/secciones'
-import { EVENTO_DATOS } from '@/lib/eventos'
+import { EVENTO_DATOS, EVENTO_NUEVO } from '@/lib/eventos'
+import { LucaLateral } from '@/components/luca/LucaLateral'
 
 /* Navegación agrupada por función, no por orden alfabético: así la
    sidebar responde "¿qué tipo de cosa es esto?" de un vistazo.
@@ -74,6 +74,13 @@ export default function Sidebar({ userName }: { userName?: string }) {
   const [modal, setModal] = useState(false)
   const [abierta, setAbierta] = useState(false)
   const [showAgregar, setShowAgregar] = useState(false)
+
+  /* el buscador (Ctrl+K) puede pedir abrir "Nuevo movimiento" */
+  useEffect(() => {
+    const abrir = () => setShowAgregar(true)
+    window.addEventListener(EVENTO_NUEVO, abrir)
+    return () => window.removeEventListener(EVENTO_NUEVO, abrir)
+  }, [])
 
   const cargarSecciones = useCallback(async () => {
     try {
@@ -191,30 +198,8 @@ export default function Sidebar({ userName }: { userName?: string }) {
         </div>
       </nav>
 
-      {/* Luca */}
-      <div className="fa-card mt-6 p-4 text-center">
-        <div className="mb-2 flex items-center justify-between">
-          <span className="text-sm font-bold text-primary">Luca</span>
-          <span className="flex items-center gap-1.5 text-[10px] text-secondary">
-            <span
-              className="inline-block h-1.5 w-1.5 rounded-full"
-              style={{ background: 'var(--accent-positive)' }}
-            />
-            Online
-          </span>
-        </div>
-        <LucaAvatar estado="idle" size={72} className="mx-auto" />
-        <p className="mt-2 text-[11px] leading-snug text-secondary">
-          Estoy para ayudarte con tus finanzas.
-        </p>
-        <Link
-          href="/dashboard/luca"
-          className="mt-3 block rounded-lg border px-3 py-2 text-xs font-semibold transition-colors hover:bg-alternate"
-          style={{ borderColor: 'var(--accent-confirm)', color: 'var(--accent-confirm)' }}
-        >
-          Hablar con Luca
-        </Link>
-      </div>
+      {/* Luca: lo más importante que ve hoy */}
+      <LucaLateral />
 
       {/* pie */}
       <div className="mt-auto pt-5">

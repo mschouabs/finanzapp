@@ -188,6 +188,11 @@ export default function HistorialPage() {
   }, [])
 
   useEffect(() => { cargar() }, [cargar])
+  /* llega desde el buscador global: /dashboard/historial?q=… */
+  useEffect(() => {
+    const q0 = new URLSearchParams(window.location.search).get('q')
+    if (q0) { setBusqueda(q0); setRango('todo') }
+  }, [])
   useAlCambiarDatos(cargar)
 
   /* ── filtros ─────────────────────────────── */
@@ -365,7 +370,7 @@ export default function HistorialPage() {
       )}
 
       {/* Filtros (fijos arriba al bajar) */}
-      <div className="sticky top-0 z-20 -mx-4 flex flex-col gap-3 border-b px-4 py-3 backdrop-blur fa-hairline lg:-mx-2 lg:px-2"
+      <div className="sticky top-[var(--header-h)] z-20 -mx-4 flex flex-col gap-3 border-b px-4 py-3 backdrop-blur fa-hairline lg:-mx-2 lg:px-2"
         style={{ background: 'color-mix(in srgb, var(--bg-page) 88%, transparent)' }}>
         <div className="flex flex-wrap items-center gap-2">
           <div className="relative min-w-[200px] flex-1">
