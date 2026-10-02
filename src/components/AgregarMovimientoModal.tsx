@@ -106,6 +106,7 @@ export function AgregarMovimientoModal({
     if (formFreelance.billetera && cobrado > 0) {
       const { error: errBill } = await ingresarABilletera(supabase, user.id, {
         app: formFreelance.billetera, monto: cobrado, moneda: formFreelance.moneda,
+        descripcion: `Cobro de ${formFreelance.cliente || 'freelance'}`,
       })
       if (errBill) { setSaving(false); setAviso(errBill); onSaved?.(); return }
     }
@@ -154,6 +155,7 @@ export function AgregarMovimientoModal({
     if (formFijo.billetera && delta > 0) {
       const { error: errBill } = await ingresarABilletera(supabase, user.id, {
         app: formFijo.billetera, monto: delta, moneda: formFijo.moneda,
+        descripcion: `Cobro de ${formFijo.nombre || 'sueldo'}`,
       })
       if (errBill) { setSaving(false); setAviso(errBill); onSaved?.(); return }
     }

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { Coins, LineChart as IconoLinea, Pencil, Plus, RefreshCw, Trash2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
+import { ajustarSaldo } from '@/lib/libro'
 import { aPesos, esLiquida, traerCotizaciones, type Cotizaciones, type LineaSaldo } from '@/lib/patrimonio'
 import { Dona, Leyenda, PALETA, SkeletonPagina, fmtK, fmtPesos, type Porcion } from '@/components/ui/Piezas'
 import { Encabezado, NumeroAnimado, Pestanas, Revelar, Toasts, useToasts } from '@/components/resumen/base'
@@ -136,7 +137,7 @@ export default function PortfolioPage() {
       /* si la plata salió de una cuenta, se descuenta de ahí (antes la
          inversión se sumaba sin restar nada y el patrimonio se duplicaba) */
       if (d.origen) {
-        const { error: e2 } = await supabase.rpc('ajustar_saldo', { p_id: d.origen, p_delta: -fila.monto })
+        const { error: e2 } = await ajustarSaldo(supabase, d.origen, -fila.monto, { tipo: 'inversion', descripcion: `Invertiste en ${fila.nombre}` })
         if (e2) toasts.mostrar({ texto: 'La inversión se guardó, pero no se pudo descontar de la cuenta de origen.', tono: 'error' }, 8000)
       }
     }

@@ -10,6 +10,7 @@ import { EVENTO_DATOS, useAlCambiarDatos } from '@/lib/eventos'
 import { hoyISO, mesActualISO } from '@/lib/fechas'
 import { cobradoDelMes, cobradoFreelanceEnMes, cobrosDeFreelance, guardarIngresoFijo, tieneCobroEsteMes, yaCobradoEsteMes } from '@/lib/ingresos'
 import { esLiquida, type LineaSaldo } from '@/lib/patrimonio'
+import { ajustarSaldo } from '@/lib/libro'
 
 /* ── Trabajos ─────────────────────────────────────────────────────
    Lo que ganás: sueldos fijos y proyectos freelance.
@@ -274,7 +275,9 @@ export default function TrabajosPage() {
 
     let enCuenta = false
     if (cuenta) {
-      const { error } = await supabase.rpc('ajustar_saldo', { p_id: cuenta, p_delta: monto })
+      const { error } = await ajustarSaldo(supabase, cuenta, monto, {
+        tipo: 'ingreso', descripcion: `Cobro de ${nombre}`, origen_tabla: tipo === 'fijo' ? 'ingresos_fijos' : 'ingresos_freelance', origen_id: id,
+      })
       if (error) toasts.mostrar({ texto: 'El cobro quedó anotado, pero no se pudo sumar a la cuenta.', tono: 'error' }, 8000)
       else enCuenta = true
     }
@@ -285,7 +288,7 @@ export default function TrabajosPage() {
       texto: `Cobro de ${nombre}: ${fmt(monto)}${enCuenta ? ' sumado a tu cuenta' : ''}.`,
       deshacer: async () => {
         await deshacerFila()
-        if (enCuenta) await createClient().rpc('ajustar_saldo', { p_id: cuenta, p_delta: -monto })
+        if (enCuenta) await ajustarSaldo(createClient(), cuenta, -monto, { tipo: 'deshacer', descripcion: `Cobro de ${nombre} deshecho` })
         cargar(); avisarCambio()
       },
     }, 8000)

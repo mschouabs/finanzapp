@@ -12,6 +12,8 @@ import { GraficoMensual } from '@/components/resumen/GraficoMensual'
 import { EVENTO_DATOS } from '@/lib/eventos'
 import { Modal } from '@/components/tarjetas/Modales'
 import { createClient } from '@/lib/supabase'
+import { transferirEntreCuentas } from '@/lib/libro'
+import { LibroCuentas } from '@/components/LibroCuentas'
 import { COLORES_MARCA, marcaDeMedio, normalizar } from '@/lib/tarjetas'
 import {
   aPesos, calcularPatrimonio, esLiquida, mesAnteriorClave, traerCotizaciones,
@@ -334,15 +336,11 @@ export default function BilleterasPage() {
   }
 
   async function transferir(desdeId: string, haciaId: string, sale: number, llega: number): Promise<string | null> {
-    const supabase = createClient()
-    const { error: e1 } = await supabase.rpc('ajustar_saldo', { p_id: desdeId, p_delta: -sale })
-    if (e1) return 'No se pudo descontar de la cuenta de origen.'
-    const { error: e2 } = await supabase.rpc('ajustar_saldo', { p_id: haciaId, p_delta: llega })
-    if (e2) {
-      /* si no se pudo acreditar, devolvemos la plata al origen */
-      await supabase.rpc('ajustar_saldo', { p_id: desdeId, p_delta: sale })
-      return 'No se pudo acreditar en la cuenta de destino. No se movió nada.'
-    }
+    const d0 = lineas.find(l => l.id === desdeId), h0 = lineas.find(l => l.id === haciaId)
+    /* en la base y en una sola operación: o se mueve todo o nada */
+    const { error } = await transferirEntreCuentas(createClient(), desdeId, haciaId, sale, llega,
+      `De ${d0?.etiqueta || d0?.app} a ${h0?.etiqueta || h0?.app}`)
+    if (error) return error
     setTransfiriendo(false)
     await cargar()
     window.dispatchEvent(new Event(EVENTO_DATOS))
@@ -701,6 +699,8 @@ export default function BilleterasPage() {
           </div>
         </section>
       ))}
+
+      <LibroCuentas lineas={lineas} oculto={oculto} />
 
       {/* Luca */}
       <div className="flex flex-wrap items-center gap-3 rounded-2xl border px-4 py-3"

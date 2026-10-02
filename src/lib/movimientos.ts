@@ -9,6 +9,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { normalizar, resolverTarjetaId, type FormaPago } from './tarjetas'
 import { aISO, resumenDeCompra, sumarMeses } from './ciclos'
+import { ajustarSaldo, pagarConsumosAtomico } from './libro'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Cliente = SupabaseClient<any, any, any>
@@ -186,8 +187,8 @@ export async function guardarGastoVariable(
   }
 
   if (billetera_linea_id) {
-    const { error: e2 } = await supabase.rpc('ajustar_saldo', {
-      p_id: billetera_linea_id, p_delta: -Number(g.monto),
+    const { error: e2 } = await ajustarSaldo(supabase, billetera_linea_id, -Number(g.monto), {
+      tipo: 'gasto', descripcion: g.nombre, origen_tabla: 'gastos_variables', origen_id: guardado.id,
     })
     if (e2) return { error: `El gasto se guardó pero no se pudo descontar del saldo: ${e2.message}`, guardado }
 
@@ -215,12 +216,12 @@ export async function guardarGastoVariable(
  * un ingreso sume al saldo de la billetera elegida.
  */
 export async function ingresarABilletera(
-  supabase: Cliente, userId: string, opts: { app: string; monto: number; moneda?: 'ARS' | 'USD' },
+  supabase: Cliente, userId: string, opts: { app: string; monto: number; moneda?: 'ARS' | 'USD'; descripcion?: string },
 ): Promise<{ error: string | null }> {
   if (!opts.app || !opts.monto) return { error: null }
   const lineaId = await resolverLineaDisponible(supabase, userId, opts.app, opts.moneda ?? 'ARS')
   if (!lineaId) return { error: 'No se encontró la billetera para acreditar el ingreso.' }
-  const { error } = await supabase.rpc('ajustar_saldo', { p_id: lineaId, p_delta: Number(opts.monto) })
+  const { error } = await ajustarSaldo(supabase, lineaId, Number(opts.monto), { tipo: 'ingreso', descripcion: opts.descripcion ?? 'Ingreso' })
   if (error) return { error: `El ingreso se guardó pero no se pudo acreditar a la billetera: ${error.message}` }
   return { error: null }
 }
@@ -240,8 +241,8 @@ export async function borrarGastoVariable(
   }
   await supabase.from('gastos_variables').delete().eq('id', gasto.id)
   if (gasto.billetera_linea_id) {
-    await supabase.rpc('ajustar_saldo', {
-      p_id: gasto.billetera_linea_id, p_delta: Number(gasto.monto),
+    await ajustarSaldo(supabase, gasto.billetera_linea_id, Number(gasto.monto), {
+      tipo: 'deshacer', descripcion: 'Gasto borrado', origen_tabla: 'gastos_variables', origen_id: gasto.id,
     })
   }
 }
@@ -262,7 +263,9 @@ export async function editarGastoVariable(
   const linea = (antes as { billetera_linea_id?: string | null } | null)?.billetera_linea_id
   const viejo = Number((antes as { monto?: number } | null)?.monto) || 0
   if (linea && cambios.monto != null && Number(cambios.monto) !== viejo) {
-    const { error: e2 } = await supabase.rpc('ajustar_saldo', { p_id: linea, p_delta: viejo - Number(cambios.monto) })
+    const { error: e2 } = await ajustarSaldo(supabase, linea, viejo - Number(cambios.monto), {
+      tipo: 'gasto', descripcion: `Corrección: ${cambios.nombre ?? 'gasto editado'}`, origen_tabla: 'gastos_variables', origen_id: id,
+    })
     if (e2) return { error: `El gasto se actualizó pero no se pudo corregir el saldo de la billetera: ${e2.message}` }
   }
   return { error: null }
@@ -331,7 +334,9 @@ export async function restaurarGastos(supabase: Cliente, filas: Record<string, u
   if (error) return { error: error.message }
   for (const f of filas) {
     if (f.billetera_linea_id && f.forma_pago !== 'credito') {
-      await supabase.rpc('ajustar_saldo', { p_id: f.billetera_linea_id, p_delta: -Number(f.monto) })
+      await ajustarSaldo(supabase, String(f.billetera_linea_id), -Number(f.monto), {
+        tipo: 'gasto', descripcion: String(f.nombre ?? 'Gasto restaurado'), origen_tabla: 'gastos_variables', origen_id: String(f.id ?? ''),
+      })
     }
   }
   return { error: null }
@@ -364,7 +369,10 @@ export async function pagarConsumos(
   for (const [grupo, linea] of [[ars, lineaARS], [usd, lineaUSD]] as const) {
     if (!grupo.length || !linea) continue
     const total = grupo.reduce((s, c) => s + Number(c.monto), 0)
-    const { error: e1 } = await supabase.rpc('ajustar_saldo', { p_id: linea, p_delta: -total })
+    /* en la base, en una sola operación: descuenta y marca pagados, o nada */
+    const atomico = await pagarConsumosAtomico(supabase, linea, grupo.map(c => c.id), 'Pago de tarjeta')
+    if (atomico) { if (atomico.error) return { error: atomico.error }; continue }
+    const { error: e1 } = await ajustarSaldo(supabase, linea, -total, { tipo: 'pago_tarjeta', descripcion: 'Pago de tarjeta' })
     if (e1) return { error: e1.message }
     const { error: e2 } = await supabase.from('gastos_variables')
       .update({ pagado: true, pago_linea_id: linea }).in('id', grupo.map(c => c.id))
@@ -381,7 +389,7 @@ export async function deshacerPago(supabase: Cliente, consumos: ConsumoTarjeta[]
     porLinea.set(c.pago_linea_id, (porLinea.get(c.pago_linea_id) ?? 0) + Number(c.monto))
   }
   for (const [linea, total] of porLinea) {
-    await supabase.rpc('ajustar_saldo', { p_id: linea, p_delta: total })
+    await ajustarSaldo(supabase, linea, total, { tipo: 'deshacer', descripcion: 'Pago de tarjeta deshecho' })
   }
   const ids = consumos.filter(c => c.pagado && c.pago_linea_id).map(c => c.id)
   if (ids.length) {

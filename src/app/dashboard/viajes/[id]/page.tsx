@@ -13,6 +13,7 @@ import { GraficoBarras, type PuntoBarra } from '@/components/resumen/GraficoBarr
 import { EVENTO_DATOS } from '@/lib/eventos'
 import { hoyISO } from '@/lib/fechas'
 import { esLiquida, type LineaSaldo } from '@/lib/patrimonio'
+import { ajustarSaldo } from '@/lib/libro'
 import {
   CATEGORIAS_VIAJE, ETIQUETA_ESTADO, MONEDAS, colorPresupuesto, duracionDias, estadoViaje,
   fmtARS, fmtCorto, fmtFecha, fmtMonedaOriginal, fmtRango, getCategoriaViaje, getMoneda,
@@ -175,7 +176,7 @@ export default function ViajeDetallePage() {
   /** devuelve a la cuenta lo que se le había descontado por ese gasto */
   async function devolver(g: Pick<Gasto, 'billetera_linea_id' | 'monto_descontado'>) {
     if (!g.billetera_linea_id || !g.monto_descontado) return
-    await createClient().rpc('ajustar_saldo', { p_id: g.billetera_linea_id, p_delta: Number(g.monto_descontado) })
+    await ajustarSaldo(createClient(), g.billetera_linea_id, Number(g.monto_descontado), { tipo: 'deshacer', descripcion: 'Gasto de viaje devuelto' })
   }
 
   async function guardarGasto() {
@@ -198,16 +199,19 @@ export default function ViajeDetallePage() {
         billetera_linea_id: cuentaForm?.id ?? null, monto_descontado: cuentaForm ? descontado : null,
       }
 
-      const { error: err } = editandoGasto
-        ? await supabase.from('viaje_gastos').update(fila).eq('id', editandoGasto.id)
-        : await supabase.from('viaje_gastos').insert({ ...fila, viaje_id: id, user_id: user.id })
+      const { data: nuevo, error: err } = editandoGasto
+        ? await supabase.from('viaje_gastos').update(fila).eq('id', editandoGasto.id).select('id').single()
+        : await supabase.from('viaje_gastos').insert({ ...fila, viaje_id: id, user_id: user.id }).select('id').single()
       if (err) throw err
+      const gastoId = (nuevo as { id?: string } | null)?.id ?? editandoGasto?.id
 
       /* saldo de la cuenta: se devuelve lo viejo y se descuenta lo nuevo */
       let fallo = false
       if (editandoGasto) await devolver(editandoGasto)
       if (cuentaForm && descontado > 0) {
-        const { error: e2 } = await supabase.rpc('ajustar_saldo', { p_id: cuentaForm.id, p_delta: -descontado })
+        const { error: e2 } = await ajustarSaldo(supabase, cuentaForm.id, -descontado, {
+          tipo: 'gasto', descripcion: `${viaje?.nombre ?? 'Viaje'}: ${fila.concepto}`, origen_tabla: 'viaje_gastos', origen_id: gastoId,
+        })
         fallo = !!e2
       }
 
@@ -238,7 +242,7 @@ export default function ViajeDetallePage() {
         void _calc
         await createClient().from('viaje_gastos').insert(fila)
         if (g.billetera_linea_id && g.monto_descontado)
-          await createClient().rpc('ajustar_saldo', { p_id: g.billetera_linea_id, p_delta: -Number(g.monto_descontado) })
+          await ajustarSaldo(createClient(), g.billetera_linea_id, -Number(g.monto_descontado), { tipo: 'gasto', descripcion: g.concepto, origen_tabla: 'viaje_gastos', origen_id: g.id })
         cargar(); avisarCambio()
       },
     }, 7000)
