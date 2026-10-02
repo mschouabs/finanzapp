@@ -122,7 +122,7 @@ export function Revelar({ children, className = '', demora = 0, id }: {
     return () => io.disconnect()
   }, [])
   return (
-    <div ref={ref} id={id} className={`fa-reveal ${className}`} data-visible={visible}
+    <div ref={ref} id={id} className={`fa-reveal min-w-0 ${className}`} data-visible={visible}
       style={demora ? { transitionDelay: `${demora}ms` } : undefined}>
       {children}
     </div>

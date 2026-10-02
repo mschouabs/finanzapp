@@ -409,10 +409,10 @@ function BannerViaje({ v, gastado }: { v: Viaje; gastado: number }) {
         <p className="text-[11px] font-bold uppercase tracking-widest text-white/80">
           {estado === 'en_curso' ? 'Estás de viaje' : 'Tu próximo viaje'}
         </p>
-        <p className="truncate text-xl font-extrabold">{v.nombre}{v.destino ? ` · ${v.destino}` : ''}</p>
+        <p className="text-lg font-extrabold leading-tight sm:truncate sm:text-xl">{v.nombre}{v.destino ? ` · ${v.destino}` : ''}</p>
         <p className="text-xs text-white/80">{fmtRango(v.fecha_inicio, v.fecha_fin)}{dias ? ` · ${dias} días` : ''}</p>
       </div>
-      <div className="relative text-right">
+      <div className="relative ml-auto text-right">
         {estado === 'proximo' && faltan !== null ? (
           <>
             <p className="fa-amount text-4xl leading-none">{faltan}</p>

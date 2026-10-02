@@ -420,8 +420,8 @@ export default function TarjetasPage() {
                     <p>Tenés <b className="tabular-nums">{fmtCorto(restanteTotal)}</b> comprometidos en {cuotas.length} {cuotas.length === 1 ? 'compra en cuotas' : 'compras en cuotas'}: <b className="tabular-nums">{fmt(porMesTotal)}</b> por mes hasta terminarlas.</p>
                   )}
                   {mejor && tarjetas.length > 1 && (
-                    <p className="flex items-center gap-1.5 text-secondary"><Lightbulb size={14} className="shrink-0 text-positive" />
-                      Si comprás hoy, conviene <b className="text-primary">{mejor.tarjeta.nombre}</b>: lo pagás el {fmtDiaMes(mejor.vence)}, en {mejor.dias} días.</p>
+                    <p className="flex items-start gap-1.5 text-secondary"><Lightbulb size={14} className="mt-1 shrink-0 text-positive" />
+                      <span>Si comprás hoy, conviene <b className="text-primary">{mejor.tarjeta.nombre}</b>: lo pagás el {fmtDiaMes(mejor.vence)}, en {mejor.dias} días.</span></p>
                   )}
                 </div>
               </div>

@@ -37,7 +37,7 @@ export function GraficoBarras({ datos, modo, seleccion, onElegir, alto = 220, co
   etiquetaAnterior?: string
 }) {
   const cont = useRef<HTMLDivElement>(null)
-  const [ancho, setAncho] = useState(600)
+  const [ancho, setAncho] = useState(280)
   const [hover, setHover] = useState<number | null>(null)
 
   useEffect(() => {

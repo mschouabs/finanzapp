@@ -54,7 +54,7 @@ export function GraficoMensual({ datos, modo, mesSel, onElegir, alto = 240, etiq
   alto?: number
 }) {
   const cont = useRef<HTMLDivElement>(null)
-  const [ancho, setAncho] = useState(640)
+  const [ancho, setAncho] = useState(280)
   const [hover, setHover] = useState<number | null>(null)
 
   useEffect(() => {
