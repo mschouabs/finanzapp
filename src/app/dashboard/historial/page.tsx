@@ -19,7 +19,7 @@ import { editarGastoVariable } from '@/lib/movimientos'
    tarjeta y cuotas), fijos (uno por mes), ingresos, freelance, viajes
    y secciones propias. Los montos en dólares se pasan a pesos.       */
 
-type Tipo = 'ingreso-fijo' | 'ingreso-freelance' | 'ingreso-seccion' | 'gasto-fijo' | 'gasto-variable' | 'gasto-viaje' | 'gasto-seccion'
+type Tipo = 'ingreso-fijo' | 'ingreso-freelance' | 'ingreso-seccion' | 'gasto-fijo' | 'gasto-variable' | 'gasto-viaje' | 'gasto-seccion' | 'cuenta'
 
 interface Movimiento {
   id: string
@@ -47,6 +47,7 @@ const TIPO: Record<Tipo, { label: string; emoji: string }> = {
   'gasto-variable': { label: 'Gasto', emoji: '🛒' },
   'gasto-viaje': { label: 'Viaje', emoji: '✈️' },
   'gasto-seccion': { label: 'Gasto', emoji: '📤' },
+  cuenta: { label: 'Entre cuentas', emoji: '🔁' },
 }
 
 const FILTROS = [
@@ -57,6 +58,7 @@ const FILTROS = [
   { key: 'variables', label: 'Variables' },
   { key: 'tarjeta', label: '💳 Tarjeta' },
   { key: 'viajes', label: '✈️ Viajes' },
+  { key: 'cuentas', label: '🔁 Entre cuentas' },
 ] as const
 type Filtro = typeof FILTROS[number]['key']
 
@@ -75,6 +77,9 @@ const etiquetaMes = (k: string) => `${MESES[Number(k.slice(5, 7)) - 1]} ${k.slic
 const etiquetaMesCorta = (k: string) => `${MESES_C[Number(k.slice(5, 7)) - 1]} '${k.slice(2, 4)}`
 const claveMes = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
 const esIngreso = (t: Tipo) => t.startsWith('ingreso')
+/* transferencias, pagos de tarjeta y ajustes: mueven plata entre tus cuentas, no son ingreso ni gasto */
+const esCuenta = (t: Tipo) => t === 'cuenta'
+const esGasto = (t: Tipo) => !esIngreso(t) && !esCuenta(t)
 const PAGINA = 80
 
 /** Meses desde `desde` (YYYY-MM) hasta el actual, como máximo 24. */
@@ -105,7 +110,7 @@ export default function HistorialPage() {
 
   const cargar = useCallback(async () => {
     const supabase = createClient()
-    const [cot, { data: gv }, { data: gf }, { data: iff }, { data: inf }, { data: secs }, { data: vg }, { data: vs }, { data: ts }] = await Promise.all([
+    const [cot, { data: gv }, { data: gf }, { data: iff }, { data: inf }, { data: secs }, { data: vg }, { data: vs }, { data: ts }, { data: lib }, { data: cts }] = await Promise.all([
       traerCotizaciones(),
       supabase.from('gastos_variables').select('*'),
       supabase.from('gastos_fijos').select('*'),
@@ -115,6 +120,8 @@ export default function HistorialPage() {
       supabase.from('viaje_gastos').select('id, viaje_id, concepto, categoria, monto, moneda, monto_ars, fecha'),
       supabase.from('viajes').select('id, nombre, emoji'),
       supabase.from('tarjetas_cuentas').select('id, nombre'),
+      supabase.from('movimientos').select('id, cuenta_id, fecha, tipo, delta, moneda, descripcion, grupo').in('tipo', ['transferencia', 'pago_tarjeta', 'ajuste']).order('fecha', { ascending: false }).limit(400),
+      supabase.from('inversiones').select('id, nombre, app, etiqueta'),
     ])
     const dolar = cot.dolar ?? 1560
     type Fila = Record<string, unknown>
@@ -142,7 +149,28 @@ export default function HistorialPage() {
         categoria: tipo === 'gasto-fijo' ? str(r.categoria) || 'Fijo' : 'Ingreso fijo',
       }))
 
+    /* libro: una fila por transferencia (la pata que sale) y una por pago o ajuste */
+    const nombreCta = new Map(((cts ?? []) as Fila[]).map(c => [str(c.id), `${str(c.etiqueta) || str(c.app)} · ${str(c.nombre)}`.replace(/^ · /, '')]))
+    const delLibro: Movimiento[] = ((lib ?? []) as Fila[])
+      .filter(r => str(r.tipo) !== 'transferencia' || num(r.delta) < 0)
+      .map(r => {
+        const t = str(r.tipo)
+        const d = num(r.delta)
+        const cta = nombreCta.get(str(r.cuenta_id)) ?? 'Cuenta eliminada'
+        const otra = t === 'transferencia' ? ((lib ?? []) as Fila[]).find(x => x.grupo && x.grupo === r.grupo && x.id !== r.id) : undefined
+        const dest = otra ? nombreCta.get(str(otra.cuenta_id)) : undefined
+        const moneda = str(r.moneda) || 'ARS'
+        return {
+          id: 'lb-' + str(r.id), origenId: str(r.id), tipo: 'cuenta' as Tipo,
+          descripcion: t === 'transferencia' ? `${cta} → ${dest ?? 'otra cuenta'}` : str(r.descripcion) || (t === 'pago_tarjeta' ? 'Pago de tarjeta' : 'Ajuste de saldo'),
+          monto: moneda === 'USD' ? Math.abs(d) * dolar : Math.abs(d), moneda, montoOriginal: Math.abs(d), fecha: str(r.fecha).slice(0, 10),
+          categoria: t === 'transferencia' ? 'Transferencia' : t === 'pago_tarjeta' ? 'Pago de tarjeta' : 'Ajuste manual',
+          forma: d < 0 ? 'sale' : 'entra', tarjeta: t !== 'transferencia' ? cta : undefined,
+        }
+      })
+
     const todos: Movimiento[] = [
+      ...delLibro,
       ...((gv ?? []) as Fila[]).map(r => {
         const moneda = str(r.moneda) || 'ARS'
         const orig = num(r.monto)
@@ -208,12 +236,13 @@ export default function HistorialPage() {
   const q = busqueda.trim().toLowerCase()
   const filtrados = useMemo(() => movs.filter(m => {
     if (fDesde && m.fecha < fDesde) return false
+    if (esCuenta(m.tipo) !== (filtro === 'cuentas')) return false
     if (fHasta && m.fecha > fHasta) return false
     if (filtro === 'ingresos' && !esIngreso(m.tipo)) return false
     if (filtro === 'gastos' && esIngreso(m.tipo)) return false
     if (filtro === 'fijos' && m.tipo !== 'gasto-fijo' && m.tipo !== 'ingreso-fijo') return false
     if (filtro === 'variables' && m.tipo !== 'gasto-variable') return false
-    if (filtro === 'tarjeta' && !m.tarjeta) return false
+    if (filtro === 'tarjeta' && (!m.tarjeta || esCuenta(m.tipo))) return false
     if (filtro === 'viajes' && m.tipo !== 'gasto-viaje') return false
     if (q && !`${m.descripcion} ${m.categoria ?? ''} ${m.tarjeta ?? ''} ${m.viaje ?? ''}`.toLowerCase().includes(q)) return false
     return true
@@ -222,7 +251,7 @@ export default function HistorialPage() {
   useEffect(() => { setMostrar(PAGINA) }, [filtro, rango, desde, hasta, q])
 
   const totIng = filtrados.filter(m => esIngreso(m.tipo)).reduce((s, m) => s + m.monto, 0)
-  const totGas = filtrados.filter(m => !esIngreso(m.tipo)).reduce((s, m) => s + m.monto, 0)
+  const totGas = filtrados.filter(m => esGasto(m.tipo)).reduce((s, m) => s + m.monto, 0)
 
   const porMes = useMemo(() => {
     const acc: Record<string, { mes: string; ingresos: number; gastos: number; balance: number }> = {}
@@ -230,7 +259,7 @@ export default function HistorialPage() {
       const k = m.fecha.slice(0, 7)
       acc[k] = acc[k] ?? { mes: k, ingresos: 0, gastos: 0, balance: 0 }
       if (esIngreso(m.tipo)) acc[k].ingresos += m.monto
-      else acc[k].gastos += m.monto
+      else if (esGasto(m.tipo)) acc[k].gastos += m.monto
       acc[k].balance = acc[k].ingresos - acc[k].gastos
     }
     return Object.values(acc).sort((a, b) => a.mes.localeCompare(b.mes)).slice(-12)
@@ -250,7 +279,7 @@ export default function HistorialPage() {
   const subtotalMes = (k: string) => {
     const ms = filtrados.filter(m => m.fecha.startsWith(k))
     const ing = ms.filter(m => esIngreso(m.tipo)).reduce((s, m) => s + m.monto, 0)
-    const gas = ms.filter(m => !esIngreso(m.tipo)).reduce((s, m) => s + m.monto, 0)
+    const gas = ms.filter(m => esGasto(m.tipo)).reduce((s, m) => s + m.monto, 0)
     return { ing, gas, cant: ms.length }
   }
 
@@ -290,7 +319,7 @@ export default function HistorialPage() {
       ['Fecha', 'Tipo', 'Descripción', 'Categoría', 'Medio', 'Cuota', 'Moneda', 'Monto original', 'Monto en pesos'],
       ...filtrados.map(m => [
         m.fecha, TIPO[m.tipo].label, m.descripcion, m.categoria ?? '', m.tarjeta ?? m.viaje ?? '', m.cuota ?? '',
-        m.moneda, String(m.montoOriginal), String(Math.round(m.monto) * (esIngreso(m.tipo) ? 1 : -1)),
+        m.moneda, String(m.montoOriginal), String(Math.round(m.monto) * (esCuenta(m.tipo) ? (m.forma === 'sale' ? -1 : 1) : esIngreso(m.tipo) ? 1 : -1)),
       ]),
     ]
     const csv = filas.map(f => f.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n')
@@ -430,12 +459,13 @@ export default function HistorialPage() {
                 <ul className="divide-y divide-line">
                   {g.items.map(m => {
                     const ing = esIngreso(m.tipo)
+                    const cta = esCuenta(m.tipo)
                     const open = abierto === m.id
                     return (
                       <li key={m.id}>
                         <button onClick={() => abrir(m)} className={`flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-alternate ${open ? 'bg-alternate' : ''}`}>
                           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-base"
-                            style={{ background: `color-mix(in srgb, ${ing ? 'var(--accent-positive)' : 'var(--accent-negative)'} 12%, transparent)` }}>
+                            style={{ background: `color-mix(in srgb, ${cta ? 'var(--accent-secondary)' : ing ? 'var(--accent-positive)' : 'var(--accent-negative)'} 12%, transparent)` }}>
                             {TIPO[m.tipo].emoji}
                           </span>
                           <span className="min-w-0 flex-1">
@@ -444,13 +474,14 @@ export default function HistorialPage() {
                               <span className="text-muted">{m.fecha.slice(8, 10)}/{m.fecha.slice(5, 7)}</span>
                               <Chip>{TIPO[m.tipo].label}</Chip>
                               {m.categoria && m.categoria !== TIPO[m.tipo].label && <Chip>{m.categoria}</Chip>}
-                              {m.tarjeta && <Chip>💳 {m.tarjeta}{m.forma === 'credito' ? ' · crédito' : m.forma === 'debito' ? ' · débito' : ''}</Chip>}
+                              {m.tarjeta && !cta && <Chip>💳 {m.tarjeta}{m.forma === 'credito' ? ' · crédito' : m.forma === 'debito' ? ' · débito' : ''}</Chip>}
+                              {cta && m.tarjeta && <Chip>{m.tarjeta}</Chip>}
                               {m.cuota && <Chip>cuota {m.cuota}</Chip>}
                               {m.viaje && <Chip>{m.viaje}</Chip>}
                             </span>
                           </span>
                           <span className="shrink-0 text-right">
-                            <span className={`fa-num-sm block ${ing ? 'text-positive' : 'text-negative'}`}>{ing ? '+' : '−'}{fmtPesos(m.monto)}</span>
+                            <span className={`fa-num-sm block ${cta ? 'text-primary' : ing ? 'text-positive' : 'text-negative'}`}>{cta ? (m.categoria === 'Transferencia' ? '' : m.forma === 'sale' ? '−' : '+') : ing ? '+' : '−'}{fmtPesos(m.monto)}</span>
                             {m.moneda !== 'ARS' && <span className="fa-caption block">{m.moneda} {m.montoOriginal.toLocaleString('es-AR')}</span>}
                           </span>
                           <ChevronDown size={15} className={`shrink-0 text-muted transition-transform ${open ? 'rotate-180' : ''}`} />
@@ -471,6 +502,11 @@ export default function HistorialPage() {
                                   <button onClick={() => setAbierto(null)} className="rounded-lg px-3 py-2 text-xs text-secondary hover:bg-card">Cerrar</button>
                                 </div>
                                 {m.cuota && <p className="text-[11px] text-muted sm:col-span-5">Es la cuota {m.cuota}: el cambio aplica solo a esta cuota.</p>}
+                              </div>
+                            ) : esCuenta(m.tipo) ? (
+                              <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-secondary">
+                                <span>Movió plata entre tus cuentas, no cuenta como ingreso ni gasto. Lo podés deshacer desde el libro en Billeteras.</span>
+                                <Link href="/dashboard/billeteras" className="rounded-lg border px-3 py-1.5 font-semibold text-primary hover:bg-card">Ir al libro →</Link>
                               </div>
                             ) : (
                               <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-secondary">
