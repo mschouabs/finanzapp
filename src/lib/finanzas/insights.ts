@@ -202,8 +202,128 @@ export function generarInsights({ s, p, flujo, ritmo, comp, cats, metas, momento
     })
   }
 
+  /* ── reglas que miran tus cuentas y tus hábitos ─────────────── */
+  const hoyISO = isoLocal(s.hoy)
+  const diaMes = s.hoy.getDate()
+  const diasMes = new Date(s.hoy.getFullYear(), s.hoy.getMonth() + 1, 0).getDate()
+  const normal = (t: string) => t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim()
+
+  /* 10. una cuenta quedó en negativo (casi siempre falta cargar algo) */
+  const negativa = s.lineas
+    .filter(l => Number(l.monto) < -0.5 && ['efectivo', 'ahorro', 'divisa', 'cuenta'].includes(l.tipo))
+    .sort((a, b) => Number(a.monto) - Number(b.monto))[0]
+  if (negativa) {
+    const nombre = `${negativa.etiqueta || negativa.app}${negativa.nombre ? ` (${negativa.nombre})` : ''}`
+    out.push({
+      id: `negativa-${negativa.id}`,
+      tipo: 'atencion',
+      titulo: `${nombre} quedó con saldo negativo: ${negativa.moneda === 'USD' ? 'US$ ' + Math.abs(Math.round(Number(negativa.monto))).toLocaleString('es-AR') : '−' + $(Number(negativa.monto))}`,
+      detalle: 'Una cuenta no puede tener menos de cero: seguramente falta cargar un ingreso o una transferencia, o el saldo real es otro. Corregilo y el resto de los números se acomoda solo.',
+      accion: { label: 'Ir a Billeteras', href: '/dashboard/billeteras' },
+      prioridad: 92,
+      estado: 'warning',
+    })
+  }
+
+  /* 11. ¿el disponible llega a fin de mes al ritmo de gasto diario? */
+  const desde30 = isoLocal(new Date(s.hoy.getFullYear(), s.hoy.getMonth(), s.hoy.getDate() - 30))
+  const recientes = s.gastos.filter(g => g.fecha > desde30 && g.fecha <= hoyISO && g.forma_pago !== 'credito' && !(g.cuotas_total && g.cuotas_total > 1))
+  const diasConDatos = new Set(recientes.map(g => g.fecha)).size
+  const porDia = recientes.reduce((a, g) => a + (g.moneda === 'USD' ? g.monto * s.dolar : g.monto), 0) / 30
+  const quedan = diasMes - diaMes
+  const sueldoPorCobrar = s.ingresosFijos
+    .filter(i => i.cobrado_mes !== undefined && i.cobrado_mes !== mesActual(s))
+    .reduce((a, i) => a + i.monto, 0)
+  const alcanza = libre + sueldoPorCobrar
+  if (libre >= 0 && diasConDatos >= 12 && porDia > 0 && quedan >= 5 && alcanza < porDia * quedan) {
+    const dias = Math.max(0, Math.floor(alcanza / porDia))
+    out.push({
+      id: 'no-alcanza',
+      tipo: 'atencion',
+      titulo: `Al ritmo de ${$(porDia)} por día, tu plata libre alcanza para ${dias} ${dias === 1 ? 'día' : 'días'} más`,
+      detalle: `Faltan ${quedan} días para fin de mes. Libre hoy: ${$(libre)} (disponible menos pagos ya comprometidos)${sueldoPorCobrar > 0 ? `, más ${$(sueldoPorCobrar)} de sueldo que todavía no marcaste como cobrado` : ''}. El ritmo sale de tus gastos con débito y efectivo de los últimos 30 días.`,
+      accion: { label: 'Ver movimientos', href: '/dashboard/gastos-variables' },
+      prioridad: 86,
+      estado: 'warning',
+    })
+  }
+
+  /* 12. te deben plata hace más de un mes */
+  const atrasadas = s.deudasFreelance
+    .map(d => ({ ...d, dias: Math.round((s.hoy.getTime() - new Date(d.fecha + 'T12:00:00').getTime()) / 86_400_000) }))
+    .filter(d => d.dias >= 30)
+    .sort((a, b) => b.pendiente - a.pendiente)
+  if (atrasadas.length) {
+    const total = atrasadas.reduce((a, d) => a + d.pendiente, 0)
+    const d0 = atrasadas[0]
+    out.push({
+      id: 'cobros-atrasados',
+      tipo: 'atencion',
+      titulo: `Te deben ${$(total)} hace más de un mes`,
+      detalle: `${d0.cliente} te debe ${$(d0.pendiente)} desde hace ${d0.dias} días${atrasadas.length > 1 ? `, y hay ${atrasadas.length - 1} ${atrasadas.length === 2 ? 'proyecto más' : 'proyectos más'} en la misma situación` : ''}. Si ya te pagaron, registrá el cobro en Trabajos.`,
+      accion: { label: 'Ir a Trabajos', href: '/dashboard/ingresos-gastos' },
+      prioridad: 68,
+      estado: 'warning',
+    })
+  }
+
+  /* 13. un gasto que se repite todos los meses y no está entre los fijos */
+  const fijosNombres = new Set(s.fijos.map(f => normal(f.nombre)))
+  const porNombre = new Map<string, { nombre: string; meses: Map<string, number> }>()
+  for (const g of s.gastos) {
+    if (g.cuotas_total && g.cuotas_total > 1) continue
+    if (g.fecha > hoyISO) continue
+    const k = normal(g.nombre)
+    if (!k || fijosNombres.has(k)) continue
+    const e = porNombre.get(k) ?? { nombre: g.nombre, meses: new Map<string, number>() }
+    const m = mesDeISO(g.fecha)
+    e.meses.set(m, (e.meses.get(m) ?? 0) + (g.moneda === 'USD' ? g.monto * s.dolar : g.monto))
+    porNombre.set(k, e)
+  }
+  const ultimos4 = [1, 2, 3, 4].map(i => claveMes(new Date(s.hoy.getFullYear(), s.hoy.getMonth() - i, 1)))
+  const recurrente = Array.from(porNombre.values())
+    .map(e => {
+      const montos = ultimos4.map(m => e.meses.get(m)).filter((v): v is number => v !== undefined)
+      return { e, montos }
+    })
+    /* una vez por mes, con un monto parecido, en al menos 3 de los últimos 4 meses */
+    .filter(({ e, montos }) => montos.length >= 3 && Math.max(...montos) <= Math.min(...montos) * 1.25
+      && ultimos4.every(m => !e.meses.has(m) || s.gastos.filter(g => normal(g.nombre) === normal(e.nombre) && mesDeISO(g.fecha) === m).length === 1))
+    .map(({ e, montos }) => ({ nombre: e.nombre, prom: montos.reduce((a, b) => a + b, 0) / montos.length, n: montos.length }))
+    .sort((a, b) => b.prom - a.prom)
+  if (recurrente.length) {
+    const r0 = recurrente[0]
+    out.push({
+      id: `recurrente-${normal(r0.nombre)}`,
+      tipo: 'oportunidad',
+      titulo: `${r0.nombre} se repite todos los meses: unos ${$(r0.prom)}`,
+      detalle: `Lo pagaste en ${r0.n} de los últimos 4 meses, siempre por un monto parecido${recurrente.length > 1 ? ` (también ${recurrente.slice(1, 3).map(x => x.nombre).join(' y ')})` : ''}. Si es un gasto fijo, cargalo como fijo: así tu plata libre del mes ya lo descuenta.`,
+      accion: { label: 'Ver movimientos', href: '/dashboard/gastos-variables' },
+      prioridad: 52,
+      estado: 'insight',
+    })
+  }
+
+  /* 14. un sueldo sin cobro marcado ya entrado el mes */
+  if (diaMes >= 10) {
+    const sinCobro = s.ingresosFijos.filter(i => i.cobrado_mes !== undefined && i.cobrado_mes !== mesActual(s))
+    if (sinCobro.length) {
+      out.push({
+        id: 'sueldo-sin-cobro',
+        tipo: 'dato',
+        titulo: `¿Ya cobraste ${sinCobro.map(i => i.nombre).join(' y ')}?`,
+        detalle: 'Todavía no está marcado como cobrado este mes. Marcalo en Trabajos (y elegí en qué cuenta entró) para que tu disponible esté al día.',
+        accion: { label: 'Ir a Trabajos', href: '/dashboard/ingresos-gastos' },
+        prioridad: 48,
+        estado: 'idle',
+      })
+    }
+  }
+
   return out.sort((a, b) => b.prioridad - a.prioridad)
 }
+
+const mesActual = (s: Snapshot) => claveMes(s.hoy)
 
 /** Los insights de hoy a partir del snapshot (mismo cálculo que el Resumen). */
 export function insightsDe(s: Snapshot): Insight[] {

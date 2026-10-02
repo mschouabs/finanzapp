@@ -108,6 +108,8 @@ export interface Snapshot {
   fijos: GastoFijo[]
   ingresosFijos: IngresoFijo[]
   freelance: Freelance[]
+  /** proyectos freelance con plata pendiente de cobro */
+  deudasFreelance: { id: string; cliente: string; pendiente: number; fecha: string }[]
   viajes: GastoViaje[]
   registros: RegistroSeccion[]
   historial: PuntoPatrimonio[]
@@ -210,6 +212,10 @@ export async function cargarSnapshot(supabase: Cliente, hoy = new Date()): Promi
         const texto = Object.values(campos).find(v => typeof v === 'string' && v.trim() !== '') as string | undefined
         return { id: str(r.id), seccion: s.nombre, tipo: s.tipo, monto: num(r.monto), fecha: str(r.fecha), texto: texto || s.nombre }
       }),
+    deudasFreelance: ((rFree.data ?? []) as Fila[])
+      .map(r => ({ id: str(r.id), cliente: str(r.cliente) || str(r.descripcion) || 'Cliente', fecha: str(r.fecha),
+        pendiente: num(r.monto_total) - (r.monto_cobrado == null ? num(r.monto_total) : num(r.monto_cobrado)) }))
+      .filter(d => d.pendiente > 0.5 && d.fecha),
     historial: ((rHist.data ?? []) as Fila[]).map(h => {
       const det = (h.detalle as { neto?: number; liquido?: number; invertido?: number } | null) ?? {}
       return {
