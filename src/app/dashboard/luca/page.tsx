@@ -11,6 +11,11 @@ import type { LucaEstado } from '@/components/luca/LucaAvatar'
 import { extensionDeAudio, mensajeErrorMicrofono, microfonoDisponible, tipoAudioSoportado } from '@/lib/audio'
 import { hoyISO } from '@/lib/fechas'
 import { guardarIngresoFijo } from '@/lib/ingresos'
+import { parsear, parsearVarios } from '@/lib/parser'
+import { snapshotCompartido } from '@/lib/finanzas/compartido'
+import { construirContexto } from '@/lib/luca/contexto'
+import { comoRegistroSimple, ejecutarAccion, prepararAccion, type AccionPropuesta, type Vista } from '@/lib/luca/acciones'
+import { EVENTO_DATOS } from '@/lib/eventos'
 
 type TipoRegistro = 'gasto_variable' | 'gasto_fijo' | 'ingreso_fijo' | 'ingreso_freelance' | 'inversion'
 
@@ -40,6 +45,10 @@ interface Mensaje {
   tabla?: TipoRegistro
   datos?: DatosRegistro
   guardado?: boolean
+  /** acción propuesta por Claude (transferir, pagar tarjeta, deshacer): se confirma antes de ejecutarse */
+  accion?: AccionPropuesta
+  vista?: Vista
+  estadoAccion?: 'hecha' | 'cancelada'
 }
 
 const STORAGE_KEY = 'luca_chat_historial'
@@ -131,6 +140,63 @@ export default function LucaChatPage() {
     }
   }, [])
 
+  /** Le pregunta a Claude (con tus datos). Devuelve los mensajes a mostrar, o null si no se pudo. */
+  const consultarAgente = async (texto: string, userMsg: Mensaje): Promise<Mensaje[] | null> => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return null
+      const s = await snapshotCompartido()
+      const previos = [...mensajes, userMsg].filter(m => m.texto.trim()).slice(-10)
+      while (previos.length && previos[0].rol !== 'user') previos.shift()
+      const res = await fetch('/api/luca/agente', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({
+          messages: previos.map(m => ({ role: m.rol === 'user' ? 'user' : 'assistant', content: m.texto })),
+          contexto: construirContexto(s),
+        }),
+      })
+      if (!res.ok) return null
+      const data = await res.json() as { mensaje?: string; acciones?: AccionPropuesta[] }
+      const salida: Mensaje[] = [{ id: getId(), rol: 'luca', texto: data.mensaje || 'Listo.', timestamp: Date.now() }]
+      for (const a of data.acciones ?? []) {
+        const reg = comoRegistroSimple(a)
+        if (reg) {
+          salida.push({ id: getId(), rol: 'luca', texto: reg.mensaje, timestamp: Date.now(), tabla: reg.tabla, datos: reg.datos as DatosRegistro })
+        } else {
+          const vista = await prepararAccion(supabase, s, a)
+          salida.push({ id: getId(), rol: 'luca', texto: '', timestamp: Date.now(), accion: a, vista })
+        }
+      }
+      return salida
+    } catch {
+      return null
+    }
+  }
+
+  const confirmarAccion = async (msg: Mensaje) => {
+    if (!msg.accion || guardando) return
+    setGuardando(msg.id)
+    setErrores(prev => { const c = { ...prev }; delete c[msg.id]; return c })
+    try {
+      const s = await snapshotCompartido(true)
+      const r = await ejecutarAccion(supabase, s, msg.accion)
+      if (r.error) throw new Error(r.error)
+      setMensajes(prev => prev.map(m => m.id === msg.id ? { ...m, estadoAccion: 'hecha', texto: r.ok ?? 'Hecho.' } : m))
+      window.dispatchEvent(new Event(EVENTO_DATOS))
+      setLucaEstado('celebration')
+      setTimeout(() => setLucaEstado('idle'), 2000)
+    } catch (e) {
+      setErrores(prev => ({ ...prev, [msg.id]: e instanceof Error ? e.message : 'No se pudo completar.' }))
+      setLucaEstado('sad')
+      setTimeout(() => setLucaEstado('idle'), 3000)
+    }
+    setGuardando(null)
+  }
+
+  const cancelarAccion = (msg: Mensaje) =>
+    setMensajes(prev => prev.map(m => m.id === msg.id ? { ...m, estadoAccion: 'cancelada' } : m))
+
   const enviar = async () => {
     const texto = input.trim()
     if (!texto || loading) return
@@ -140,6 +206,26 @@ export default function LucaChatPage() {
     setInput('')
     setLoading(true)
     setLucaEstado('thinking')
+
+    /* Lo simple ("gasté 5mil en el súper") lo resuelve el parser local, sin
+       costo. Todo lo demás (preguntas, análisis, transferencias, pagos,
+       frases difíciles) lo interpreta Claude con tus datos reales. Si la
+       IA no está disponible, sigue el camino de siempre. */
+    const local = parsear(texto)
+    const simple = !!parsearVarios(texto) ||
+      (local.tipo !== 'texto' && !(local.tipo === 'gasto_variable' && local.datos?.categoria === 'varios'))
+    const pregunta = /\?/.test(texto) || /^(cu[aá]nto|cu[aá]l|qu[eé]|c[oó]mo|puedo|me alcanza|por qu[eé]|d[oó]nde|cu[aá]ndo)\b/i.test(texto)
+    if (!simple || pregunta) {
+      const resp = await consultarAgente(texto, userMsg)
+      if (resp) {
+        setMensajes(prev => [...prev, ...resp])
+        setLucaEstado(resp.some(m => m.tabla || m.accion) ? 'celebration' : 'idle')
+        setLoading(false)
+        setTimeout(() => setLucaEstado('idle'), 3000)
+        inputRef.current?.focus()
+        return
+      }
+    }
 
     /* Preguntas sobre tarjetas ("¿cuánto debo de la naranja?"): se
        responden con los datos reales, sin pasar por la IA. */
@@ -485,13 +571,41 @@ export default function LucaChatPage() {
                 </div>
               )}
               <div>
-                <div className={`whitespace-pre-line px-3 py-2.5 rounded-2xl text-xs leading-relaxed ${
-                  msg.rol === 'user'
-                    ? 'bg-confirm text-white rounded-tr-sm'
-                    : 'bg-alternate text-primary rounded-tl-sm'
-                }`}>
-                  {msg.texto}
-                </div>
+                {(msg.texto || msg.estadoAccion === 'hecha') && (
+                  <div className={`whitespace-pre-line px-3 py-2.5 rounded-2xl text-xs leading-relaxed ${
+                    msg.rol === 'user'
+                      ? 'bg-confirm text-white rounded-tr-sm'
+                      : 'bg-alternate text-primary rounded-tl-sm'
+                  }`}>
+                    {msg.estadoAccion === 'hecha' ? `✓ ${msg.texto}` : msg.texto}
+                  </div>
+                )}
+
+                {/* Acción propuesta por Luca: se ejecuta solo si confirmás */}
+                {msg.accion && msg.vista && !msg.estadoAccion && (
+                  <div className="rounded-xl border bg-card p-3 text-xs space-y-1.5">
+                    <p className="font-bold text-primary">{msg.vista.titulo}</p>
+                    {msg.vista.lineas.map((l, i) => <p key={i} className="text-secondary">{l}</p>)}
+                    {msg.vista.error ? (
+                      <p className="text-[11px] font-semibold" style={{ color: 'var(--accent-warning)' }}>{msg.vista.error}</p>
+                    ) : (
+                      <div className="mt-1 flex gap-2">
+                        <button onClick={() => confirmarAccion(msg)} disabled={guardando === msg.id}
+                          className={`flex-1 rounded-lg py-2 text-xs font-semibold text-white transition-colors disabled:opacity-50 ${msg.vista.peligro ? 'bg-negative' : 'bg-confirm hover:bg-confirm-hover'}`}>
+                          {guardando === msg.id ? 'Haciendo…' : errores[msg.id] ? '↻ Reintentar' : '✓ Confirmar'}
+                        </button>
+                        <button onClick={() => cancelarAccion(msg)} disabled={guardando === msg.id}
+                          className="rounded-lg border px-3 py-2 text-xs font-semibold text-secondary hover:bg-alternate disabled:opacity-50">
+                          Cancelar
+                        </button>
+                      </div>
+                    )}
+                    {errores[msg.id] && <p className="text-[10px] font-semibold leading-relaxed text-negative">⚠️ {errores[msg.id]}</p>}
+                  </div>
+                )}
+                {msg.accion && msg.estadoAccion === 'cancelada' && (
+                  <p className="mt-1 text-[10px] text-muted">Cancelado, no se hizo nada.</p>
+                )}
 
                 {/* Tarjeta de registro detectado */}
                 {msg.tabla && msg.datos && !msg.guardado && (
