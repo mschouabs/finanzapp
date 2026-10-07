@@ -4,10 +4,7 @@ import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import {
-  Home, Briefcase, ShoppingCart, TrendingUp, Target, Receipt,
-  CreditCard, Download, Plus, Settings, LogOut, X, LayoutGrid, Plane, Wallet,
-} from 'lucide-react'
+import { Home, Briefcase, ShoppingCart, TrendingUp, Target, Receipt, CreditCard, Download, Plus, Settings, LogOut, X, LayoutGrid, Plane, Wallet, Users } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { ThemeSelector } from '@/components/ThemeSelector'
 import { SeccionModal } from '@/components/SeccionModal'
@@ -31,6 +28,7 @@ export const NAV_GRUPOS = [
       { href: '/dashboard/gastos-variables', label: 'Movimientos', Icono: ShoppingCart },
       { href: '/dashboard/billeteras', label: 'Billeteras', Icono: Wallet },
       { href: '/dashboard/tarjetas', label: 'Tarjetas', Icono: CreditCard },
+      { href: '/dashboard/me-deben', label: 'Me deben', Icono: Users },
     ],
   },
   {

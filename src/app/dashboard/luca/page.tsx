@@ -180,7 +180,7 @@ export default function LucaChatPage() {
     setErrores(prev => { const c = { ...prev }; delete c[msg.id]; return c })
     try {
       const s = await snapshotCompartido(true)
-      const r = await ejecutarAccion(supabase, s, msg.accion)
+      const r = await ejecutarAccion(supabase, (await supabase.auth.getUser()).data.user?.id ?? '', s, msg.accion)
       if (r.error) throw new Error(r.error)
       setMensajes(prev => prev.map(m => m.id === msg.id ? { ...m, estadoAccion: 'hecha', texto: r.ok ?? 'Hecho.' } : m))
       window.dispatchEvent(new Event(EVENTO_DATOS))

@@ -10,6 +10,7 @@ import type { Snapshot } from '@/lib/finanzas/nucleo'
 import { estadoTarjeta } from '@/lib/resumenes'
 import { deshacerMovimiento, sePuedeDeshacer, transferirEntreCuentas, ultimosMovimientos } from '@/lib/libro'
 import { pagarConsumos } from '@/lib/movimientos'
+import { agregarMeDeben, pendienteDe, registrarCobro } from '@/lib/medeben'
 import { hoyISO } from '@/lib/fechas'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -115,6 +116,30 @@ export async function prepararAccion(supabase: Cliente, s: Snapshot, a: AccionPr
     return { titulo: `💳 Pagar ${t.nombre}`, lineas }
   }
 
+  if (a.tool === 'registrar_me_deben') {
+    const m = nro(i.monto)
+    if (!str(i.persona) || !(m > 0)) return { titulo: 'Me deben', lineas: [], error: 'Falta quién te debe o cuánto.' }
+    const moneda = i.moneda === 'USD' ? 'USD' : 'ARS'
+    return {
+      titulo: '🤝 Anotar que te deben',
+      lineas: [`${str(i.persona)} te debe ${monto(m, moneda)}${str(i.concepto) ? ` por ${str(i.concepto)}` : ''}`, 'No cuenta como ingreso hasta que te pague.'],
+    }
+  }
+
+  if (a.tool === 'registrar_cobro_me_deben') {
+    const d = s.meDeben.find(x => x.id === i.deuda_id)
+    const c = s.lineas.find(l => l.id === i.cuenta_id)
+    const m = nro(i.monto)
+    if (!d) return { titulo: 'Cobro', lineas: [], error: 'No encontré esa deuda.' }
+    if (!c) return { titulo: 'Cobro', lineas: [], error: 'Decime en qué cuenta entró la plata.' }
+    if (c.moneda !== d.moneda) return { titulo: 'Cobro', lineas: [], error: `La deuda es en ${d.moneda} y esa cuenta es en ${c.moneda}.` }
+    if (!(m > 0) || m > pendienteDe(d) + 0.005) return { titulo: 'Cobro', lineas: [], error: `${d.persona} te debe ${monto(pendienteDe(d), d.moneda)}; revisá el monto.` }
+    return {
+      titulo: `💵 Cobro de ${d.persona}`,
+      lineas: [`+${monto(m, d.moneda)} a ${nombreCuenta(s, c.id)}`, m >= pendienteDe(d) - 0.005 ? 'Con esto queda saldada.' : `Todavía te quedaría debiendo ${monto(pendienteDe(d) - m, d.moneda)}.`],
+    }
+  }
+
   if (a.tool === 'deshacer_ultimo_movimiento') {
     const { movimientos, disponible } = await ultimosMovimientos(supabase, { limite: 20 })
     if (!disponible) return { titulo: 'Deshacer', lineas: [], error: 'El libro de movimientos no está disponible.' }
@@ -134,7 +159,7 @@ export async function prepararAccion(supabase: Cliente, s: Snapshot, a: AccionPr
 }
 
 /** Ejecuta una acción ya confirmada. Devuelve el mensaje de resultado o un error. */
-export async function ejecutarAccion(supabase: Cliente, s: Snapshot, a: AccionPropuesta): Promise<{ ok: string | null; error: string | null }> {
+export async function ejecutarAccion(supabase: Cliente, userId: string, s: Snapshot, a: AccionPropuesta): Promise<{ ok: string | null; error: string | null }> {
   const i = a.input
 
   if (a.tool === 'transferir') {
@@ -151,6 +176,19 @@ export async function ejecutarAccion(supabase: Cliente, s: Snapshot, a: AccionPr
     if (!r) return { ok: null, error: 'No hay resumen para pagar.' }
     const { error } = await pagarConsumos(supabase, r.consumos, str(i.cuenta_pesos_id) || null, str(i.cuenta_usd_id) || null)
     return error ? { ok: null, error } : { ok: `Pagaste el resumen de ${t.nombre}.`, error: null }
+  }
+
+  if (a.tool === 'registrar_me_deben') {
+    const m = nro(i.monto)
+    const { error } = await agregarMeDeben(supabase, userId, { persona: str(i.persona), concepto: str(i.concepto), monto: m, moneda: i.moneda === 'USD' ? 'USD' : 'ARS', vence: str(i.vence) || null })
+    return error ? { ok: null, error } : { ok: `Anoté que ${str(i.persona)} te debe.`, error: null }
+  }
+
+  if (a.tool === 'registrar_cobro_me_deben') {
+    const d = s.meDeben.find(x => x.id === i.deuda_id)
+    if (!d) return { ok: null, error: 'No encontré esa deuda.' }
+    const { error } = await registrarCobro(supabase, d, nro(i.monto), str(i.cuenta_id))
+    return error ? { ok: null, error } : { ok: `Cobro de ${d.persona} registrado.`, error: null }
   }
 
   if (a.tool === 'deshacer_ultimo_movimiento') {

@@ -53,6 +53,13 @@ export function construirContexto(s: Snapshot): string {
     L.push('\nFREELANCE PENDIENTE DE COBRO: ' + s.deudasFreelance.map(d => `${d.cliente} ${$(d.pendiente)} (${d.fecha})`).join('; ') + '.')
   }
 
+  if (s.meDeben.length) {
+    L.push('\nTE DEBEN (id | persona | concepto | pendiente | vence). No es ingreso ni patrimonio hasta que lo cobre:')
+    for (const d of s.meDeben) {
+      L.push(`${d.id} | ${d.persona} | ${d.concepto || '-'} | ${num(Math.max(0, d.monto - d.cobrado), d.moneda)} de ${num(d.monto, d.moneda)} | ${d.vence ?? 's/f'}`)
+    }
+  }
+
   const metas = progresoMetas(s)
   if (metas.length) L.push('\nMETAS: ' + metas.map(m => `${m.nombre} ${Math.round(m.pct)}% (${num(m.actual, m.moneda)} de ${num(m.objetivo, m.moneda)})`).join('; ') + '.')
 

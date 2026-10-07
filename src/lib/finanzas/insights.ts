@@ -267,6 +267,23 @@ export function generarInsights({ s, p, flujo, ritmo, comp, cats, metas, momento
     })
   }
 
+  /* 12b. plata que te deben otras personas (no suma al patrimonio) */
+  if (s.meDeben.length) {
+    const aPesos = (d: { moneda: string; monto: number; cobrado: number }) => (d.monto - d.cobrado) * (d.moneda === 'USD' ? s.dolar : 1)
+    const total = s.meDeben.reduce((a, d) => a + aPesos(d), 0)
+    const vencidas = s.meDeben.filter(d => d.vence && d.vence < hoyISO)
+    const personas = Array.from(new Set(s.meDeben.map(d => d.persona)))
+    out.push({
+      id: 'me-deben',
+      tipo: vencidas.length ? 'atencion' : 'dato',
+      titulo: `Te deben ${$(total)}${personas.length > 1 ? ` entre ${personas.length} personas` : ` (${personas[0]})`}`,
+      detalle: `${vencidas.length ? `${vencidas.length} ${vencidas.length === 1 ? 'ya pasó' : 'ya pasaron'} la fecha que anotaste. ` : ''}Es plata que ya gastaste y te van a devolver: no suma a tu patrimonio hasta que la cobres. Cuando te paguen, registrá el cobro para que entre a la cuenta correcta.`,
+      accion: { label: 'Ver quién te debe', href: '/dashboard/me-deben' },
+      prioridad: vencidas.length ? 69 : 35,
+      estado: vencidas.length ? 'warning' : 'idle',
+    })
+  }
+
   /* 13. un gasto que se repite todos los meses y no está entre los fijos */
   const fijosNombres = new Set(s.fijos.map(f => normal(f.nombre)))
   const porNombre = new Map<string, { nombre: string; meses: Map<string, number> }>()

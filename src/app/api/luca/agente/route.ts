@@ -106,13 +106,41 @@ const HERRAMIENTAS = [
     },
   },
   {
+    name: 'registrar_me_deben',
+    description: 'Propone anotar plata que alguien le debe al usuario (ej: la parte de un Airbnb, un préstamo). No es un gasto ni un ingreso.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        persona: { type: 'string' },
+        concepto: { type: 'string' },
+        monto: { type: 'number' },
+        moneda: { type: 'string', enum: ['ARS', 'USD'] },
+        vence: { type: 'string', description: 'YYYY-MM-DD, solo si el usuario dio una fecha' },
+      },
+      required: ['persona', 'monto'],
+    },
+  },
+  {
+    name: 'registrar_cobro_me_deben',
+    description: 'Propone registrar que alguien le pagó (total o parcial) lo que le debía al usuario. Usá el id de la deuda y el id de la cuenta donde entró la plata (misma moneda que la deuda).',
+    input_schema: {
+      type: 'object',
+      properties: {
+        deuda_id: { type: 'string' },
+        cuenta_id: { type: 'string' },
+        monto: { type: 'number', description: 'Lo que pagó; si pagó todo, el pendiente completo' },
+      },
+      required: ['deuda_id', 'cuenta_id', 'monto'],
+    },
+  },
+  {
     name: 'deshacer_ultimo_movimiento',
     description: 'Propone deshacer el último movimiento de plata que se puede deshacer (gasto, transferencia o ajuste).',
     input_schema: { type: 'object', properties: {} },
   },
 ]
 
-const ACCIONES = new Set(['registrar_gasto', 'registrar_ingreso', 'registrar_gasto_fijo', 'transferir', 'pagar_tarjeta', 'deshacer_ultimo_movimiento'])
+const ACCIONES = new Set(['registrar_gasto', 'registrar_ingreso', 'registrar_gasto_fijo', 'transferir', 'pagar_tarjeta', 'registrar_me_deben', 'registrar_cobro_me_deben', 'deshacer_ultimo_movimiento'])
 
 function sistema(hoy: string, contexto: string) {
   return [

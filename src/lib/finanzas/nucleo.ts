@@ -35,6 +35,7 @@ import {
 } from '@/lib/resumenes'
 import { diasEntre, fechasDeResumen, sumarMeses } from '@/lib/ciclos'
 import { cobrosDeFreelance } from '@/lib/ingresos'
+import { aMeDeben, pendienteDe, type MeDeben } from '@/lib/medeben'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Cliente = SupabaseClient<any, any, any>
@@ -110,6 +111,8 @@ export interface Snapshot {
   freelance: Freelance[]
   /** proyectos freelance con plata pendiente de cobro */
   deudasFreelance: { id: string; cliente: string; pendiente: number; fecha: string }[]
+  /** plata que te deben otras personas (solo lo que sigue pendiente). No suma al patrimonio. */
+  meDeben: MeDeben[]
   viajes: GastoViaje[]
   registros: RegistroSeccion[]
   historial: PuntoPatrimonio[]
@@ -125,7 +128,7 @@ export async function cargarSnapshot(supabase: Cliente, hoy = new Date()): Promi
   const desde = isoLocal(new Date(hoy.getFullYear(), hoy.getMonth() - 12, 1))
   const [
     cot, rLineas, rCuentas, rImpagos, rGastos, rFijos, rIngFijos, rFree,
-    rViajes, rViajeGastos, rSecciones, rRegistros, rHist, rMetas,
+    rViajes, rViajeGastos, rSecciones, rRegistros, rHist, rMetas, rMeDeben,
   ] = await Promise.all([
     traerCotizaciones(),
     supabase.from('inversiones').select('*'),
@@ -141,6 +144,7 @@ export async function cargarSnapshot(supabase: Cliente, hoy = new Date()): Promi
     supabase.from('seccion_registros').select('id, seccion_id, monto, fecha, datos').gte('fecha', desde),
     supabase.from('patrimonio_mensual').select('mes, total_ars, detalle').order('mes', { ascending: true }).limit(36),
     supabase.from('metas').select('*'),
+    supabase.from('me_deben').select('*'),
   ])
 
   /* si la tabla principal falla, mejor avisar que mostrar ceros */
@@ -216,6 +220,8 @@ export async function cargarSnapshot(supabase: Cliente, hoy = new Date()): Promi
       .map(r => ({ id: str(r.id), cliente: str(r.cliente) || str(r.descripcion) || 'Cliente', fecha: str(r.fecha),
         pendiente: num(r.monto_total) - (r.monto_cobrado == null ? num(r.monto_total) : num(r.monto_cobrado)) }))
       .filter(d => d.pendiente > 0.5 && d.fecha),
+    /* si la tabla todavía no existe, simplemente no hay deudas a cobrar */
+    meDeben: rMeDeben.error ? [] : ((rMeDeben.data ?? []) as Fila[]).map(aMeDeben).filter(d => pendienteDe(d) > 0),
     historial: ((rHist.data ?? []) as Fila[]).map(h => {
       const det = (h.detalle as { neto?: number; liquido?: number; invertido?: number } | null) ?? {}
       return {

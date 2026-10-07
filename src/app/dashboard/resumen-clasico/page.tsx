@@ -18,15 +18,11 @@ import { fmtDiaMes } from '@/lib/ciclos'
 import { pagarConsumos } from '@/lib/movimientos'
 import { LucaWidget } from '@/components/LucaWidget'
 import { AgregarMovimientoModal } from '@/components/AgregarMovimientoModal'
-import { SkeletonPagina } from '@/components/ui/Piezas'
+import { Dona, SkeletonPagina } from '@/components/ui/Piezas'
 import { LucaMensaje } from '@/components/luca/LucaMensaje'
 import type { LucaEstado } from '@/components/luca/LucaAvatar'
 import { PagarResumen } from '@/components/tarjetas/Modales'
-import {
-  PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Legend,
-  BarChart, Bar,
-} from 'recharts'
+import { GraficoMensual } from '@/components/resumen/GraficoMensual'
 import { cobradoDelMes } from '@/lib/ingresos'
 import { EVENTO_DATOS } from '@/lib/eventos'
 
@@ -34,13 +30,7 @@ import { EVENTO_DATOS } from '@/lib/eventos'
 const fmt = (n: number) => '$' + n.toLocaleString('es-AR', { minimumFractionDigits: 0 })
 
 const COLORS = ['#32D158', '#63A9FF', '#A855F7', '#F5C451', '#FF5873', '#22C55E', '#79C0FF', '#DF7897']
-const MESES_CORTO = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic']
-const etiquetaMesClave = (k: string) => `${MESES_CORTO[Number(k.slice(5, 7)) - 1]} '${k.slice(2, 4)}`
 
-const tooltipStyle = {
-  background: 'var(--bg-card)', border: '1px solid var(--border-color)',
-  borderRadius: 10, fontSize: 12, color: 'var(--text-primary)',
-}
 
 interface Patrimonio {
   total: number
@@ -321,8 +311,8 @@ export default function ResumenClasicoPage() {
       meses.push({ key: mesClave(d), label: d.toLocaleDateString('es-AR', { month: 'short' }) })
     }
 
-    const tendenciaMensual = meses.map(({ key, label }) => ({
-      mes: label,
+    const tendenciaMensual = meses.map(({ key }) => ({
+      mes: key,
       ingresos:
         ingresosFijosMes +
         suma((inf || []).filter(r => enMesClave(r, key)), montoFreelance) +
@@ -508,28 +498,12 @@ export default function ResumenClasicoPage() {
               ))}
             </div>
           </div>
-          <div className="mt-4 h-[220px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart
-                data={rango === 'todo' ? evolucion : evolucion.slice(-Number(rango))}
-                margin={{ top: 8, right: 8, bottom: 0, left: -12 }}
-              >
-                <CartesianGrid stroke="var(--border-color)" strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="mes" tickFormatter={etiquetaMesClave} tick={{ fill: 'var(--text-muted)', fontSize: 11 }} axisLine={false} tickLine={false} />
-                <YAxis
-                  tick={{ fill: 'var(--text-muted)', fontSize: 11 }}
-                  axisLine={false}
-                  tickLine={false}
-                  tickFormatter={(v: number) => {
-                    if (Math.abs(v) >= 1_000_000) return `$${(v / 1_000_000).toFixed(1)}M`
-                    if (Math.abs(v) >= 1_000) return `$${(v / 1_000).toFixed(0)}k`
-                    return `$${v}`
-                  }}
-                />
-                <Tooltip contentStyle={tooltipStyle} labelFormatter={etiquetaMesClave} formatter={(v: number) => fmt(v)} />
-                <Line type="monotone" dataKey="neto" name="Patrimonio neto" stroke="var(--accent-secondary)" strokeWidth={2.5} dot={{ r: 3 }} />
-              </LineChart>
-            </ResponsiveContainer>
+          <div className="mt-4">
+            <GraficoMensual
+              modo="patrimonio"
+              alto={220}
+              datos={(rango === 'todo' ? evolucion : evolucion.slice(-Number(rango))).map(e => ({ mes: e.mes, patrimonio: e.neto }))}
+            />
           </div>
         </section>
       )}
@@ -540,36 +514,8 @@ export default function ResumenClasicoPage() {
           <h2 className="text-base font-bold text-primary">Evolución de tus finanzas</h2>
           <p className="mt-0.5 text-xs text-secondary">Ingresos vs. gastos, últimos 6 meses</p>
 
-          <div className="mt-4 h-[240px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={serie} margin={{ top: 8, right: 8, bottom: 0, left: -12 }}>
-                <CartesianGrid stroke="var(--border-color)" strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="mes" tick={{ fill: 'var(--text-muted)', fontSize: 11 }} axisLine={false} tickLine={false} />
-                <YAxis
-                  tick={{ fill: 'var(--text-muted)', fontSize: 11 }}
-                  axisLine={false}
-                  tickLine={false}
-                  tickFormatter={(v: number) => {
-                    if (v >= 1_000_000) return `$${(v / 1_000_000).toFixed(1)}M`
-                    if (v >= 1_000) return `$${(v / 1_000).toFixed(0)}k`
-                    return `$${v}`
-                  }}
-                />
-                <Tooltip
-                  contentStyle={{
-                    background: 'var(--bg-card)',
-                    border: '1px solid var(--border-color)',
-                    borderRadius: 10,
-                    fontSize: 12,
-                    color: 'var(--text-primary)',
-                  }}
-                  formatter={(v: number) => fmt(v)}
-                />
-                <Legend wrapperStyle={{ fontSize: 12, color: 'var(--text-secondary)' }} />
-                <Line type="monotone" dataKey="ingresos" name="Ingresos" stroke="var(--accent-positive)" strokeWidth={2.5} dot={{ r: 3 }} />
-                <Line type="monotone" dataKey="gastos" name="Gastos" stroke="var(--accent-negative)" strokeWidth={2.5} dot={{ r: 3 }} />
-              </LineChart>
-            </ResponsiveContainer>
+          <div className="mt-4">
+            <GraficoMensual modo="flujo" alto={240} datos={serie.map(m => ({ mes: m.mes, ingresos: m.ingresos, gastos: m.gastos }))} />
           </div>
         </section>
 
@@ -605,57 +551,44 @@ export default function ResumenClasicoPage() {
               Registrá tu primer gasto con Luca y empezá a ver tus categorías.
             </LucaMensaje>
           ) : vistaCategoria === 'comparar' ? (
-            <div className="mt-3 h-[260px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={d.comparacionCategorias} layout="vertical" margin={{ top: 4, right: 12, bottom: 0, left: 0 }}>
-                  <CartesianGrid stroke="var(--border-color)" strokeDasharray="3 3" horizontal={false} />
-                  <XAxis type="number" tick={{ fill: 'var(--text-muted)', fontSize: 11 }} axisLine={false} tickLine={false}
-                    tickFormatter={(v: number) => v >= 1000 ? `$${(v / 1000).toFixed(0)}k` : `$${v}`} />
-                  <YAxis type="category" dataKey="name" width={90} tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} axisLine={false} tickLine={false} />
-                  <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => fmt(v)} />
-                  <Legend wrapperStyle={{ fontSize: 12, color: 'var(--text-secondary)' }} />
-                  <Bar dataKey="anterior" name="Mes pasado" fill="var(--border-color)" radius={[0, 4, 4, 0]} />
-                  <Bar dataKey="actual" name="Este mes" fill="var(--accent-secondary)" radius={[0, 4, 4, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
+            <ul className="mt-3 space-y-3" aria-label="Gasto por categoría, este mes contra el mes pasado">
+              {(() => {
+                const tope = Math.max(1, ...d.comparacionCategorias.flatMap(c => [c.actual, c.anterior]))
+                return d.comparacionCategorias.map(c => (
+                  <li key={c.name}>
+                    <div className="flex items-baseline justify-between gap-2 text-xs">
+                      <span className="min-w-0 truncate capitalize text-secondary">{c.name}</span>
+                      <span className="fa-amount shrink-0 text-primary">{fmt(c.actual)}</span>
+                    </div>
+                    <div className="mt-1 h-2 overflow-hidden rounded-full bg-alternate" aria-hidden="true">
+                      <div className="h-full rounded-full" style={{ width: `${(c.actual / tope) * 100}%`, background: 'var(--accent-secondary)' }} />
+                    </div>
+                    <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-alternate" aria-hidden="true">
+                      <div className="h-full rounded-full" style={{ width: `${(c.anterior / tope) * 100}%`, background: 'var(--text-muted)' }} />
+                    </div>
+                    <p className="mt-0.5 text-[10px] text-muted">Mes pasado: {fmt(c.anterior)}</p>
+                  </li>
+                ))
+              })()}
+              <li className="flex items-center gap-3 text-[10px] text-muted" aria-hidden="true">
+                <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full" style={{ background: 'var(--accent-secondary)' }} />Este mes</span>
+                <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full" style={{ background: 'var(--text-muted)' }} />Mes pasado</span>
+              </li>
+            </ul>
           ) : (
             <>
-              <div className="relative mt-2 h-[190px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={d.gastosPorCategoria}
-                      dataKey="value"
-                      nameKey="name"
-                      innerRadius={54}
-                      outerRadius={82}
-                      paddingAngle={2}
-                      stroke="none"
-                      isAnimationActive={false}
-                    >
-                      {d.gastosPorCategoria.map((_, i) => (
-                        <Cell key={i} fill={COLORS[i % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip
-                      contentStyle={{
-                        background: 'var(--bg-card)',
-                        border: '1px solid var(--border-color)',
-                        borderRadius: 10,
-                        fontSize: 12,
-                        color: 'var(--text-primary)',
-                      }}
-                      formatter={(v: number) => fmt(v)}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-
-                {/* total en el centro del anillo */}
-                <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-                  <span className="text-[10px] uppercase tracking-wide text-muted">Total</span>
-                  <span className="fa-amount text-base text-primary">{fmt(totalCategorias)}</span>
-                </div>
+              <div className="mt-2 flex justify-center">
+                <Dona
+                  size={190}
+                  grosor={24}
+                  datos={d.gastosPorCategoria.map((c, i) => ({ key: c.name, label: c.name, valor: c.value, color: COLORS[i % COLORS.length] }))}
+                  centro={
+                    <div className="flex flex-col items-center justify-center">
+                      <span className="text-[10px] uppercase tracking-wide text-muted">Total</span>
+                      <span className="fa-amount text-base text-primary">{fmt(totalCategorias)}</span>
+                    </div>
+                  }
+                />
               </div>
 
               {/* referencias: sin esto el anillo no se entiende */}
