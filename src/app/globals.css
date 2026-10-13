@@ -597,19 +597,36 @@ body {
   box-shadow: 0 1px 2px rgba(199, 122, 154, .08), 0 14px 32px -24px rgba(199, 80, 130, .28);
 }
 
-/* modo privado: los montos se ven borrosos; al pasar el mouse o tocar, se leen */
+/* modo privado: cada monto se reemplaza por *** (ancho fijo: no deja adivinar los dígitos) */
 .fa-privado .tabular-nums,
 .fa-privado .fa-cifra,
 .fa-privado .fa-num-sm,
 .fa-privado .fa-num-md,
 .fa-privado .fa-amount {
-  filter: blur(7px);
-  transition: filter 160ms ease;
+  filter: blur(9px); /* respaldo para contenedores con varios elementos */
 }
-.fa-privado .tabular-nums:hover,
-.fa-privado .fa-cifra:hover,
-.fa-privado .fa-num-sm:hover,
-.fa-privado .fa-amount:hover { filter: none; }
+.fa-privado :is(.tabular-nums:not(:has(div, p, li, ul, button, section, svg)), .fa-cifra, .fa-num-sm, .fa-num-md, .fa-amount) {
+  filter: none;
+  display: inline-block;
+  position: relative;
+  width: 3.4ch;
+  overflow: hidden;
+  white-space: nowrap;
+  vertical-align: bottom;
+  color: transparent !important;
+  -webkit-text-fill-color: transparent;
+  user-select: none;
+}
+.fa-privado :is(.tabular-nums, .fa-cifra, .fa-num-sm, .fa-num-md, .fa-amount) * { color: transparent !important; -webkit-text-fill-color: transparent; }
+.fa-privado :is(.tabular-nums:not(:has(div, p, li, ul, button, section, svg)), .fa-cifra, .fa-num-sm, .fa-num-md, .fa-amount)::after {
+  content: '***';
+  position: absolute;
+  left: 0;
+  top: 0;
+  letter-spacing: .08em;
+  color: var(--text-secondary);
+  -webkit-text-fill-color: var(--text-secondary);
+}
 .fa-privado svg text { opacity: 0; }
 
 /* festejo */

@@ -332,7 +332,7 @@ export default function ResumenPage() {
             <button onClick={() => setVerPatrimonio(v => !v)} aria-expanded={verPatrimonio}
               className="fa-press mt-4 flex w-full items-center justify-between rounded-xl border px-3 py-2.5 text-sm fa-hairline">
               <span className="text-secondary">Patrimonio neto</span>
-              <span className="flex items-center gap-2 font-semibold tabular-nums text-primary">{fmt(p.neto)}
+              <span className="flex items-center gap-2 font-semibold text-primary"><span className="tabular-nums">{fmt(p.neto)}</span>
                 <ChevronDown size={15} className="text-muted" style={{ transform: verPatrimonio ? 'rotate(180deg)' : undefined, transition: 'transform var(--dur-std) var(--ease-out)' }} /></span>
             </button>
             <div className="fa-colapsable" data-abierto={verPatrimonio}>

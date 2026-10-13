@@ -5,7 +5,7 @@
      · Atajos de teclado: "g" + letra para ir a cada sección, "p" para
        ocultar montos, "?" para ver la lista de atajos.
      · Tirar hacia abajo (celular) para actualizar los datos.
-     · Modo privado: los montos se ven borrosos hasta que lo apagás.
+     · Modo privado: los montos se reemplazan por *** hasta que lo apagás.
      · Festejo cuando lográs algo (meta cumplida, deuda saldada).
    Todo respeta "reducir movimiento" del sistema.                    */
 
