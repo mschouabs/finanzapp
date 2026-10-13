@@ -241,7 +241,7 @@ export default function ResumenPage() {
         {datosGrafico.length >= 2 ? (
           <GraficoMensual key={`${modo}-${rango}`} datos={datosGrafico} modo={modo}
             mesSel={modo === 'patrimonio' ? null : mesSel}
-            onElegir={modo === 'patrimonio' ? undefined : k => setMesSel(k)} alto={desktop ? 290 : 210} />
+            onElegir={modo === 'patrimonio' ? undefined : k => setMesSel(k)} alto={desktop ? 330 : 210} />
         ) : (
           <p className="rounded-xl border border-dashed px-4 py-10 text-center text-xs text-secondary fa-hairline">
             {modo === 'patrimonio' ? 'La evolución del patrimonio arranca con la foto de cada mes: el mes que viene vas a ver la primera línea.' : 'Con dos meses de datos aparece la evolución.'}
@@ -262,8 +262,8 @@ export default function ResumenPage() {
       {/* ── contexto + acciones ── */}
       <header className="flex flex-wrap items-center gap-x-6 gap-y-3">
         <div className="min-w-0 flex-1">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-muted">Resumen</p>
-          <h1 className="mt-0.5 text-xl font-extrabold tracking-tight text-primary lg:text-2xl">
+          <p className="fa-kicker">{hoy.getHours() < 12 ? 'Buenos días' : hoy.getHours() < 20 ? 'Buenas tardes' : 'Buenas noches'}</p>
+          <h1 className="mt-1 text-2xl font-extrabold tracking-tight text-primary lg:text-[28px]">
             <span className="capitalize">{DIAS[hoy.getDay()]}</span> {hoy.getDate()} de {nombreMes(claveMes(hoy))}
           </h1>
           <p className="text-xs text-secondary">{contexto}{proximaTarjeta?.fecha ? ` · próximo vencimiento: ${proximaTarjeta.titulo.replace('Resumen ', '')}` : ''}</p>
@@ -299,27 +299,27 @@ export default function ResumenPage() {
         /* ════════ DESKTOP: centro de control ════════ */
         <>
           <Revelar>
-            <div className="fa-panel grid grid-cols-12 overflow-hidden">
-              <div className="col-span-7 p-7"><PatrimonioHero p={p} serie={d.seriePat} /></div>
-              <div className="col-span-5 border-l p-7 fa-hairline" style={{ background: 'color-mix(in srgb, var(--bg-alternate) 45%, var(--bg-card))' }}>
+            <div className="fa-hero grid grid-cols-12 overflow-hidden">
+              <div className="col-span-7 p-8"><PatrimonioHero p={p} serie={d.seriePat} /></div>
+              <div className="col-span-5 border-l p-8 fa-hairline" style={{ background: 'color-mix(in srgb, var(--bg-alternate) 35%, transparent)' }}>
                 <LibreParaUsar p={p} comp={comp} foco={focoComp} onFoco={setFocoComp} />
               </div>
             </div>
           </Revelar>
 
-          <div className="grid grid-cols-12 gap-7">
-            <Revelar className="col-span-7 px-1 pt-1"><FlujoPeriodo {...flujoProps} /></Revelar>
+          <div className="grid grid-cols-12 items-start gap-7">
+            <Revelar className="fa-tile col-span-7 p-6"><FlujoPeriodo {...flujoProps} /></Revelar>
             <Revelar className="col-span-5" demora={60}><LucaInsights insights={d.insights} /></Revelar>
           </div>
 
           <div className="grid grid-cols-12 gap-7">
-            <Revelar className="fa-panel col-span-8 p-6">{evolucion}</Revelar>
-            <Revelar className="fa-panel col-span-4 p-6" demora={60} id="categorias">{categoriasBloque}</Revelar>
+            <Revelar className="fa-tile col-span-8 p-6">{evolucion}</Revelar>
+            <Revelar className="fa-tile col-span-4 p-6" demora={60} id="categorias">{categoriasBloque}</Revelar>
           </div>
 
           <div className="grid grid-cols-12 gap-7">
-            <Revelar className="col-span-5 px-1"><ListaCompromisos comp={comp} foco={focoComp} onFoco={setFocoComp} onPagar={abrirPago} /></Revelar>
-            <Revelar className="col-span-7 px-1" demora={60}>
+            <Revelar className="fa-tile col-span-5 p-6"><ListaCompromisos comp={comp} foco={focoComp} onFoco={setFocoComp} onPagar={abrirPago} /></Revelar>
+            <Revelar className="fa-tile col-span-7 p-6" demora={60}>
               <ListaActividad items={act} filtro={catFiltro} onLimpiar={() => setCatFiltro(null)} nuevos={nuevos} />
             </Revelar>
           </div>
@@ -327,7 +327,7 @@ export default function ResumenPage() {
       ) : (
         /* ════════ MOBILE: prioridades de una mano ════════ */
         <>
-          <section className="fa-panel p-5">
+          <section className="fa-hero p-5">
             <LibreParaUsar p={p} comp={comp} foco={focoComp} onFoco={setFocoComp} />
             <button onClick={() => setVerPatrimonio(v => !v)} aria-expanded={verPatrimonio}
               className="fa-press mt-4 flex w-full items-center justify-between rounded-xl border px-3 py-2.5 text-sm fa-hairline">
@@ -340,19 +340,19 @@ export default function ResumenPage() {
             </div>
           </section>
 
-          <section className="px-1"><FlujoPeriodo {...flujoProps} compacto /></section>
+          <section className="fa-tile p-5"><FlujoPeriodo {...flujoProps} compacto /></section>
 
           <LucaInsights insights={d.insights} />
 
-          <Revelar className="px-1">
+          <Revelar className="fa-tile p-5">
             <ListaActividad items={act} filtro={catFiltro} onLimpiar={() => setCatFiltro(null)} nuevos={nuevos} />
           </Revelar>
 
-          <Revelar className="px-1">
+          <Revelar className="fa-tile p-5">
             <ListaCompromisos comp={comp} foco={focoComp} onFoco={setFocoComp} onPagar={abrirPago} />
           </Revelar>
 
-          <section className="fa-panel overflow-hidden">
+          <section className="fa-tile overflow-hidden">
             <button onClick={() => setAnalisis(v => !v)} aria-expanded={analisis}
               className="fa-press flex w-full items-center gap-3 px-5 py-4 text-left">
               <BarChart3 size={18} className="text-info" />

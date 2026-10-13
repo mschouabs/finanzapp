@@ -40,7 +40,6 @@ export function PatrimonioHero({ p, serie, compacto = false }: { p: Patrimonio; 
   const pct = diff !== null && p.anterior ? (diff / Math.abs(p.anterior)) * 100 : null
   const sube = (diff ?? 0) >= 0
 
-  const base = Math.max(p.activos, p.deuda, 1)
   const partes: { k: Bucket; v: number }[] = [
     { k: 'disponible', v: p.liquido },
     { k: 'invertido', v: p.invertido },
@@ -58,9 +57,8 @@ export function PatrimonioHero({ p, serie, compacto = false }: { p: Patrimonio; 
       </div>
 
       <div className="mt-1 flex flex-wrap items-end gap-x-6 gap-y-2">
-        <NumeroAnimado valor={p.neto} contarAlInicio
-          className={`font-extrabold tracking-tight text-primary tabular-nums ${compacto ? 'text-[2.1rem] leading-none' : 'text-[clamp(2.4rem,4vw,3.4rem)] leading-[1.02]'}`} />
-        {serie.length >= 2 && !compacto && <MiniEvolucion serie={serie} />}
+        <NumeroAnimado valor={p.neto} contarAlInicio moneda
+          className={`fa-cifra font-extrabold text-primary tabular-nums ${compacto ? 'text-[2.1rem] leading-none' : 'text-[clamp(2.6rem,4.4vw,3.7rem)] leading-[1.02]'}`} />
       </div>
 
       {diff !== null ? (
@@ -76,26 +74,36 @@ export function PatrimonioHero({ p, serie, compacto = false }: { p: Patrimonio; 
         <p className="mt-2 text-xs text-secondary">A partir del mes que viene vas a ver cuánto cambió contra este.</p>
       )}
 
-      {/* composición: lo que tenés (arriba) contra lo que debés (abajo), misma escala */}
+      {serie.length >= 2 && !compacto && <MiniEvolucion serie={serie} />}
+
+      {/* composición: una sola barra con lo que tenés; la parte rayada es lo que debés */}
       <div className="mt-5 space-y-2" onMouseLeave={() => setFoco(null)}>
-        <div className="flex h-2.5 w-full gap-[2px] overflow-hidden rounded-full" style={{ background: 'var(--border-subtle)' }}>
-          {partes.map(({ k, v }) => v > 0 && (
-            <button key={k} type="button" aria-label={`${ETIQUETA[k]}: ${fmt(v)}`}
-              onMouseEnter={() => setFoco(k)} onFocus={() => setFoco(k)} onClick={() => alternar(k)}
-              className="fa-grow-x h-full first:rounded-l-full last:rounded-r-full"
-              style={{
-                width: `${(v / base) * 100}%`, background: TONO[k],
-                opacity: foco && foco !== k ? 0.35 : 1, transition: 'opacity 140ms ease',
-              }} />
-          ))}
-        </div>
-        {p.deuda > 0 && (
-          <div className="flex h-1.5 w-full overflow-hidden rounded-full" style={{ background: 'transparent' }}>
+        <div className="relative h-3 w-full overflow-hidden rounded-full" style={{ background: 'var(--border-subtle)' }}>
+          <div className="flex h-full w-full gap-[2px]">
+            {partes.map(({ k, v }) => v > 0 && (
+              <button key={k} type="button" aria-label={`${ETIQUETA[k]}: ${fmt(v)}`}
+                onMouseEnter={() => setFoco(k)} onFocus={() => setFoco(k)} onClick={() => alternar(k)}
+                className="fa-grow-x h-full"
+                style={{
+                  width: `${(v / Math.max(p.activos, 1)) * 100}%`,
+                  background: `linear-gradient(180deg, color-mix(in srgb, ${TONO[k]} 100%, #fff 18%), ${TONO[k]})`,
+                  opacity: foco && foco !== k ? 0.35 : 1, transition: 'opacity 140ms ease',
+                }} />
+            ))}
+          </div>
+          {p.deuda > 0 && (
             <button type="button" aria-label={`Deuda en tarjetas: ${fmt(p.deuda)}`}
               onMouseEnter={() => setFoco('deuda')} onFocus={() => setFoco('deuda')} onClick={() => alternar('deuda')}
-              className="fa-grow-x h-full rounded-full"
-              style={{ width: `${Math.min(100, (p.deuda / base) * 100)}%`, background: TONO.deuda, opacity: foco && foco !== 'deuda' ? 0.35 : 1, transition: 'opacity 140ms ease' }} />
-          </div>
+              className="fa-rayado fa-grow-x absolute inset-y-0 right-0"
+              style={{
+                width: `${Math.min(100, (p.deuda / Math.max(p.activos, 1)) * 100)}%`,
+                boxShadow: '-2px 0 0 var(--bg-card)',
+                opacity: foco && foco !== 'deuda' ? 0.35 : 1, transition: 'opacity 140ms ease',
+              }} />
+          )}
+        </div>
+        {p.deuda > 0 && (
+          <p className="text-[11px] text-muted">La parte rayada es lo que debés: lo que te queda es tu patrimonio neto.</p>
         )}
 
         <div className={`grid gap-1 pt-2 ${p.deuda > 0 ? 'grid-cols-3' : 'grid-cols-2'}`}>
@@ -111,8 +119,8 @@ export function PatrimonioHero({ p, serie, compacto = false }: { p: Patrimonio; 
                   <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: TONO[k] }} />
                   <span className="truncate text-[11px] font-semibold text-secondary">{ETIQUETA[k]}</span>
                 </span>
-                <NumeroAnimado valor={k === 'deuda' ? -v : v}
-                  className="mt-0.5 block text-[15px] font-bold tabular-nums text-primary" />
+                <NumeroAnimado valor={k === 'deuda' ? -v : v} moneda
+                  className="fa-cifra mt-0.5 block text-[17px] font-bold tabular-nums text-primary" />
                 <span className="text-[11px] text-muted">
                   {k === 'deuda' ? `${p.deudas.length} ${p.deudas.length === 1 ? 'tarjeta' : 'tarjetas'}` : `${Math.round((v / Math.max(p.activos, 1)) * 100)}% de lo que tenés`}
                 </span>
@@ -150,32 +158,51 @@ export function PatrimonioHero({ p, serie, compacto = false }: { p: Patrimonio; 
   )
 }
 
-/** Sparkline de patrimonio: la forma de la evolución, con hover por mes. */
+/** Evolución del patrimonio a lo ancho: área en degradé, punto que late y lectura por mes. */
 function MiniEvolucion({ serie }: { serie: PuntoPatrimonio[] }) {
   const [i, setI] = useState<number | null>(null)
   const ult = serie.slice(-12)
-  const w = 168, h = 44
+  const W = 600, H = 70
   const vals = ult.map(p => p.neto)
   const min = Math.min(...vals), max = Math.max(...vals)
   const r = max - min || 1
-  const pts = vals.map((v, k) => [(k / (vals.length - 1)) * w, h - 4 - ((v - min) / r) * (h - 8)] as const)
-  const d = pts.map(([x, y], k) => `${k ? 'L' : 'M'}${x.toFixed(1)},${y.toFixed(1)}`).join(' ')
+  const pts = vals.map((v, k) => [(k / (vals.length - 1)) * W, H - 6 - ((v - min) / r) * (H - 14)] as const)
+  /* curva suave (Catmull-Rom → Bézier) */
+  const d = pts.map(([x, y], k) => {
+    if (!k) return `M${x},${y}`
+    const [x0, y0] = pts[k - 1], [xm, ym] = pts[k - 2] ?? pts[k - 1], [x2, y2] = pts[k + 1] ?? pts[k]
+    const c1x = x0 + (x - xm) / 6, c1y = y0 + (y - ym) / 6, c2x = x - (x2 - x0) / 6, c2y = y - (y2 - y0) / 6
+    return `C${c1x.toFixed(1)},${c1y.toFixed(1)} ${c2x.toFixed(1)},${c2y.toFixed(1)} ${x.toFixed(1)},${y.toFixed(1)}`
+  }).join(' ')
   const sel = i ?? vals.length - 1
+  const sube = vals[vals.length - 1] >= vals[0]
+  const tono = sube ? 'var(--tendencia-sube)' : 'var(--tendencia-baja)'
   return (
-    <div className="mb-1.5 flex items-center gap-3">
-      <svg width={w} height={h} className="overflow-visible" role="img" aria-label="Evolución del patrimonio neto"
+    <div className="mt-4">
+      <div className="mb-1 flex items-baseline justify-between text-[11px]">
+        <span className="capitalize text-muted">{i === null ? `Últimos ${vals.length} meses` : `${nombreMes(ult[sel].mes)} ${ult[sel].mes.slice(0, 4)}`}</span>
+        <span className="font-semibold tabular-nums text-secondary">{fmtCorto(vals[sel])}</span>
+      </div>
+      <div className="relative h-[70px] w-full"
         onMouseMove={e => {
-          const rect = (e.currentTarget as SVGSVGElement).getBoundingClientRect()
-          setI(Math.max(0, Math.min(vals.length - 1, Math.round(((e.clientX - rect.left) / w) * (vals.length - 1)))))
+          const rect = e.currentTarget.getBoundingClientRect()
+          setI(Math.max(0, Math.min(vals.length - 1, Math.round(((e.clientX - rect.left) / rect.width) * (vals.length - 1)))))
         }}
         onMouseLeave={() => setI(null)}>
-        <path d={`${d} L${w},${h} L0,${h} Z`} fill="var(--accent-secondary)" opacity={0.1} />
-        <path d={d} fill="none" stroke="var(--accent-secondary)" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" pathLength={1} className="fa-draw" />
-        <circle cx={pts[sel][0]} cy={pts[sel][1]} r={4} fill="var(--accent-secondary)" stroke="var(--bg-card)" strokeWidth={2} />
-      </svg>
-      <div className="w-[92px] text-[11px] leading-tight">
-        <p className="capitalize text-muted">{i === null ? 'Últimos meses' : nombreMes(ult[sel].mes)}</p>
-        <p className="font-semibold tabular-nums text-secondary">{fmtCorto(vals[sel])}</p>
+        <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="absolute inset-0 h-full w-full overflow-visible" role="img" aria-label="Evolución del patrimonio neto">
+          <defs>
+            <linearGradient id="fa-mini-area" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={tono} stopOpacity={0.32} />
+              <stop offset="100%" stopColor={tono} stopOpacity={0} />
+            </linearGradient>
+          </defs>
+          <path d={`${d} L${W},${H} L0,${H} Z`} fill="url(#fa-mini-area)" />
+          <path d={d} fill="none" stroke={tono} strokeWidth={2.2} strokeLinecap="round" vectorEffect="non-scaling-stroke"
+            pathLength={1} className="fa-draw" style={{ filter: `drop-shadow(0 0 6px ${tono})` }} />
+          {i !== null && <line x1={pts[sel][0]} x2={pts[sel][0]} y1={0} y2={H} stroke="var(--border-color)" strokeWidth={1} vectorEffect="non-scaling-stroke" />}
+        </svg>
+        <span className={`absolute h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full ${i === null ? 'fa-latido' : ''}`}
+          style={{ left: `${(pts[sel][0] / W) * 100}%`, top: `${(pts[sel][1] / H) * 100}%`, background: tono, border: '2px solid var(--bg-card)', ['--latido' as string]: tono }} />
       </div>
     </div>
   )
@@ -206,8 +233,8 @@ export function LibreParaUsar({ p, comp, foco, onFoco }: {
         <span title={`Tu disponible menos lo que ya tiene destino en los próximos ${comp.horizonte} días: resúmenes de tarjeta y gastos fijos que todavía figuran como pendientes.`}
           className="text-muted" aria-label="Qué es libre para usar"><Info size={12} /></span>
       </div>
-      <NumeroAnimado valor={libre}
-        className={`mt-1 text-[2rem] font-extrabold leading-tight tracking-tight tabular-nums ${libre < 0 ? 'text-negative' : 'text-primary'}`} />
+      <NumeroAnimado valor={libre} moneda
+        className={`fa-cifra mt-1 text-[2.3rem] font-extrabold leading-tight tabular-nums ${libre < 0 ? 'text-negative' : 'text-primary'}`} />
       <p className="text-xs text-secondary">
         {libre < 0 ? 'Tus pagos próximos superan lo que tenés disponible.' : `después de los pagos de los próximos ${comp.horizonte} días`}
       </p>
@@ -220,7 +247,7 @@ export function LibreParaUsar({ p, comp, foco, onFoco }: {
             <NumeroAnimado valor={p.liquido} className="font-semibold tabular-nums text-primary" />
           </div>
           <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full" style={{ background: 'var(--border-subtle)' }}>
-            <div className="fa-grow-x h-full rounded-full" style={{ width: `${(Math.max(p.liquido, 0) / base) * 100}%`, background: 'var(--accent-secondary)' }} />
+            <div className="fa-grow-x h-full rounded-full" style={{ width: `${(Math.max(p.liquido, 0) / base) * 100}%`, background: 'linear-gradient(90deg, color-mix(in srgb, var(--accent-secondary) 55%, transparent), var(--accent-secondary))', boxShadow: '0 0 12px -2px var(--accent-secondary)' }} />
           </div>
         </div>
 

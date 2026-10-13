@@ -58,10 +58,10 @@ export function LucaInsights({ insights, cargando = false }: { insights: Insight
   const t = principal ? TIPO[principal.tipo] : null
 
   return (
-    <section aria-labelledby="t-luca" className="relative flex h-full min-w-0 flex-col overflow-hidden rounded-2xl border p-5"
+    <section aria-labelledby="t-luca" className="fa-borde-vivo relative flex h-full min-w-0 flex-col rounded-[18px] p-5"
       style={{
-        borderColor: 'color-mix(in srgb, var(--accent-positive) 22%, var(--border-subtle))',
-        background: 'linear-gradient(180deg, color-mix(in srgb, var(--accent-positive) 5%, var(--bg-card)) 0%, var(--bg-card) 60%)',
+        background: 'radial-gradient(420px 180px at 0% 0%, color-mix(in srgb, var(--accent-luca) 11%, transparent), transparent 70%), var(--bg-card)',
+        boxShadow: '0 18px 40px -26px color-mix(in srgb, var(--accent-luca) 60%, transparent)',
       }}>
       <div className="flex items-center gap-3">
         <div className="luca-float"><LucaAvatar estado={estado} size={38} /></div>
@@ -78,7 +78,9 @@ export function LucaInsights({ insights, cargando = false }: { insights: Insight
           <p className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.05em]" style={{ color: t.color }}>
             <t.Icono size={13} /> {t.label}
           </p>
-          <p className="mt-1.5 text-[15px] font-semibold leading-snug text-primary">{principal.titulo}</p>
+          <p className="mt-1.5 text-[15px] font-semibold leading-snug text-primary" aria-label={principal.titulo}>
+            <Escribiendo texto={principal.titulo} />
+          </p>
 
           <div className="fa-colapsable" data-abierto={porQue}>
             <div>
@@ -261,4 +263,16 @@ export function CapturaLuca({ onGuardar, autoFoco = false, flotante = false }: {
       )}
     </div>
   )
+}
+
+/** El aviso principal aparece "escribiéndose", como si Luca lo tipeara. */
+function Escribiendo({ texto }: { texto: string }) {
+  const [n, setN] = useState(0)
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) { setN(texto.length); return }
+    setN(0)
+    const id = setInterval(() => setN(k => { if (k >= texto.length) { clearInterval(id); return k } return k + 2 }), 22)
+    return () => clearInterval(id)
+  }, [texto])
+  return <span aria-hidden="true" className={n < texto.length ? 'fa-cursor' : ''}>{texto.slice(0, n)}</span>
 }

@@ -9,12 +9,19 @@ import { useState } from 'react'
 import {
   AlertTriangle, ArrowDownLeft, ArrowUpRight, CalendarClock, ChevronLeft, ChevronRight, CreditCard, Pin, X,
 } from 'lucide-react'
-import { Encabezado, NumeroAnimado, fmt, fmtFechaCorta, fmtSigno } from './base'
+import { Encabezado, NumeroAnimado, fmt, fmtSigno } from './base'
 import { getCat } from '@/lib/categorias'
 import {
   isoLocal, nombreMes,
   type Actividad, type Categoria, type Compromiso, type Compromisos, type Flujo, type Ritmo,
 } from '@/lib/finanzas/nucleo'
+
+/** Color de una categoría (fijos y viajes no están en la lista de categorías). */
+const colorCat = (clave: string, color?: string) => {
+  const base = clave === 'fijos' ? 'var(--accent-warning)' : clave === 'viajes' ? 'var(--accent-secondary)' : color || 'var(--accent-negative)'
+  /* en el tema rosa se acercan al color de marca para que combinen */
+  return `color-mix(in oklab, ${base}, var(--accent-confirm) var(--cat-peso))`
+}
 
 /* ── flujo del período ────────────────────────────────────────── */
 
@@ -61,7 +68,7 @@ export function FlujoPeriodo({ flujo, esActual, ritmo, puedeAtras, puedeAdelante
         </div>
       )}
 
-      <div key={flujo.mes} className={`fa-page-in mt-4 grid gap-y-4 ${compacto ? 'grid-cols-2 gap-x-4' : 'grid-cols-2 gap-x-6 xl:grid-cols-4'}`}>
+      <div key={flujo.mes} className={`fa-page-in fa-kpis mt-4 grid grid-cols-2 ${compacto ? 'gap-2.5' : 'gap-3'}`}>
         <Bloque label="Entró" valor={flujo.ingresos.total} signo="+"
           sub={[flujo.ingresos.fijos > 0 && `Fijos ${fmt(flujo.ingresos.fijos)}`, flujo.ingresos.extra > 0 && `Extra ${fmt(flujo.ingresos.extra)}`, flujo.ingresos.secciones > 0 && `Otros ${fmt(flujo.ingresos.secciones)}`].filter(Boolean).join(' · ') || 'Sin ingresos cargados'}
           href="/dashboard/ingresos-gastos" tono="var(--accent-positive)" />
@@ -89,7 +96,7 @@ export function FlujoPeriodo({ flujo, esActual, ritmo, puedeAtras, puedeAdelante
           tono={flujo.balance >= 0 ? 'var(--accent-positive)' : 'var(--accent-negative)'} />
         <div className="min-w-0">
           <p className="text-[11px] font-semibold uppercase tracking-[0.04em] text-secondary">Ahorro</p>
-          <p className="mt-1 text-[1.35rem] font-bold leading-tight tabular-nums text-primary">
+          <p className="mt-1 text-[clamp(1.05rem,4.6vw,1.3rem)] font-bold leading-tight tabular-nums text-primary">
             {tasa === null ? '—' : `${Math.round(tasa)}%`}
           </p>
           <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full" style={{ background: 'var(--border-subtle)' }}>
@@ -126,13 +133,13 @@ function Bloque({ label, valor, sub, signo, fuerte, href, tono }: {
       <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.04em] text-secondary">
         <span className="h-1.5 w-1.5 rounded-full" style={{ background: tono }} />{label}
       </p>
-      <NumeroAnimado valor={signo === '−' ? -valor : valor} formato={signo || fuerte ? fmtSigno : fmt}
-        className={`mt-1 block whitespace-nowrap text-[1.3rem] font-bold leading-tight tabular-nums ${fuerte ? '' : 'text-primary'}`} />
+      <NumeroAnimado valor={signo === '−' ? -valor : valor} formato={signo || fuerte ? fmtSigno : fmt} moneda
+        className={`fa-cifra mt-1 block whitespace-nowrap text-[clamp(1.05rem,4.6vw,1.3rem)] font-bold leading-tight tabular-nums ${fuerte ? '' : 'text-primary'}`} />
       <p className="mt-1 truncate text-[11px] text-muted">{sub}</p>
     </>
   )
   return href
-    ? <Link href={href} className="fa-press -m-1.5 block min-w-0 rounded-lg p-1.5 hover:bg-alternate">{cuerpo}</Link>
+    ? <Link href={href} className="fa-press block min-w-0 hover:bg-alternate">{cuerpo}</Link>
     : <div className="min-w-0" style={fuerte ? { color: tono } : undefined}>{cuerpo}</div>
 }
 
@@ -179,7 +186,9 @@ export function Categorias({ cats, mes, esActual, seleccion, onSeleccion, max = 
                   className="fa-press w-full rounded-lg px-2 py-1.5 text-left hover:bg-alternate"
                   style={{ opacity: apagada ? 0.5 : 1, background: on ? 'var(--bg-alternate)' : undefined, transition: 'opacity 140ms ease' }}>
                   <span className="flex items-center gap-2 text-sm">
-                    <span className="w-5 text-center" aria-hidden="true">{c.clave === 'fijos' ? '📌' : c.clave === 'viajes' ? '✈️' : cat.emoji}</span>
+                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[13px]" aria-hidden="true"
+                      style={{ background: `color-mix(in srgb, ${colorCat(c.clave, cat.color)} 16%, transparent)` }}>
+                      {c.clave === 'fijos' ? '📌' : c.clave === 'viajes' ? '✈️' : cat.emoji}</span>
                     <span className="min-w-0 flex-1 truncate capitalize text-primary">{c.clave === 'fijos' ? 'Gastos fijos' : cat.label === c.clave ? c.nombre : cat.label}</span>
                     {delta !== null && Math.abs(delta) >= 10 && (
                       <span className="text-[11px] font-semibold tabular-nums" style={{ color: delta > 0 ? 'var(--accent-negative)' : 'var(--accent-positive)' }}>
@@ -188,9 +197,14 @@ export function Categorias({ cats, mes, esActual, seleccion, onSeleccion, max = 
                     )}
                     <span className="w-24 text-right font-semibold tabular-nums text-primary">{fmt(c.monto)}</span>
                   </span>
-                  <span className="relative mt-1.5 ml-7 block h-1.5 rounded-full" style={{ background: 'var(--border-subtle)' }}>
+                  <span className="relative mt-1.5 ml-9 block h-1.5 rounded-full" style={{ background: 'var(--border-subtle)' }}>
                     <span className="fa-grow-x absolute inset-y-0 left-0 rounded-full"
-                      style={{ width: `${(c.monto / tope) * 100}%`, background: 'var(--accent-negative)', opacity: foco === c.clave || on ? 1 : 0.72, animationDelay: `${i * 40}ms` }} />
+                      style={{
+                        width: `${(c.monto / tope) * 100}%`,
+                        background: `linear-gradient(90deg, color-mix(in srgb, ${colorCat(c.clave, cat.color)} 45%, transparent), ${colorCat(c.clave, cat.color)})`,
+                        boxShadow: foco === c.clave || on ? `0 0 10px -2px ${colorCat(c.clave, cat.color)}` : undefined,
+                        opacity: foco === c.clave || on ? 1 : 0.85, animationDelay: `${i * 40}ms`,
+                      }} />
                     {c.anterior > 0 && (
                       <span className="absolute -top-[3px] h-[12px] w-[2px] rounded-full" title={`Antes: ${fmt(c.anterior)}`}
                         style={{ left: `calc(${(c.anterior / tope) * 100}% - 1px)`, background: 'var(--text-secondary)' }} />
@@ -202,12 +216,12 @@ export function Categorias({ cats, mes, esActual, seleccion, onSeleccion, max = 
           })}
           {resto > 0 && (
             <li className="flex items-center justify-between px-2 pt-1 text-xs text-secondary">
-              <span className="ml-7">Otras {cats.length - max}</span>
+              <span className="ml-9">Otras {cats.length - max}</span>
               <span className="tabular-nums">{fmt(resto)}</span>
             </li>
           )}
           <li className="flex items-center justify-between border-t px-2 pt-2 text-xs fa-hairline">
-            <span className="ml-7 text-secondary">Total</span>
+            <span className="ml-9 text-secondary">Total</span>
             <span className="font-semibold tabular-nums text-primary">{fmt(total)}</span>
           </li>
         </ul>
@@ -247,7 +261,7 @@ export function ListaCompromisos({ comp, foco, onFoco, onPagar }: {
           {grupos.map(g => (
             <div key={g.titulo}>
               <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.04em] text-muted">{g.titulo}</p>
-              <ul>
+              <ul className="fa-timeline">
                 {g.items.map(it => {
                   const on = foco === it.id
                   return (
@@ -255,10 +269,12 @@ export function ListaCompromisos({ comp, foco, onFoco, onPagar }: {
                       onMouseEnter={() => onFoco(it.id)}
                       className="-mx-2 flex items-center gap-3 rounded-lg px-2 py-2 transition-colors"
                       style={{ background: on ? 'var(--bg-alternate)' : undefined }}>
-                      <span className="flex h-9 w-9 shrink-0 flex-col items-center justify-center rounded-lg text-[10px] font-semibold leading-none"
+                      <span className="relative z-[1] flex h-9 w-9 shrink-0 flex-col items-center justify-center rounded-xl border text-[10px] font-semibold leading-none"
                         style={{
-                          background: it.vencido ? 'var(--glow-negative)' : 'var(--bg-alternate)',
+                          background: it.vencido ? 'color-mix(in srgb, var(--accent-negative) 16%, var(--bg-card))' : 'var(--bg-card)',
+                          borderColor: it.vencido ? 'var(--accent-negative)' : on ? 'var(--accent-warning)' : 'var(--border-subtle)',
                           color: it.vencido ? 'var(--accent-negative)' : 'var(--text-secondary)',
+                          boxShadow: it.vencido ? '0 0 14px -4px var(--accent-negative)' : undefined,
                         }}>
                         {it.fecha ? (<><span className="text-[13px] font-bold text-primary">{it.fecha.getDate()}</span><span className="mt-0.5 uppercase">{it.fecha.toLocaleDateString('es-AR', { month: 'short' }).replace('.', '')}</span></>)
                           : <Pin size={14} />}
@@ -324,17 +340,23 @@ export function ListaActividad({ items, filtro, onLimpiar, nuevos }: {
           {filtro === 'fijos' ? 'Los gastos fijos no tienen movimientos con fecha: se ven en Movimientos.' : filtro ? 'No hay movimientos recientes en esta categoría.' : 'Todavía no hay movimientos. Contale a Luca tu primer gasto.'}
         </p>
       ) : (
-        <ul className="mt-2 divide-y fa-hairline">
-          {items.map(a => {
+        <ul className="mt-2">
+          {items.map((a, idx) => {
+            const nuevoDia = idx === 0 || items[idx - 1].fecha !== a.fecha
             const cat = getCat(a.categoria)
             const ing = a.tipo === 'ingreso'
             const on = abierto === a.id
             return (
               <li key={a.id} className={nuevos.has(a.id) ? 'fa-flash rounded-lg' : ''}>
+                {nuevoDia && (
+                  <p className="fa-dia-sticky -mx-2 mt-2 rounded-lg px-2 py-1.5 text-[11px] font-semibold uppercase tracking-[0.05em] text-muted">
+                    {etiquetaDia(a.fecha, hoy)}
+                  </p>
+                )}
                 <button type="button" aria-expanded={on} onClick={() => setAbierto(on ? null : a.id)}
                   className="group -mx-2 flex w-[calc(100%+1rem)] items-center gap-3 rounded-lg px-2 py-2.5 text-left hover:bg-alternate">
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-base"
-                    style={{ background: ing ? 'var(--glow-positive)' : 'var(--bg-alternate)' }} aria-hidden="true">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-base"
+                    style={{ background: ing ? 'var(--glow-positive)' : `color-mix(in srgb, ${colorCat(a.categoria, cat.color)} 15%, transparent)` }} aria-hidden="true">
                     {ing ? <ArrowDownLeft size={16} className="text-positive" /> : a.categoria === 'viajes' ? '✈️' : cat.emoji}
                   </span>
                   <span className="min-w-0 flex-1">
@@ -349,7 +371,7 @@ export function ListaActividad({ items, filtro, onLimpiar, nuevos }: {
                     <span className={`block text-sm font-semibold tabular-nums ${ing ? 'text-positive' : 'text-primary'}`}>
                       {ing ? '+' : '−'}{fmt(a.monto).replace('−', '')}
                     </span>
-                    <span className="block text-[11px] text-muted">{a.fecha === hoy ? 'Hoy' : fmtFechaCorta(a.fecha)}</span>
+
                   </span>
                 </button>
                 <div className="fa-colapsable" data-abierto={on}>
@@ -369,4 +391,13 @@ export function ListaActividad({ items, filtro, onLimpiar, nuevos }: {
       )}
     </section>
   )
+}
+
+/** "Hoy", "Ayer" o "Lunes 11 de octubre". */
+function etiquetaDia(fecha: string, hoy: string) {
+  if (fecha === hoy) return 'Hoy'
+  const d = new Date(fecha + 'T12:00:00'), h = new Date(hoy + 'T12:00:00')
+  if (Math.round((h.getTime() - d.getTime()) / 86_400_000) === 1) return 'Ayer'
+  const t = d.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' })
+  return t.charAt(0).toUpperCase() + t.slice(1)
 }

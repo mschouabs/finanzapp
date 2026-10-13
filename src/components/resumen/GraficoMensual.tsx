@@ -9,7 +9,7 @@
    con crosshair + tooltip al pasar el mouse, tap en mobile y click
    para elegir un mes.                                                */
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { fmt, fmtCorto } from './base'
 import { nombreMes, nombreMesCorto } from '@/lib/finanzas/nucleo'
 
@@ -53,6 +53,7 @@ export function GraficoMensual({ datos, modo, mesSel, onElegir, alto = 240, etiq
   onElegir?: (mes: string) => void
   alto?: number
 }) {
+  const gid = 'gm' + useId().replace(/:/g, '')
   const cont = useRef<HTMLDivElement>(null)
   const [ancho, setAncho] = useState(280)
   const [hover, setHover] = useState<number | null>(null)
@@ -107,6 +108,17 @@ export function GraficoMensual({ datos, modo, mesSel, onElegir, alto = 240, etiq
         onClick={e => { const i = elegirDesdeEvento(e.clientX); if (i !== null) { setHover(i); onElegir?.(datos[i].mes) } }}
         style={{ cursor: onElegir ? 'pointer' : 'default', overflow: 'visible' }}>
 
+        <defs>
+          <linearGradient id={`${gid}-pos`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={COLOR.ingresos} stopOpacity={1} />
+            <stop offset="100%" stopColor={COLOR.ingresos} stopOpacity={0.45} />
+          </linearGradient>
+          <linearGradient id={`${gid}-neg`} x1="0" y1="1" x2="0" y2="0">
+            <stop offset="0%" stopColor={COLOR.gastos} stopOpacity={1} />
+            <stop offset="100%" stopColor={COLOR.gastos} stopOpacity={0.45} />
+          </linearGradient>
+        </defs>
+
         {/* grilla y eje Y: hairlines sólidas, recesivas */}
         {escala.map(t => (
           <g key={t}>
@@ -148,7 +160,7 @@ export function GraficoMensual({ datos, modo, mesSel, onElegir, alto = 240, etiq
             : `M${px},${top} V${base - r} Q${px},${base} ${px + r},${base} H${px + anchoBarra - r} Q${px + anchoBarra},${base} ${px + anchoBarra},${base - r} V${top} Z`
           const atenuado = hover !== null && hover !== i
           return (
-            <path key={d.mes} d={path} fill={positivo ? COLOR.ingresos : COLOR.gastos}
+            <path key={d.mes} d={path} fill={positivo ? `url(#${gid}-pos)` : `url(#${gid}-neg)`}
               opacity={atenuado ? 0.45 : 1}
               style={{
                 transformBox: 'fill-box', transformOrigin: positivo ? 'bottom' : 'top',

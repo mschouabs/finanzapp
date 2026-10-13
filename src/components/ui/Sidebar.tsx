@@ -107,14 +107,11 @@ export default function Sidebar({ userName }: { userName?: string }) {
   }
 
   const item = (activa: boolean) =>
-    `flex items-center gap-3 rounded-lg border-l-2 px-2.5 py-2 text-sm font-medium transition-colors ${
-      activa ? 'text-primary' : 'border-transparent text-secondary hover:bg-alternate hover:text-primary'
+    `flex items-center gap-3 rounded-lg px-2.5 py-[7px] text-sm font-medium transition-all duration-150 ${
+      activa ? 'fa-nav-activa text-primary' : 'text-secondary hover:translate-x-0.5 hover:bg-alternate hover:text-primary'
     }`
 
-  const estiloActiva = {
-    background: 'color-mix(in srgb, var(--accent-confirm) 14%, transparent)',
-    borderColor: 'var(--accent-confirm)',
-  }
+  const estiloActiva = undefined
 
   /* contenido compartido: sidebar desktop + drawer mobile */
   const contenido = (
@@ -261,10 +258,9 @@ export default function Sidebar({ userName }: { userName?: string }) {
 
       {/* ── MOBILE: bottom navigation bar ── */}
       <nav
-        className="fixed bottom-0 left-0 right-0 z-40 border-t lg:hidden"
+        className="fa-vidrio fixed bottom-0 left-0 right-0 z-40 border-t lg:hidden"
         style={{
-          background: 'var(--bg-card)',
-          borderColor: 'var(--border-color)',
+          borderColor: 'var(--border-subtle)',
           paddingBottom: 'env(safe-area-inset-bottom, 0px)',
         }}
       >
@@ -292,8 +288,8 @@ export default function Sidebar({ userName }: { userName?: string }) {
             style={{ marginTop: '-22px' }}
           >
             <span
-              className="flex h-[56px] w-[56px] items-center justify-center rounded-full shadow-lg"
-              style={{ background: 'var(--accent-confirm)' }}
+              className="flex h-[56px] w-[56px] items-center justify-center rounded-full transition-transform active:scale-95"
+              style={{ background: 'radial-gradient(circle at 30% 25%, color-mix(in srgb, var(--accent-confirm) 70%, #fff 30%), var(--accent-confirm) 60%)', boxShadow: '0 10px 24px -6px var(--accent-confirm)' }}
             >
               <Plus size={27} color="white" strokeWidth={2.2} />
             </span>
@@ -372,9 +368,9 @@ function BottomTab({
   return (
     <Link
       href={href}
-      className="flex min-h-[44px] min-w-[44px] flex-col items-center justify-center gap-0.5"
+      className={`flex min-h-[44px] min-w-[44px] flex-col items-center justify-center gap-0.5 transition-transform active:scale-95 ${activa ? 'fa-tab-activa' : ''}`}
     >
-      <span style={{ color }}>{icono}</span>
+      <span style={{ color, filter: activa ? 'drop-shadow(0 0 6px var(--accent-confirm))' : undefined }}>{icono}</span>
       <span className="text-[10px] font-medium" style={{ color }}>
         {label}
       </span>

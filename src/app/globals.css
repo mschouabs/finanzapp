@@ -40,6 +40,12 @@
   --shadow: none;
   --shadow-hover: 0 4px 16px rgba(0, 0, 0, 0.4);
   --radius: 12px;
+
+  --accent-luca: #32D158;
+  --tendencia-sube: var(--accent-positive);
+  --tendencia-baja: var(--accent-secondary);
+  /* cuánto se tiñen los colores de categoría con el color de marca */
+  --cat-peso: 0%;
 }
 
 /* ══ TEMA ROSA ══════════════════════════════════════════════════
@@ -58,24 +64,34 @@
   --text-secondary: #7C5A68;
   --text-muted: #B0919C;
 
-  --accent-positive: #2FA36B;
-  --accent-negative: #E0517A;
-  --accent-confirm: #F7309B;
-  --accent-confirm-hover: #D81B84;
-  --accent-secondary: #C86AB0;
-  --accent-warning: #E0A63C;
-  --accent-violet: #A855F7;
+  /* armonía: rosa frambuesa (marca) + teal (su complementario) para lo
+     que suma, coral para lo que resta (que no se confunda con la marca),
+     pervinca y orquídea para disponible e invertido, ámbar para avisos */
+  --accent-positive: #138A73;
+  --accent-negative: #D9473A;
+  --accent-confirm: #E5307F;
+  --accent-confirm-hover: #C81F6C;
+  --accent-secondary: #4F6BE0;
+  --accent-warning: #C27A16;
+  --accent-violet: #9B4FD6;
 
   --luca-glow: #FF6FA9;
   --luca-shell: #FFFFFF;
   --luca-screen: #2A1620;
 
-  --riesgo-bajo: #2FA36B;
-  --riesgo-medio: #E0A63C;
-  --riesgo-alto: #E0517A;
-  --riesgo-bajo-tint: rgba(47, 163, 107, 0.10);
-  --riesgo-medio-tint: rgba(224, 166, 60, 0.12);
-  --riesgo-alto-tint: rgba(224, 81, 122, 0.10);
+  --riesgo-bajo: #138A73;
+  --riesgo-medio: #C27A16;
+  --riesgo-alto: #D9473A;
+  --riesgo-bajo-tint: rgba(19, 138, 115, 0.10);
+  --riesgo-medio-tint: rgba(194, 122, 22, 0.12);
+  --riesgo-alto-tint: rgba(217, 71, 58, 0.10);
+
+  /* Luca y los colores de categoría se tiñen con la marca */
+  --accent-luca: #E5307F;
+  --cat-peso: 30%;
+  /* la línea de patrimonio va con el color de marca */
+  --tendencia-sube: #E5307F;
+  --tendencia-baja: #E5307F;
 
   --shadow: 0 2px 8px rgba(199, 122, 154, 0.10);
   --shadow-hover: 0 6px 20px rgba(199, 122, 154, 0.16);
@@ -90,7 +106,7 @@ body {
   min-height: 100vh;
   background: var(--bg-page);
   color: var(--text-primary);
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, system-ui, sans-serif;
+  font-family: var(--font-inter), 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, system-ui, sans-serif;
   transition: background-color 300ms ease, color 300ms ease;
 }
 
@@ -279,6 +295,43 @@ a:focus-visible,
 }
 .fa-hairline { border-color: var(--border-subtle); }
 
+/* ── Resumen: superficies con un poco más de profundidad ── */
+.fa-hero {
+  position: relative;
+  border-radius: 20px;
+  border: 1px solid color-mix(in srgb, var(--accent-secondary) 22%, var(--border-subtle));
+  background:
+    radial-gradient(640px 260px at 0% 0%, color-mix(in srgb, var(--accent-secondary) 13%, transparent), transparent 70%),
+    radial-gradient(520px 260px at 100% 100%, color-mix(in srgb, var(--accent-positive) 9%, transparent), transparent 70%),
+    var(--bg-card);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 6%, transparent), 0 18px 40px -24px rgba(0, 0, 0, .55);
+}
+.fa-tile {
+  border-radius: 18px;
+  border: 1px solid var(--border-subtle);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--bg-card) 94%, #fff 6%) 0%, var(--bg-card) 120px);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 4%, transparent), 0 10px 30px -22px rgba(0, 0, 0, .6);
+}
+.fa-kpis > * {
+  min-width: 0;
+  border-radius: 14px;
+  padding: 14px 16px;
+  border: 1px solid var(--border-subtle);
+  transition: background-color 140ms ease, border-color 140ms ease;
+  background: color-mix(in srgb, var(--bg-alternate) 50%, transparent);
+}
+@media (max-width: 480px) { .fa-kpis > * { padding: 11px 12px; } }
+.fa-kicker {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--text-muted);
+}
+.fa-kicker::before {
+  content: ''; width: 6px; height: 6px; border-radius: 999px;
+  background: var(--accent-luca);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-luca) 20%, transparent);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .fa-press, .fa-press:active, .fa-colapsable { transition: none; transform: none; }
   .fa-reveal, .fa-reveal[data-visible="true"] { opacity: 1; transform: none; transition: none; }
@@ -400,3 +453,130 @@ a:focus-visible,
 /* alto del header global (buscador + avisos): lo usan las barras fijas */
 :root { --header-h: 57px; }
 @media (min-width: 1024px) { :root { --header-h: 65px; } }
+
+
+/* ════════ Capa visual 2026 (inicio) ════════ */
+
+/* fondo con textura: una grilla de puntos muy sutil, para que no sea un negro plano */
+body {
+  background-image:
+    radial-gradient(color-mix(in srgb, var(--text-primary) 5%, transparent) 1px, transparent 1.2px),
+    radial-gradient(900px 500px at 85% -10%, color-mix(in srgb, var(--accent-secondary) 7%, transparent), transparent 70%),
+    radial-gradient(700px 420px at -10% 110%, color-mix(in srgb, var(--accent-positive) 5%, transparent), transparent 70%);
+  background-size: 22px 22px, 100% 100%, 100% 100%;
+  background-attachment: fixed;
+}
+
+/* cifras: $ chico y suave, números con aire */
+.fa-moneda {
+  font-size: .56em;
+  font-weight: 700;
+  opacity: .5;
+  margin-right: .05em;
+  vertical-align: .52em;
+  letter-spacing: 0;
+}
+.fa-cifra {
+  font-feature-settings: 'tnum' 1, 'cv11' 1;
+  letter-spacing: -.035em;
+}
+
+/* barra de composición: la deuda se ve rayada encima de lo que tenés */
+.fa-rayado {
+  background-image: repeating-linear-gradient(-45deg,
+    var(--accent-negative) 0 4px,
+    color-mix(in srgb, var(--accent-negative) 35%, transparent) 4px 7px);
+}
+
+/* punto que late en el último dato de un gráfico */
+@keyframes fa-latido {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--latido, var(--accent-secondary)) 55%, transparent); }
+  70% { box-shadow: 0 0 0 9px transparent; }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+.fa-latido { animation: fa-latido 2.2s ease-out infinite; }
+
+/* borde vivo: un degradé que gira muy lento alrededor de la tarjeta de Luca */
+@property --fa-giro { syntax: '<angle>'; inherits: false; initial-value: 0deg; }
+@keyframes fa-girar { to { --fa-giro: 360deg; } }
+.fa-borde-vivo { position: relative; isolation: isolate; }
+.fa-borde-vivo::before {
+  content: ''; position: absolute; inset: 0; border-radius: inherit; padding: 1px; z-index: -1;
+  background: conic-gradient(from var(--fa-giro),
+    color-mix(in srgb, var(--accent-luca) 70%, transparent),
+    transparent 25%, transparent 50%,
+    color-mix(in srgb, var(--accent-secondary) 60%, transparent) 75%,
+    color-mix(in srgb, var(--accent-luca) 70%, transparent));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude;
+  animation: fa-girar 9s linear infinite;
+  pointer-events: none;
+}
+
+/* cursor de "escribiendo" */
+.fa-cursor::after {
+  content: ''; display: inline-block; width: 2px; height: 1em; margin-left: 2px; vertical-align: -.15em;
+  background: currentColor; animation: fa-parpadeo 900ms steps(1) infinite;
+}
+@keyframes fa-parpadeo { 50% { opacity: 0; } }
+
+/* línea de tiempo de compromisos */
+.fa-timeline { position: relative; }
+.fa-timeline::before {
+  content: ''; position: absolute; left: 17px; top: 26px; bottom: 26px; width: 2px; border-radius: 2px;
+  background: linear-gradient(180deg, var(--accent-negative), var(--accent-warning) 35%, var(--border-subtle));
+  opacity: .55;
+}
+
+/* títulos de día que quedan fijos al bajar */
+.fa-dia-sticky {
+  position: sticky; top: calc(var(--header-h) + 4px); z-index: 2;
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  background: color-mix(in srgb, var(--bg-card) 82%, transparent);
+}
+
+/* barra inferior: vidrio esmerilado + indicador */
+.fa-vidrio {
+  background: color-mix(in srgb, var(--bg-card) 72%, transparent) !important;
+  backdrop-filter: saturate(160%) blur(18px);
+  -webkit-backdrop-filter: saturate(160%) blur(18px);
+}
+.fa-tab-activa { position: relative; }
+.fa-tab-activa::before {
+  content: ''; position: absolute; top: -9px; left: 50%; width: 22px; height: 3px; border-radius: 0 0 3px 3px;
+  transform: translateX(-50%); background: var(--accent-confirm);
+  box-shadow: 0 0 12px var(--accent-confirm);
+  animation: fa-tab-in 260ms cubic-bezier(.2,.8,.2,1);
+}
+@keyframes fa-tab-in { from { width: 0; opacity: 0; } }
+
+/* menú lateral: activo con brillo */
+.fa-nav-activa {
+  background: linear-gradient(90deg, color-mix(in srgb, var(--accent-confirm) 18%, transparent), color-mix(in srgb, var(--accent-confirm) 4%, transparent)) !important;
+  box-shadow: inset 2px 0 0 var(--accent-confirm), 0 0 24px -10px var(--accent-confirm);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fa-latido, .fa-borde-vivo::before, .fa-cursor::after, .fa-tab-activa::before { animation: none; }
+}
+
+/* ── tema rosa: profundidad con sombras rosadas, no grises ── */
+[data-theme="rosa"] .fa-hero {
+  border-color: color-mix(in srgb, var(--accent-confirm) 18%, var(--border-subtle));
+  background:
+    radial-gradient(640px 260px at 0% 0%, color-mix(in srgb, var(--accent-confirm) 9%, transparent), transparent 70%),
+    radial-gradient(520px 260px at 100% 100%, color-mix(in srgb, var(--accent-secondary) 8%, transparent), transparent 70%),
+    var(--bg-card);
+  box-shadow: 0 1px 0 #fff inset, 0 20px 44px -26px rgba(199, 80, 130, .35);
+}
+[data-theme="rosa"] .fa-tile {
+  background: var(--bg-card);
+  box-shadow: 0 1px 2px rgba(199, 122, 154, .08), 0 14px 32px -24px rgba(199, 80, 130, .30);
+}
+[data-theme="rosa"] .fa-kpis > * { background: color-mix(in srgb, var(--bg-alternate) 55%, #fff); }
+[data-theme="rosa"] body {
+  background-image:
+    radial-gradient(color-mix(in srgb, var(--accent-confirm) 9%, transparent) 1px, transparent 1.2px),
+    radial-gradient(900px 500px at 85% -10%, color-mix(in srgb, var(--accent-confirm) 8%, transparent), transparent 70%),
+    radial-gradient(700px 420px at -10% 110%, color-mix(in srgb, var(--accent-secondary) 6%, transparent), transparent 70%);
+}

@@ -61,9 +61,11 @@ export const useMenosMovimiento = () => useMedia('(prefers-reduced-motion: reduc
  * primera carga solo el hero cuenta hacia arriba (`contarAlInicio`).
  */
 export function NumeroAnimado({
-  valor, formato = fmt, className = '', contarAlInicio = false, duracion = 520,
+  valor, formato = fmt, className = '', contarAlInicio = false, duracion = 520, moneda = false,
 }: {
   valor: number
+  /** muestra el símbolo $ más chico y suave (cifras protagonistas) */
+  moneda?: boolean
   formato?: (n: number) => string
   className?: string
   contarAlInicio?: boolean
@@ -99,7 +101,11 @@ export function NumeroAnimado({
 
   return (
     <span className={`${className} ${tinte}`} aria-label={formato(valor)}>
-      <span aria-hidden="true">{formato(mostrado)}</span>
+      <span aria-hidden="true">{(() => {
+        const t = formato(mostrado)
+        const m = moneda ? t.match(/^([−+-]?)\$(.*)$/) : null
+        return m ? <>{m[1]}<span className="fa-moneda">$</span>{m[2]}</> : t
+      })()}</span>
     </span>
   )
 }
