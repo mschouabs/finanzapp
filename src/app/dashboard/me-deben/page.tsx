@@ -8,7 +8,7 @@ import { SkeletonPagina, fmtPesos } from '@/components/ui/Piezas'
 import { Modal } from '@/components/tarjetas/Modales'
 import { LucaAvatar } from '@/components/luca/LucaAvatar'
 import { Confirmar, Encabezado, NumeroAnimado, Toasts, useToasts } from '@/components/resumen/base'
-import { EVENTO_DATOS, useAlCambiarDatos } from '@/lib/eventos'
+import { EVENTO_DATOS, celebrar, useAlCambiarDatos } from '@/lib/eventos'
 import { agregarMeDeben, borrarMeDeben, cargarMeDeben, pendienteDe, registrarCobro, type MeDeben } from '@/lib/medeben'
 import { hoyISO } from '@/lib/fechas'
 
@@ -82,7 +82,9 @@ export default function MeDebenPage() {
     const { error } = await registrarCobro(createClient(), d, monto, cuentaId)
     if (error) return error
     setCobrando(null)
-    toasts.mostrar({ texto: `Cobro de ${d.persona} registrado: ${fmt(monto, d.moneda)}.` }, 4000)
+    const saldada = monto >= pendienteDe(d) - 0.005
+    if (saldada) celebrar()
+    toasts.mostrar({ texto: saldada ? `¡${d.persona} saldó su deuda! Entraron ${fmt(monto, d.moneda)}.` : `Cobro de ${d.persona} registrado: ${fmt(monto, d.moneda)}.` }, 4000)
     avisar()
     return null
   }

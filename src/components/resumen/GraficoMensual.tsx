@@ -26,7 +26,7 @@ export type Modo = 'balance' | 'flujo' | 'patrimonio'
 const COLOR = {
   ingresos: 'var(--accent-positive)',
   gastos: 'var(--accent-negative)',
-  patrimonio: 'var(--accent-secondary)',
+  patrimonio: 'var(--linea-patrimonio, var(--accent-secondary))',
 }
 
 /** Ticks "redondos" para el eje Y. */
@@ -113,6 +113,10 @@ export function GraficoMensual({ datos, modo, mesSel, onElegir, alto = 240, etiq
             <stop offset="0%" stopColor={COLOR.ingresos} stopOpacity={1} />
             <stop offset="100%" stopColor={COLOR.ingresos} stopOpacity={0.45} />
           </linearGradient>
+          <linearGradient id={`${gid}-area`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={COLOR.patrimonio} stopOpacity={0.3} />
+            <stop offset="100%" stopColor={COLOR.patrimonio} stopOpacity={0} />
+          </linearGradient>
           <linearGradient id={`${gid}-neg`} x1="0" y1="1" x2="0" y2="0">
             <stop offset="0%" stopColor={COLOR.gastos} stopOpacity={1} />
             <stop offset="100%" stopColor={COLOR.gastos} stopOpacity={0.45} />
@@ -180,9 +184,9 @@ export function GraficoMensual({ datos, modo, mesSel, onElegir, alto = 240, etiq
           const ultimo = pts[pts.length - 1]
           return (
             <g key={`${modo}-${s.key}-${datos.length}`}>
-              {area && <path d={area} fill={color} fillOpacity={0.1} className="fa-fade-in" />}
-              <path d={d} fill="none" stroke={color} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round"
-                pathLength={1} className="fa-draw" />
+              {area && <path d={area} fill={`url(#${gid}-area)`} className="fa-fade-in" />}
+              <path d={d} fill="none" stroke={color} strokeWidth={2.2} strokeLinejoin="round" strokeLinecap="round"
+                pathLength={1} className="fa-draw" style={{ filter: `drop-shadow(0 0 5px ${color})` }} />
               {/* punto final + etiqueta directa (solo el último valor) */}
               <circle cx={ultimo[0]} cy={ultimo[1]} r={4} fill={color} stroke="var(--bg-card)" strokeWidth={2} />
               <text x={ultimo[0] + 10} y={ultimo[1]} dy="0.32em" fontSize={11} fill="var(--text-secondary)" fontWeight={600}
@@ -207,9 +211,9 @@ export function GraficoMensual({ datos, modo, mesSel, onElegir, alto = 240, etiq
 
       {/* tooltip */}
       {puntoHover && hover !== null && (
-        <div className="pointer-events-none absolute z-10 min-w-[170px] rounded-xl border px-3 py-2.5 text-xs shadow-card-hover"
+        <div className="fa-vidrio fa-pop pointer-events-none absolute z-10 min-w-[170px] rounded-xl border px-3 py-2.5 text-xs"
           style={{
-            background: 'var(--bg-alternate)', borderColor: 'var(--border-color)',
+            borderColor: 'var(--border-color)', boxShadow: '0 16px 32px -16px rgba(0,0,0,.55)',
             left: Math.min(Math.max(x(hover) - 85, 0), ancho - 180), top: 0,
             transform: 'translateY(-8px)',
           }}>

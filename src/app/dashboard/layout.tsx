@@ -3,6 +3,7 @@ import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import Sidebar from '@/components/ui/Sidebar'
 import { Header } from '@/components/ui/Header'
+import { Experiencia } from '@/components/ui/Experiencia'
 import { DEMO, USUARIO_DEMO } from '@/lib/demo'
 
 async function obtenerUsuario() {
@@ -50,6 +51,7 @@ export default async function DashboardLayout({
       {/* lg:ml-64 deja lugar a la sidebar fija en desktop */}
       <main className="lg:ml-64">
         <Header />
+        <Experiencia />
         <div className="fa-container px-4 pt-4 sm:pt-6 sm:px-6 lg:px-10 pb-bottom-nav">
           {children}
         </div>

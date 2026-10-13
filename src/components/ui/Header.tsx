@@ -11,7 +11,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
-import { Bell, CornerDownLeft, Plus, Search, X } from 'lucide-react'
+import { Bell, CornerDownLeft, Eye, EyeOff, Plus, Search, X } from 'lucide-react'
+import { EVENTO_PRIVADO, alternarPrivado, privadoActivo } from '@/lib/eventos'
 import { NAV_GRUPOS } from './Sidebar'
 import { LucaAvatar } from '@/components/luca/LucaAvatar'
 import { EVENTO_NUEVO, useAlCambiarDatos } from '@/lib/eventos'
@@ -198,6 +199,9 @@ export function Header() {
         <Search size={19} />
       </button>
 
+      {/* ocultar montos (modo privado) — atajo: P */}
+      <BotonPrivado />
+
       {/* avisos de Luca */}
       <div className="relative">
         <button onClick={abrirAvisos} aria-label={`Avisos de Luca${sinVer ? ` (${sinVer} nuevos)` : ''}`} aria-expanded={avisosAbierto}
@@ -295,5 +299,23 @@ export function Header() {
         document.body,
       )}
     </div>
+  )
+}
+
+/** Ojo para ocultar/mostrar todos los montos de la app. */
+function BotonPrivado() {
+  const [on, setOn] = useState(false)
+  useEffect(() => {
+    const sync = () => setOn(privadoActivo())
+    sync()
+    window.addEventListener(EVENTO_PRIVADO, sync)
+    return () => window.removeEventListener(EVENTO_PRIVADO, sync)
+  }, [])
+  return (
+    <button onClick={alternarPrivado} aria-pressed={on} aria-label={on ? 'Mostrar montos' : 'Ocultar montos'} title={on ? 'Mostrar montos (P)' : 'Ocultar montos (P)'}
+      className="fa-press grid h-10 w-10 place-items-center rounded-lg text-secondary hover:bg-alternate hover:text-primary"
+      style={on ? { color: 'var(--accent-confirm)' } : undefined}>
+      {on ? <EyeOff size={19} /> : <Eye size={19} />}
+    </button>
   )
 }

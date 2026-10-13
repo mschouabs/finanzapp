@@ -13,6 +13,7 @@
 
 import Link from 'next/link'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Deslizable } from '@/components/ui/Deslizable'
 import { BarChart3, ChevronDown, ChevronLeft, ChevronRight, Download, MessageCircle, Pencil, Plus, Search, Trash2, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import {
@@ -627,7 +628,12 @@ export default function MovimientosPage() {
                     )
                   }
                   return (
-                    <li key={g.id} className={`group -mx-2 flex items-center gap-3 rounded-lg px-2 py-2.5 hover:bg-alternate ${nuevos.has(g.id) ? 'fa-flash' : ''}`}>
+                    <li key={g.id} className="-mx-2">
+                    <Deslizable acciones={[
+                      { label: 'Editar', icono: <Pencil size={16} />, onClick: () => { setEditando(g.id); setFormEdit({ nombre: g.nombre, monto: String(g.monto), categoria: g.categoria, fecha: g.fecha, es_gasto_hormiga: g.es_gasto_hormiga }) } },
+                      { label: 'Borrar', icono: <Trash2 size={16} />, onClick: () => pedirBorrar(g), peligro: true },
+                    ]}>
+                    <div className={`group flex items-center gap-3 rounded-lg px-2 py-2.5 hover:bg-alternate ${nuevos.has(g.id) ? 'fa-flash' : ''}`}>
                       <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-alternate text-base" aria-hidden="true">{cat.emoji}</span>
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-sm text-primary">{g.nombre}</span>
@@ -642,12 +648,14 @@ export default function MovimientosPage() {
                         <span className="block text-sm font-semibold tabular-nums text-primary">−{fmt(f.pesos)}</span>
                         {g.moneda === 'USD' && <span className="block text-[11px] text-muted">US$ {Number(g.monto).toLocaleString('es-AR')}</span>}
                       </span>
-                      <span className="flex shrink-0 items-center lg:opacity-0 lg:transition-opacity lg:group-hover:opacity-100 lg:group-focus-within:opacity-100">
+                      <span className="hidden shrink-0 items-center lg:flex lg:opacity-0 lg:transition-opacity lg:group-hover:opacity-100 lg:group-focus-within:opacity-100">
                         <button onClick={() => { setEditando(g.id); setFormEdit({ nombre: g.nombre, monto: String(g.monto), categoria: g.categoria, fecha: g.fecha, es_gasto_hormiga: g.es_gasto_hormiga }) }}
                           aria-label={`Editar ${g.nombre}`} className="fa-press flex h-9 w-9 items-center justify-center rounded-lg text-muted hover:bg-card hover:text-primary"><Pencil size={15} /></button>
                         <button onClick={() => pedirBorrar(g)} aria-label={`Borrar ${g.nombre}`}
                           className="fa-press flex h-9 w-9 items-center justify-center rounded-lg text-muted hover:bg-card hover:text-negative"><Trash2 size={15} /></button>
                       </span>
+                    </div>
+                    </Deslizable>
                     </li>
                   )
                 })}

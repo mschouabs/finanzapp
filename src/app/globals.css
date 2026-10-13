@@ -92,6 +92,7 @@
   /* la línea de patrimonio va con el color de marca */
   --tendencia-sube: #E5307F;
   --tendencia-baja: #E5307F;
+  --linea-patrimonio: #E5307F;
 
   --shadow: 0 2px 8px rgba(199, 122, 154, 0.10);
   --shadow-hover: 0 6px 20px rgba(199, 122, 154, 0.16);
@@ -579,4 +580,49 @@ body {
     radial-gradient(color-mix(in srgb, var(--accent-confirm) 9%, transparent) 1px, transparent 1.2px),
     radial-gradient(900px 500px at 85% -10%, color-mix(in srgb, var(--accent-confirm) 8%, transparent), transparent 70%),
     radial-gradient(700px 420px at -10% 110%, color-mix(in srgb, var(--accent-secondary) 6%, transparent), transparent 70%);
+}
+
+
+/* ════════ Experiencia global (todas las pantallas) ════════ */
+
+/* paneles y tarjetas de toda la app: misma profundidad que el inicio */
+.fa-panel, .fa-card {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--bg-card) 95%, #fff 5%) 0%, var(--bg-card) 110px);
+  border-color: var(--border-subtle);
+  border-radius: 18px;
+  box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 4%, transparent), 0 10px 30px -24px rgba(0, 0, 0, .6);
+}
+[data-theme="rosa"] .fa-panel, [data-theme="rosa"] .fa-card {
+  background: var(--bg-card);
+  box-shadow: 0 1px 2px rgba(199, 122, 154, .08), 0 14px 32px -24px rgba(199, 80, 130, .28);
+}
+
+/* modo privado: los montos se ven borrosos; al pasar el mouse o tocar, se leen */
+.fa-privado .tabular-nums,
+.fa-privado .fa-cifra,
+.fa-privado .fa-num-sm,
+.fa-privado .fa-num-md,
+.fa-privado .fa-amount {
+  filter: blur(7px);
+  transition: filter 160ms ease;
+}
+.fa-privado .tabular-nums:hover,
+.fa-privado .fa-cifra:hover,
+.fa-privado .fa-num-sm:hover,
+.fa-privado .fa-amount:hover { filter: none; }
+.fa-privado svg text { opacity: 0; }
+
+/* festejo */
+.fa-confeti {
+  position: absolute; top: -16px; border-radius: 2px;
+  animation: fa-confeti-cae 1.4s cubic-bezier(.2,.6,.4,1) forwards;
+}
+@keyframes fa-confeti-cae {
+  0% { transform: translate3d(0, 0, 0) rotate(0); opacity: 1; }
+  100% { transform: translate3d(var(--deriva), 105vh, 0) rotate(var(--giro)); opacity: .9; }
+}
+
+/* al tocar una fila o botón en el celular, respuesta inmediata */
+@media (hover: none) {
+  .fa-press:active { transform: scale(.97); }
 }

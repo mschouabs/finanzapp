@@ -10,6 +10,7 @@ import { Modal } from '@/components/tarjetas/Modales'
 import { LucaAvatar } from '@/components/luca/LucaAvatar'
 import { NumeroAnimado, Toasts, useToasts } from '@/components/resumen/base'
 import { cobradoDelMes, cobradoFreelanceEnMes } from '@/lib/ingresos'
+import { celebrar } from '@/lib/eventos'
 
 /* ── Metas ────────────────────────────────────────────────────────
    Arriba, dos metas "automáticas" que salen de tus números (cuánto
@@ -225,6 +226,7 @@ export default function MetasPage() {
     /* llegar al objetivo merece un momento propio (sobrio, sin confeti) */
     if (objetivo > 0 && antes < objetivo && nuevo >= objetivo) {
       setLogro(m.id)
+      celebrar()
       setTimeout(() => setLogro(null), 2600)
       toasts.mostrar({ texto: `¡Lograste "${m.nombre}"! ${fmtMoneda(objetivo, m.moneda)} juntados.`, deshacer }, 9000)
     } else {
