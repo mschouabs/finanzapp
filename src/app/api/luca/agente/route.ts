@@ -70,10 +70,10 @@ const HERRAMIENTAS = [
   },
   {
     name: 'registrar_gasto_fijo',
-    description: 'Propone agregar un gasto fijo mensual (alquiler, suscripción, servicio).',
+    description: 'Propone agregar un gasto fijo mensual (alquiler, servicio) o una suscripción (Netflix, Spotify, ChatGPT: usá es_suscripcion=true).',
     input_schema: {
       type: 'object',
-      properties: { nombre: { type: 'string' }, monto: { type: 'number' }, categoria: { type: 'string' } },
+      properties: { nombre: { type: 'string' }, monto: { type: 'number' }, categoria: { type: 'string' }, es_suscripcion: { type: 'boolean' } },
       required: ['nombre', 'monto'],
     },
   },

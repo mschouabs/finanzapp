@@ -83,7 +83,7 @@ export async function POST(req: NextRequest) {
   } else if (data.tipo === 'gasto_fijo') {
     const { error: e } = await supabase.from('gastos_fijos').insert({
       user_id: uid, nombre: d.nombre, monto: d.monto,
-      categoria: d.categoria ?? 'servicios', activo: true,
+      categoria: d.categoria ?? 'servicios', tipo: d.tipo === 'suscripcion' ? 'suscripcion' : 'fijo', activo: true,
     })
     error = e
   } else if (data.tipo === 'ingreso_fijo') {

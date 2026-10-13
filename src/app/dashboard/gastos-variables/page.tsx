@@ -51,7 +51,7 @@ interface GastoVariable {
 }
 
 interface GastoViaje { id: string; viaje_id: string; concepto: string; monto_ars: number; fecha: string }
-interface GastoFijo { id: string; nombre: string; monto: number; categoria: string; activo: boolean; debitado: boolean }
+interface GastoFijo { id: string; nombre: string; monto: number; categoria: string; activo: boolean; debitado: boolean; tipo?: string }
 
 const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre']
 const MESES_C = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
@@ -107,7 +107,7 @@ export default function MovimientosPage() {
   const [editando, setEditando] = useState<string | null>(null)
   const [formEdit, setFormEdit] = useState({ nombre: '', monto: '', categoria: 'varios', fecha: '', es_gasto_hormiga: false })
   const [confirmarCompra, setConfirmarCompra] = useState<GastoVariable | null>(null)
-  const [formFijo, setFormFijo] = useState<{ nombre: string; monto: string; categoria: string } | null>(null)
+  const [formFijo, setFormFijo] = useState<{ nombre: string; monto: string; categoria: string; tipo: 'fijo' | 'suscripcion' } | null>(null)
   const [nuevos, setNuevos] = useState<Set<string>>(new Set())
 
   const idsPrevios = useRef<Set<string> | null>(null)
@@ -337,11 +337,12 @@ export default function MovimientosPage() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
     await supabase.from('gastos_fijos').insert({
-      user_id: user.id, nombre: formFijo.nombre.trim(), monto: Number(formFijo.monto), categoria: formFijo.categoria, activo: true, debitado: false,
+      user_id: user.id, nombre: formFijo.nombre.trim(), monto: Number(formFijo.monto), categoria: formFijo.categoria, tipo: formFijo.tipo, activo: true, debitado: false,
     })
+    const tipoNuevo = formFijo.tipo
     setFormFijo(null)
     await cargar(true)
-    toasts.mostrar({ texto: 'Gasto fijo agregado.' }, 3000)
+    toasts.mostrar({ texto: tipoNuevo === 'suscripcion' ? 'Suscripción agregada.' : 'Gasto fijo agregado.' }, 3000)
   }
 
   async function alternarPagado(f: GastoFijo) {
@@ -667,43 +668,60 @@ export default function MovimientosPage() {
     </section>
   )
 
+  const listaFijos = (xs: GastoFijo[], vacio: string) => (
+    <ul className="mt-2 divide-y fa-hairline">
+      {xs.length === 0 && <li className="py-3 text-xs text-secondary">{vacio}</li>}
+      {xs.map(f => (
+        <li key={f.id} className="flex items-center gap-3 py-2.5">
+          <span className="text-base" aria-hidden="true">{f.tipo === 'suscripcion' ? '🔄' : getCat(f.categoria).emoji}</span>
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-sm text-primary">{f.nombre}</span>
+            <span className="block text-[11px] tabular-nums text-muted">{fmt(Number(f.monto))} por mes</span>
+          </span>
+          <button onClick={() => alternarPagado(f)} role="switch" aria-checked={f.debitado} aria-label={`${f.nombre}: ${f.debitado ? 'pagado' : 'pendiente'}`}
+            className="fa-press rounded-full border px-2.5 py-1 text-[11px] font-semibold"
+            style={f.debitado ? { borderColor: 'var(--accent-positive)', color: 'var(--accent-positive)', background: 'var(--glow-positive)' } : { borderColor: 'var(--border-color)', color: 'var(--text-secondary)' }}>
+            {f.debitado ? '✓ Pagado' : 'Pendiente'}
+          </button>
+          <button onClick={() => quitarFijo(f)} aria-label={`Quitar ${f.nombre}`} className="fa-press flex h-8 w-8 items-center justify-center rounded-lg text-muted hover:bg-alternate hover:text-negative"><X size={14} /></button>
+        </li>
+      ))}
+    </ul>
+  )
+  const soloFijos = fijos.filter(f => f.tipo !== 'suscripcion')
+  const soloSubs = fijos.filter(f => f.tipo === 'suscripcion')
+  const sumaMes = (xs: GastoFijo[]) => xs.reduce((t, f) => t + Number(f.monto), 0)
+
   const panelFijos = (
     <section aria-labelledby="t-fijos" className="min-w-0">
       <Encabezado id="t-fijos" titulo="Gastos fijos" sub={`${fmt(totales.fijosMes)} por mes · ${fijos.filter(f => !f.debitado).length} pendientes`}
-        derecha={<button onClick={() => setFormFijo(f => (f ? null : { nombre: '', monto: '', categoria: 'servicios' }))}
+        derecha={<button onClick={() => setFormFijo(f => (f ? null : { nombre: '', monto: '', categoria: 'servicios', tipo: 'fijo' }))}
           className="fa-press flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-xs font-semibold text-primary hover:bg-alternate fa-hairline"><Plus size={13} /> Agregar</button>} />
       <div className="fa-colapsable" data-abierto={!!formFijo}>
         <div>
           {formFijo && (
             <div className="mt-3 grid grid-cols-2 gap-2">
-              <input autoFocus placeholder="Nombre (ej. Gimnasio)" value={formFijo.nombre} onChange={e => setFormFijo({ ...formFijo, nombre: e.target.value })} className={`${inputCls} col-span-2`} />
+              <div role="group" aria-label="Tipo" className="col-span-2 grid grid-cols-2 gap-1 rounded-lg border p-1 fa-hairline">
+                {([['fijo', 'Gasto fijo'], ['suscripcion', '🔄 Suscripción']] as const).map(([k, t]) => (
+                  <button key={k} type="button" aria-pressed={formFijo.tipo === k} onClick={() => setFormFijo({ ...formFijo, tipo: k })}
+                    className="fa-press rounded-md py-1.5 text-xs font-semibold"
+                    style={formFijo.tipo === k ? { background: 'var(--accent-primary, var(--bg-alternate))', color: 'var(--text-primary)' } : { color: 'var(--text-secondary)' }}>{t}</button>
+                ))}
+              </div>
+              <input autoFocus placeholder={formFijo.tipo === 'suscripcion' ? 'Nombre (ej. Netflix)' : 'Nombre (ej. Gimnasio)'} value={formFijo.nombre} onChange={e => setFormFijo({ ...formFijo, nombre: e.target.value })} className={`${inputCls} col-span-2`} />
               <input placeholder="Monto mensual" type="number" inputMode="decimal" value={formFijo.monto} onChange={e => setFormFijo({ ...formFijo, monto: e.target.value })} className={inputCls} />
               <select value={formFijo.categoria} onChange={e => setFormFijo({ ...formFijo, categoria: e.target.value })} aria-label="Categoría" className={inputCls}>
                 {CATEGORIAS.map(c => <option key={c.key} value={c.key}>{c.emoji} {c.label}</option>)}
               </select>
-              <button onClick={guardarFijo} className="fa-press col-span-2 rounded-lg bg-confirm py-2 text-sm font-semibold text-white hover:bg-confirm-hover">Guardar fijo</button>
+              <button onClick={guardarFijo} className="fa-press col-span-2 rounded-lg bg-confirm py-2 text-sm font-semibold text-white hover:bg-confirm-hover">{formFijo.tipo === 'suscripcion' ? 'Guardar suscripción' : 'Guardar fijo'}</button>
             </div>
           )}
         </div>
       </div>
-      <ul className="mt-3 divide-y fa-hairline">
-        {fijos.length === 0 && <li className="py-4 text-xs text-secondary">Sin gastos fijos. Agregá alquiler, servicios o suscripciones para ver tus compromisos del mes.</li>}
-        {fijos.map(f => (
-          <li key={f.id} className="flex items-center gap-3 py-2.5">
-            <span className="text-base" aria-hidden="true">{getCat(f.categoria).emoji}</span>
-            <span className="min-w-0 flex-1">
-              <span className="block truncate text-sm text-primary">{f.nombre}</span>
-              <span className="block text-[11px] tabular-nums text-muted">{fmt(Number(f.monto))} por mes</span>
-            </span>
-            <button onClick={() => alternarPagado(f)} role="switch" aria-checked={f.debitado} aria-label={`${f.nombre}: ${f.debitado ? 'pagado' : 'pendiente'}`}
-              className="fa-press rounded-full border px-2.5 py-1 text-[11px] font-semibold"
-              style={f.debitado ? { borderColor: 'var(--accent-positive)', color: 'var(--accent-positive)', background: 'var(--glow-positive)' } : { borderColor: 'var(--border-color)', color: 'var(--text-secondary)' }}>
-              {f.debitado ? '✓ Pagado' : 'Pendiente'}
-            </button>
-            <button onClick={() => quitarFijo(f)} aria-label={`Quitar ${f.nombre}`} className="fa-press flex h-8 w-8 items-center justify-center rounded-lg text-muted hover:bg-alternate hover:text-negative"><X size={14} /></button>
-          </li>
-        ))}
-      </ul>
+      <p className="fa-kicker mt-4 flex justify-between"><span>Fijos</span><span className="tabular-nums">{fmt(sumaMes(soloFijos))}</span></p>
+      {listaFijos(soloFijos, 'Sin gastos fijos. Agregá alquiler, expensas o impuestos.')}
+      <p className="fa-kicker mt-5 flex justify-between"><span>🔄 Suscripciones</span><span className="tabular-nums">{fmt(sumaMes(soloSubs))}</span></p>
+      {listaFijos(soloSubs, 'Sin suscripciones. Agregá Netflix, Spotify, ChatGPT…')}
     </section>
   )
 

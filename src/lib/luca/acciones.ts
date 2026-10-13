@@ -61,7 +61,7 @@ export function comoRegistroSimple(a: AccionPropuesta): RegistroSimple | null {
   if (a.tool === 'registrar_gasto_fijo') {
     const m = nro(i.monto)
     if (!(m > 0) || !str(i.nombre)) return null
-    return { tabla: 'gasto_fijo', mensaje: 'Gasto fijo para confirmar:', datos: { nombre: str(i.nombre), monto: m, categoria: str(i.categoria) || 'servicios', activo: true } }
+    return { tabla: 'gasto_fijo', mensaje: 'Gasto fijo para confirmar:', datos: { nombre: str(i.nombre), monto: m, categoria: str(i.categoria) || 'servicios', tipo: i.es_suscripcion === true ? 'suscripcion' : 'fijo', activo: true } }
   }
   if (a.tool === 'registrar_ingreso') {
     const m = nro(i.monto)

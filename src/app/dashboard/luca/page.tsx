@@ -349,7 +349,7 @@ export default function LucaChatPage() {
       } else if (msg.tabla === 'gasto_fijo') {
         const { error: e } = await supabase.from('gastos_fijos').insert({
           user_id: uid, nombre: msg.datos.nombre, monto: msg.datos.monto,
-          categoria: msg.datos.categoria ?? 'servicios', activo: true,
+          categoria: msg.datos.categoria ?? 'servicios', tipo: msg.datos.tipo === 'suscripcion' ? 'suscripcion' : 'fijo', activo: true,
         })
         error = e
       } else if (msg.tabla === 'ingreso_fijo') {

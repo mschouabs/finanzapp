@@ -83,7 +83,7 @@ export interface GastoVar {
   es_gasto_hormiga: boolean
 }
 
-export interface GastoFijo { id: string; nombre: string; monto: number; categoria: string; debitado: boolean; created_at: string }
+export interface GastoFijo { id: string; nombre: string; monto: number; categoria: string; debitado: boolean; created_at: string; tipo: 'fijo' | 'suscripcion' }
 export interface IngresoFijo {
   id: string; nombre: string; monto: number; monto_cobrado: number | null; created_at: string
   /** mes del cobro registrado (undefined: la base todavía no tiene la columna) */
@@ -188,6 +188,7 @@ export async function cargarSnapshot(supabase: Cliente, hoy = new Date()): Promi
     fijos: ((rFijos.data ?? []) as Fila[]).filter(activo).map(r => ({
       id: str(r.id), nombre: str(r.nombre) || 'Gasto fijo', monto: num(r.monto),
       categoria: str(r.categoria) || 'Fijo', debitado: !!r.debitado, created_at: str(r.created_at),
+      tipo: r.tipo === 'suscripcion' ? 'suscripcion' : 'fijo',
     })),
     ingresosFijos: ((rIngFijos.data ?? []) as Fila[]).filter(activo).map(r => ({
       id: str(r.id), nombre: str(r.nombre) || 'Ingreso fijo', monto: num(r.monto),
@@ -566,7 +567,7 @@ export function compromisos(s: Snapshot, horizonte = 30): Compromisos {
       id: `fijo:${f.id}`,
       tipo: 'fijo',
       titulo: f.nombre,
-      detalle: 'Gasto fijo pendiente',
+      detalle: f.tipo === 'suscripcion' ? 'Suscripción pendiente' : 'Gasto fijo pendiente',
       monto: f.monto,
       fecha: null,
       vencido: false,
