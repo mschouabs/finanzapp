@@ -500,10 +500,10 @@ export default function BilleterasPage() {
           : <NumeroAnimado valor={tot.total} contarAlInicio className="mt-1 block text-[clamp(2.2rem,3.8vw,3rem)] font-extrabold leading-none tracking-tight tabular-nums text-primary" />}
         {variacion !== null ? (
           <p className="mt-2 flex flex-wrap items-center gap-1.5 text-sm">
-            <span className="inline-flex items-center gap-0.5 rounded-md px-1.5 py-0.5 text-xs font-semibold tabular-nums"
+            <span className="inline-flex items-center gap-0.5 rounded-md px-1.5 py-0.5 text-xs font-semibold"
               style={{ background: variacion >= 0 ? 'var(--glow-positive)' : 'var(--glow-negative)', color: variacion >= 0 ? 'var(--accent-positive)' : 'var(--accent-negative)' }}>
               {variacion >= 0 ? <ArrowUpRight size={13} /> : <ArrowDownRight size={13} />}
-              {variacion >= 0 ? '+' : ''}{variacion.toFixed(1).replace('.', ',')}%
+              <span className="tabular-nums">{variacion >= 0 ? '+' : ''}{variacion.toFixed(1).replace('.', ',')}%</span>
             </span>
             <span className="text-secondary">vs. fin del mes pasado</span>
           </p>
