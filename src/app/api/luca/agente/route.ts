@@ -36,6 +36,11 @@ const HERRAMIENTAS = [
     },
   },
   {
+    name: 'revisar_cuentas',
+    description: 'Diagnóstico de datos (solo lectura): cuentas cuyo saldo no coincide con el libro de movimientos, gastos posiblemente duplicados, consumos de crédito sin tarjeta y gastos de débito sin cuenta. Usala cuando el usuario diga que algo "no cuadra", un saldo está raro o sospeche un error.',
+    input_schema: { type: 'object', properties: {} },
+  },
+  {
     name: 'registrar_gasto',
     description: 'Propone registrar un gasto puntual. El usuario lo confirma antes de guardarse.',
     input_schema: {
@@ -134,13 +139,79 @@ const HERRAMIENTAS = [
     },
   },
   {
+    name: 'editar_gasto',
+    description: 'Propone corregir un gasto ya cargado (nombre, monto, categoría o fecha). Usá el id que devuelve buscar_movimientos. Si salió de una billetera, el saldo se ajusta por la diferencia.',
+    input_schema: {
+      type: 'object',
+      properties: { id: { type: 'string' }, nombre: { type: 'string' }, monto: { type: 'number' }, categoria: { type: 'string' }, fecha: { type: 'string', description: 'YYYY-MM-DD' } },
+      required: ['id'],
+    },
+  },
+  {
+    name: 'borrar_gasto',
+    description: 'Propone borrar un gasto cargado por error o duplicado (si salió de una billetera, la plata vuelve). Usá el id de buscar_movimientos. compra_completa=true borra todas las cuotas de esa compra.',
+    input_schema: { type: 'object', properties: { id: { type: 'string' }, compra_completa: { type: 'boolean' } }, required: ['id'] },
+  },
+  {
+    name: 'corregir_saldo',
+    description: 'Propone ajustar el saldo de una cuenta al valor real que dice el usuario (queda anotado en el libro como ajuste). Usá el id de la cuenta del contexto. Solo si el usuario confirma cuál es el saldo real.',
+    input_schema: {
+      type: 'object',
+      properties: { cuenta_id: { type: 'string' }, saldo_real: { type: 'number' }, motivo: { type: 'string' } },
+      required: ['cuenta_id', 'saldo_real'],
+    },
+  },
+  {
+    name: 'reportar_problema',
+    description: 'Guarda un reporte de problema para que lo revise el equipo de la app. Usala solo cuando no puedas resolver el problema con tus herramientas, o si el usuario lo pide. Resumí qué pasó y qué ya se intentó.',
+    input_schema: {
+      type: 'object',
+      properties: { resumen: { type: 'string', description: 'Título corto' }, detalle: { type: 'string', description: 'Qué pasó, qué esperaba el usuario y qué se revisó' } },
+      required: ['resumen', 'detalle'],
+    },
+  },
+  {
     name: 'deshacer_ultimo_movimiento',
     description: 'Propone deshacer el último movimiento de plata que se puede deshacer (gasto, transferencia o ajuste).',
     input_schema: { type: 'object', properties: {} },
   },
 ]
 
-const ACCIONES = new Set(['registrar_gasto', 'registrar_ingreso', 'registrar_gasto_fijo', 'transferir', 'pagar_tarjeta', 'registrar_me_deben', 'registrar_cobro_me_deben', 'deshacer_ultimo_movimiento'])
+const ACCIONES = new Set(['registrar_gasto', 'registrar_ingreso', 'registrar_gasto_fijo', 'transferir', 'pagar_tarjeta', 'registrar_me_deben', 'registrar_cobro_me_deben', 'deshacer_ultimo_movimiento', 'editar_gasto', 'borrar_gasto', 'corregir_saldo', 'reportar_problema'])
+
+async function diagnostico(supabase: ReturnType<typeof createClient>): Promise<string> {
+  const out: Record<string, unknown> = {}
+  const { data: ctl, error: e1 } = await supabase.from('movimientos_control').select('nombre, app, saldo, suma_libro, diferencia')
+  out.cuentas_que_no_cuadran = e1 ? 'no se pudo verificar' : (ctl ?? []).filter((r: { diferencia: number }) => Math.abs(Number(r.diferencia)) > 0.005)
+  const desde = new Date(Date.now() - 90 * 864e5).toISOString().slice(0, 10)
+  const { data: gs } = await supabase.from('gastos_variables')
+    .select('id, nombre, monto, moneda, fecha, forma_pago, tarjeta_id, billetera_linea_id, compra_id, cuota_numero')
+    .gte('fecha', desde).order('fecha', { ascending: false }).limit(600)
+  const filas = (gs ?? []) as { id: string; nombre: string; monto: number; moneda: string; fecha: string; forma_pago: string | null; tarjeta_id: string | null; billetera_linea_id: string | null; compra_id: string | null; cuota_numero: number | null }[]
+  const grupos = new Map<string, typeof filas>()
+  for (const g of filas) {
+    if (g.compra_id && (g.cuota_numero ?? 1) > 1) continue
+    const k = `${g.nombre.trim().toLowerCase()}|${g.monto}|${g.moneda}|${g.fecha}`
+    grupos.set(k, [...(grupos.get(k) ?? []), g])
+  }
+  out.posibles_duplicados = [...grupos.values()].filter(v => v.length > 1).slice(0, 10)
+    .map(v => ({ nombre: v[0].nombre, monto: v[0].monto, fecha: v[0].fecha, ids: v.map(x => x.id) }))
+  out.credito_sin_tarjeta = filas.filter(g => g.forma_pago === 'credito' && !g.tarjeta_id).slice(0, 10).map(g => ({ id: g.id, nombre: g.nombre, monto: g.monto, fecha: g.fecha }))
+  out.debito_sin_cuenta = filas.filter(g => g.forma_pago === 'debito' && !g.billetera_linea_id).slice(0, 10).map(g => ({ id: g.id, nombre: g.nombre, monto: g.monto, fecha: g.fecha }))
+  return JSON.stringify(out)
+}
+
+const GUIA_APP = `GUÍA DE LA APP (usala para explicar cómo funciona; si algo no está acá, decí que no estás segura y ofrecé reportarlo):
+- Resumen (inicio): "Libre para usar" = disponible − comprometido de los próximos 30 días (tarjetas, fijos pendientes, cuotas). Patrimonio neto = billeteras + inversiones − deuda de tarjetas, en pesos al dólar blue.
+- Movimientos: gastos variables. Se cargan con "Registrar" o hablándome. Los de crédito van a una tarjeta y al resumen según su fecha de cierre/vencimiento; los de débito descuentan de una billetera.
+- Gastos fijos: mensuales; "Pagado/Pendiente" marca si ya se debitó. Las suscripciones son fijos con tipo propio. Suman igual al gasto del mes.
+- Billeteras: cuentas, inversiones y saldos. Las transferencias entre cuentas se hacen ahí y quedan en el libro.
+- Tarjetas: resúmenes por tarjeta, cierre y vencimiento; "Pagar" descuenta de una cuenta y marca los consumos pagados.
+- Me deben: plata que otros te deben. No es ingreso ni patrimonio hasta que la cobrás.
+- Historial: todo lo que pasó, incluido "Entre cuentas" (transferencias, pagos de tarjeta y ajustes).
+- Libro de movimientos: cada cambio de saldo queda anotado; si una cuenta no cuadra es que su saldo no coincide con la suma del libro.
+- Ojo de privacidad: oculta los montos con ***. Atajo: tecla P.
+- Deshacer: se puede deshacer el último gasto, transferencia o ajuste.`
 
 function sistema(hoy: string, contexto: string) {
   return [
@@ -156,9 +227,11 @@ CÓMO TRABAJÁS
 - Usá los ids exactos de cuentas y tarjetas del contexto. Si la petición es ambigua (no sabés qué cuenta), preguntá en una línea en vez de adivinar.
 - Si el usuario cuenta varios movimientos en un mensaje, proponé una acción por cada uno.
 - Si el mensaje no tiene que ver con sus finanzas, respondé breve y volvé al tema.
+- SOPORTE: si el usuario dice que algo está mal, no cuadra o no entiende un número, primero usá revisar_cuentas y/o buscar_movimientos para encontrar la causa, explicala en simple y proponé la corrección (editar_gasto, borrar_gasto, corregir_saldo). Nunca corrijas nada sin explicar antes qué encontraste. Si no lográs resolverlo, ofrecé reportar_problema.
 - Hoy es ${hoy}. "Ayer", "el viernes", etc. se resuelven contra esa fecha.`,
       cache_control: { type: 'ephemeral' },
     },
+    { type: 'text', text: GUIA_APP, cache_control: { type: 'ephemeral' } },
     { type: 'text', text: `CONTEXTO ACTUAL DEL USUARIO\n${contexto}` },
   ]
 }
@@ -223,13 +296,15 @@ export async function POST(req: NextRequest) {
         const nombre = String(u.name)
         let salida = ''
         if (nombre === 'buscar_movimientos') {
-          let q = supabase.from('gastos_variables').select('nombre, monto, moneda, fecha, categoria, forma_pago, pagado, cuota_numero, cuotas_total')
+          let q = supabase.from('gastos_variables').select('id, nombre, monto, moneda, fecha, categoria, forma_pago, pagado, cuota_numero, cuotas_total, compra_id')
             .order('fecha', { ascending: false }).limit(Math.min(Number(input.limite) || 30, 60))
           if (typeof input.texto === 'string' && input.texto.trim()) q = q.ilike('nombre', `%${input.texto.trim().replace(/[%,]/g, '')}%`)
           if (typeof input.desde === 'string') q = q.gte('fecha', input.desde)
           if (typeof input.hasta === 'string') q = q.lte('fecha', input.hasta)
           const { data, error } = await q
           salida = error ? 'No se pudo consultar.' : JSON.stringify(data ?? [])
+        } else if (nombre === 'revisar_cuentas') {
+          salida = await diagnostico(supabase)
         } else if (ACCIONES.has(nombre)) {
           acciones.push({ tool: nombre, input })
           salida = 'Propuesta mostrada al usuario. NO está ejecutada: espera su confirmación.'

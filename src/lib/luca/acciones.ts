@@ -8,8 +8,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Snapshot } from '@/lib/finanzas/nucleo'
 import { estadoTarjeta } from '@/lib/resumenes'
-import { deshacerMovimiento, sePuedeDeshacer, transferirEntreCuentas, ultimosMovimientos } from '@/lib/libro'
-import { pagarConsumos } from '@/lib/movimientos'
+import { ajustarSaldo, deshacerMovimiento, sePuedeDeshacer, transferirEntreCuentas, ultimosMovimientos } from '@/lib/libro'
+import { borrarConDeshacer, editarGastoVariable, pagarConsumos } from '@/lib/movimientos'
 import { agregarMeDeben, pendienteDe, registrarCobro } from '@/lib/medeben'
 import { hoyISO } from '@/lib/fechas'
 
@@ -140,6 +140,49 @@ export async function prepararAccion(supabase: Cliente, s: Snapshot, a: AccionPr
     }
   }
 
+  if (a.tool === 'editar_gasto') {
+    const { data: g } = await supabase.from('gastos_variables').select('nombre, monto, moneda, fecha, categoria, billetera_linea_id').eq('id', str(i.id)).maybeSingle()
+    if (!g) return { titulo: 'Corregir gasto', lineas: [], error: 'No encontré ese gasto.' }
+    const lineas: string[] = []
+    const nuevoM = i.monto != null ? nro(i.monto) : null
+    if (nuevoM != null && !(nuevoM > 0)) return { titulo: 'Corregir gasto', lineas: [], error: 'El monto nuevo no es válido.' }
+    if (nuevoM != null && nuevoM !== Number(g.monto)) lineas.push(`Monto: ${monto(Number(g.monto), g.moneda)} → ${monto(nuevoM, g.moneda)}`)
+    if (str(i.nombre) && str(i.nombre) !== g.nombre) lineas.push(`Nombre: ${g.nombre} → ${str(i.nombre)}`)
+    if (str(i.categoria) && str(i.categoria) !== g.categoria) lineas.push(`Categoría: ${g.categoria} → ${str(i.categoria)}`)
+    if (str(i.fecha) && str(i.fecha) !== String(g.fecha).slice(0, 10)) lineas.push(`Fecha: ${String(g.fecha).slice(0, 10)} → ${str(i.fecha)}`)
+    if (!lineas.length) return { titulo: 'Corregir gasto', lineas: [], error: 'No hay nada para cambiar.' }
+    if (nuevoM != null && g.billetera_linea_id) lineas.push('El saldo de la cuenta se ajusta por la diferencia.')
+    return { titulo: `✏️ Corregir "${g.nombre}"`, lineas }
+  }
+
+  if (a.tool === 'borrar_gasto') {
+    const { data: g } = await supabase.from('gastos_variables').select('nombre, monto, moneda, fecha, billetera_linea_id, compra_id, cuotas_total').eq('id', str(i.id)).maybeSingle()
+    if (!g) return { titulo: 'Borrar gasto', lineas: [], error: 'No encontré ese gasto.' }
+    const completa = i.compra_completa === true && !!g.compra_id
+    return {
+      titulo: `🗑️ Borrar "${g.nombre}"`, peligro: true,
+      lineas: [`${monto(Number(g.monto), g.moneda)} del ${String(g.fecha).slice(0, 10)}${completa ? ` · todas las cuotas (${g.cuotas_total})` : ''}`, g.billetera_linea_id && !completa ? 'La plata vuelve a la cuenta.' : 'Se elimina del registro.'],
+    }
+  }
+
+  if (a.tool === 'corregir_saldo') {
+    const l = s.lineas.find(x => x.id === i.cuenta_id)
+    const real = nro(i.saldo_real)
+    if (!l) return { titulo: 'Corregir saldo', lineas: [], error: 'No reconocí la cuenta.' }
+    if (!Number.isFinite(real)) return { titulo: 'Corregir saldo', lineas: [], error: 'Falta el saldo real.' }
+    const dif = real - Number(l.monto)
+    if (Math.abs(dif) < 0.005) return { titulo: 'Corregir saldo', lineas: [], error: 'Ese ya es el saldo que figura.' }
+    return {
+      titulo: `⚖️ Corregir saldo de ${nombreCuenta(s, l.id)}`,
+      lineas: [`${monto(Number(l.monto), l.moneda)} → ${monto(real, l.moneda)} (${dif > 0 ? '+' : '−'}${monto(Math.abs(dif), l.moneda)})`, 'Queda anotado en el libro como ajuste y se puede deshacer.'],
+    }
+  }
+
+  if (a.tool === 'reportar_problema') {
+    if (!str(i.resumen)) return { titulo: 'Reporte', lineas: [], error: 'Falta describir el problema.' }
+    return { titulo: '🛟 Enviar reporte', lineas: [str(i.resumen), str(i.detalle).slice(0, 240), 'Se guarda con un resumen de tu situación para que se pueda revisar.'] }
+  }
+
   if (a.tool === 'deshacer_ultimo_movimiento') {
     const { movimientos, disponible } = await ultimosMovimientos(supabase, { limite: 20 })
     if (!disponible) return { titulo: 'Deshacer', lineas: [], error: 'El libro de movimientos no está disponible.' }
@@ -189,6 +232,34 @@ export async function ejecutarAccion(supabase: Cliente, userId: string, s: Snaps
     if (!d) return { ok: null, error: 'No encontré esa deuda.' }
     const { error } = await registrarCobro(supabase, d, nro(i.monto), str(i.cuenta_id))
     return error ? { ok: null, error } : { ok: `Cobro de ${d.persona} registrado.`, error: null }
+  }
+
+  if (a.tool === 'editar_gasto') {
+    const c: { nombre?: string; monto?: number; categoria?: string; fecha?: string } = {}
+    if (str(i.nombre)) c.nombre = str(i.nombre)
+    if (i.monto != null && nro(i.monto) > 0) c.monto = nro(i.monto)
+    if (str(i.categoria)) c.categoria = str(i.categoria)
+    if (str(i.fecha)) c.fecha = str(i.fecha)
+    const { error } = await editarGastoVariable(supabase, str(i.id), c)
+    return error ? { ok: null, error } : { ok: 'Corregí el gasto.', error: null }
+  }
+
+  if (a.tool === 'borrar_gasto') {
+    const filas = await borrarConDeshacer(supabase, { id: str(i.id), compra_id: (await supabase.from('gastos_variables').select('compra_id').eq('id', str(i.id)).maybeSingle()).data?.compra_id ?? null }, i.compra_completa === true)
+    return filas.length ? { ok: 'Listo, lo borré.', error: null } : { ok: null, error: 'No encontré ese gasto.' }
+  }
+
+  if (a.tool === 'corregir_saldo') {
+    const l = s.lineas.find(x => x.id === i.cuenta_id)
+    if (!l) return { ok: null, error: 'No reconocí la cuenta.' }
+    const { error } = await ajustarSaldo(supabase, l.id, nro(i.saldo_real) - Number(l.monto), { tipo: 'ajuste', descripcion: str(i.motivo) || 'Corrección de saldo (Luca)' })
+    return error ? { ok: null, error: error.message } : { ok: 'Saldo corregido.', error: null }
+  }
+
+  if (a.tool === 'reportar_problema') {
+    const { construirContexto } = await import('@/lib/luca/contexto')
+    const { error } = await supabase.from('luca_reportes').insert({ user_id: userId, resumen: str(i.resumen).slice(0, 200), detalle: str(i.detalle).slice(0, 2000), contexto: construirContexto(s).slice(0, 8000) })
+    return error ? { ok: null, error: 'No se pudo guardar el reporte.' } : { ok: 'Reporte enviado. Lo van a revisar.', error: null }
   }
 
   if (a.tool === 'deshacer_ultimo_movimiento') {
