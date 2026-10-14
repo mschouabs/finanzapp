@@ -12,7 +12,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { RefreshCw, X } from 'lucide-react'
-import { EVENTO_CELEBRAR, EVENTO_DATOS, EVENTO_NUEVO, alternarPrivado, aplicarPrivado, privadoActivo } from '@/lib/eventos'
+import { EVENTO_PRIVADO, EVENTO_CELEBRAR, EVENTO_DATOS, EVENTO_NUEVO, alternarPrivado, aplicarPrivado, privadoActivo } from '@/lib/eventos'
 
 const IR: Record<string, { href: string; label: string }> = {
   r: { href: '/dashboard', label: 'Resumen' },
@@ -40,6 +40,58 @@ export function Experiencia() {
 
   /* modo privado: se restaura al abrir la app */
   useEffect(() => { aplicarPrivado(privadoActivo()) }, [])
+
+  /* modo privado en frases: los montos escritos dentro de textos ("Lo que ya tiene destino: $553.500")
+     se reemplazan por *** mientras está activo; al apagarlo se restauran */
+  useEffect(() => {
+    const RE = /[-−–]?(?:US\s?)?\$\s?\d[\d.,]*/g
+    const SALTAR = 'script,style,textarea,input,select,.tabular-nums,.fa-cifra,.fa-num-sm,.fa-num-md,.fa-amount'
+    const originales = new WeakMap<Node, { orig: string; mask: string }>()
+    const tocados = new Set<Text>()
+    let obs: MutationObserver | null = null
+
+    const enmascarar = (t: Text) => {
+      const v = t.nodeValue ?? ''
+      if (!v.includes('$')) return
+      const padre = t.parentElement
+      if (!padre || padre.closest(SALTAR)) return
+      const m = v.replace(RE, '***')
+      if (m === v) return
+      originales.set(t, { orig: v, mask: m })
+      tocados.add(t)
+      t.nodeValue = m
+    }
+    const recorrer = (raiz: Node) => {
+      if (raiz.nodeType === Node.TEXT_NODE) { enmascarar(raiz as Text); return }
+      const w = document.createTreeWalker(raiz, NodeFilter.SHOW_TEXT)
+      let n: Node | null
+      while ((n = w.nextNode())) enmascarar(n as Text)
+    }
+    const activar = () => {
+      recorrer(document.body)
+      obs = new MutationObserver(ms => {
+        obs?.disconnect()
+        for (const m of ms) {
+          if (m.type === 'characterData') enmascarar(m.target as Text)
+          else m.addedNodes.forEach(x => recorrer(x))
+        }
+        obs?.observe(document.body, { childList: true, subtree: true, characterData: true })
+      })
+      obs.observe(document.body, { childList: true, subtree: true, characterData: true })
+    }
+    const desactivar = () => {
+      obs?.disconnect(); obs = null
+      tocados.forEach(t => {
+        const o = originales.get(t)
+        if (o && t.nodeValue === o.mask) t.nodeValue = o.orig
+      })
+      tocados.clear()
+    }
+    const sync = () => { desactivar(); if (privadoActivo()) activar() }
+    sync()
+    window.addEventListener(EVENTO_PRIVADO, sync)
+    return () => { window.removeEventListener(EVENTO_PRIVADO, sync); desactivar() }
+  }, [])
 
   /* atajos de teclado */
   useEffect(() => {

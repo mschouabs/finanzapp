@@ -63,7 +63,7 @@ export function PatrimonioHero({ p, serie, compacto = false }: { p: Patrimonio; 
 
       {diff !== null ? (
         <p className="mt-2 flex flex-wrap items-center gap-1.5 text-sm">
-          <span className="inline-flex items-center gap-0.5 rounded-md px-1.5 py-0.5 text-xs font-semibold tabular-nums"
+          <span className="inline-flex items-center gap-0.5 rounded-md px-1.5 py-0.5 text-xs font-semibold"
             style={{ background: sube ? 'var(--glow-positive)' : 'var(--glow-negative)', color: sube ? 'var(--accent-positive)' : 'var(--accent-negative)' }}>
             {sube ? <ArrowUpRight size={13} /> : <ArrowDownRight size={13} />}
             <span className="tabular-nums">{sube ? '+' : '−'}{fmt(Math.abs(diff)).replace('−', '')}{pct !== null ? ` · ${sube ? '+' : '−'}${Math.abs(pct).toFixed(1).replace('.', ',')}%` : ''}</span>
