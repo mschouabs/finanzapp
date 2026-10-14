@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { hoyArgentina } from '@/lib/fechas'
 
 /* ── Luca con Claude ────────────────────────────────────────────────
@@ -179,7 +179,8 @@ const HERRAMIENTAS = [
 
 const ACCIONES = new Set(['registrar_gasto', 'registrar_ingreso', 'registrar_gasto_fijo', 'transferir', 'pagar_tarjeta', 'registrar_me_deben', 'registrar_cobro_me_deben', 'deshacer_ultimo_movimiento', 'editar_gasto', 'borrar_gasto', 'corregir_saldo', 'reportar_problema'])
 
-async function diagnostico(supabase: ReturnType<typeof createClient>): Promise<string> {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function diagnostico(supabase: SupabaseClient<any, any, any>): Promise<string> {
   const out: Record<string, unknown> = {}
   const { data: ctl, error: e1 } = await supabase.from('movimientos_control').select('nombre, app, saldo, suma_libro, diferencia')
   out.cuentas_que_no_cuadran = e1 ? 'no se pudo verificar' : (ctl ?? []).filter((r: { diferencia: number }) => Math.abs(Number(r.diferencia)) > 0.005)
