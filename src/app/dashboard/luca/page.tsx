@@ -506,7 +506,7 @@ export default function LucaChatPage() {
     `${d.moneda === 'USD' ? 'US$' : '$'}${Number(monto(d)).toLocaleString('es-AR', { minimumFractionDigits: 2 })}`
 
   return (
-    <div className="fa-card flex flex-col" style={{ height: 'calc(100vh - 160px)', minHeight: 500 }}>
+    <div className="fa-card flex flex-col" style={{ height: 'calc(100dvh - 160px)', minHeight: 500 }}>
       {/* Header */}
       <div className="flex items-center gap-3 px-5 py-4 border-b">
         <div className="relative shrink-0">

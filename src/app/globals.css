@@ -101,10 +101,27 @@
 
 html {
   background: var(--bg-page);
+  -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
+  overscroll-behavior: none;
+}
+
+/* sensación de app: toque inmediato, sin selección en controles, sin zoom al enfocar campos */
+button, a, [role="button"], [role="switch"], [role="tab"], summary, label[for] {
+  touch-action: manipulation;
+}
+button, [role="button"], [role="switch"], [role="tab"] {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+@media (pointer: coarse) {
+  input, textarea, select { font-size: 16px !important; }
 }
 
 body {
   min-height: 100vh;
+  min-height: 100dvh;
   background: var(--bg-page);
   color: var(--text-primary);
   font-family: var(--font-inter), 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, system-ui, sans-serif;
@@ -187,6 +204,7 @@ a:focus-visible,
 .fa-lift {
   transition: transform .18s cubic-bezier(.2,.8,.2,1), box-shadow .18s ease, border-color .18s ease;
 }
+@media (hover: hover) and (pointer: fine) {
 .fa-lift:hover {
   transform: translateY(-3px);
   box-shadow: 0 16px 36px rgba(0, 0, 0, .34);
@@ -194,6 +212,7 @@ a:focus-visible,
 }
 [data-theme="rosa"] .fa-lift:hover {
   box-shadow: 0 16px 36px rgba(199, 122, 154, .24);
+}
 }
 
 /* Punto que late (viaje en curso, meta vencida, etc.) */

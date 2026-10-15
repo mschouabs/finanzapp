@@ -46,7 +46,7 @@ export default async function DashboardLayout({
   const userName = user.user_metadata?.nombre || user.email?.split('@')[0] || ''
 
   return (
-    <div className="min-h-screen bg-page">
+    <div className="min-h-dvh bg-page">
       <Sidebar userName={userName} />
       {/* lg:ml-64 deja lugar a la sidebar fija en desktop */}
       <main className="lg:ml-64">

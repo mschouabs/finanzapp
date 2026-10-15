@@ -47,7 +47,7 @@ export default function RegisterPage() {
 
   if (success) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-page px-4">
+      <div className="min-h-dvh flex items-center justify-center bg-page px-4">
         <div className="w-full max-w-md text-center">
           <div className="bg-card rounded-2xl shadow-lg p-8">
             <div className="text-5xl mb-4">✉️</div>
@@ -69,7 +69,7 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-page px-4">
+    <div className="min-h-dvh flex items-center justify-center bg-page px-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <Image

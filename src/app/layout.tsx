@@ -6,8 +6,9 @@ import { ThemeProvider } from "@/components/ThemeProvider";
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
-  maximumScale: 1,
   viewportFit: 'cover',
+  interactiveWidget: 'resizes-content',
+  themeColor: '#080D13',
 };
 
 export const metadata: Metadata = {
@@ -31,6 +32,8 @@ const themeInitScript = `
   try {
     var t = localStorage.getItem('userTheme');
     document.documentElement.setAttribute('data-theme', t === 'rosa' ? 'rosa' : 'dark');
+    var m = document.querySelector('meta[name="theme-color"]');
+    if (m) m.setAttribute('content', t === 'rosa' ? '#FDF6F9' : '#080D13');
   } catch (e) {
     document.documentElement.setAttribute('data-theme', 'dark');
   }
@@ -40,7 +43,7 @@ const themeInitScript = `
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="es" data-theme="dark" className={inter.variable} suppressHydrationWarning>
-      <body className="min-h-screen">
+      <body className="min-h-dvh">
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
         <ThemeProvider>
           {children}

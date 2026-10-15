@@ -183,7 +183,7 @@ export function Header() {
   }, [activo])
 
   return (
-    <div className="sticky top-0 z-30 flex items-center justify-end gap-1.5 border-b px-4 py-2 backdrop-blur fa-hairline lg:gap-2 lg:px-10 lg:py-3"
+    <div className="sticky top-0 z-30 flex items-center justify-end gap-1.5 border-b px-4 pb-2 pt-[max(0.5rem,env(safe-area-inset-top,0px))] backdrop-blur fa-hairline lg:gap-2 lg:px-10 lg:pb-3 lg:pt-3"
       style={{ background: 'color-mix(in srgb, var(--bg-page) 85%, transparent)' }}>
       <span className="mr-auto text-sm font-extrabold tracking-tight text-primary lg:hidden">FinanzApp</span>
 
