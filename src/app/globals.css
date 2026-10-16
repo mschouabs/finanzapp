@@ -734,3 +734,33 @@ input:focus-visible, textarea:focus-visible, select:focus-visible {
   outline: 2px solid var(--accent-confirm);
   outline-offset: -2px;
 }
+
+/* ════════ Barra inferior del celular ════════
+   Superficie casi opaca (se lee sin importar lo que pase debajo),
+   cinco columnas iguales, pestaña activa con cápsula de color suave
+   y botón "Nuevo" plano separado de la barra por un aro del mismo fondo. */
+.fa-barra {
+  background: color-mix(in srgb, var(--bg-card) 92%, transparent);
+  border: 1px solid var(--border-subtle);
+}
+.fa-barra-tab { color: var(--text-secondary); transition: color 200ms var(--ease-out, ease-out); }
+.fa-barra-icono {
+  display: flex; align-items: center; justify-content: center;
+  width: 52px; height: 30px; border-radius: 9999px;
+  transition: background-color 260ms cubic-bezier(.32,.72,0,1), transform 260ms cubic-bezier(.32,.72,0,1);
+}
+.fa-barra-label { font-size: 11px; line-height: 1; font-weight: 500; letter-spacing: -0.005em; }
+.fa-barra-tab.is-activa { color: var(--accent-confirm); }
+.fa-barra-tab.is-activa .fa-barra-icono { background: color-mix(in srgb, var(--accent-confirm) 16%, transparent); }
+.fa-barra-tab.is-activa .fa-barra-label { font-weight: 600; }
+.fa-barra-tab:active .fa-barra-icono { transform: scale(.92); }
+.fa-barra-nuevo {
+  background: var(--accent-confirm);
+  color: #fff;
+  box-shadow: 0 0 0 5px var(--bg-card), 0 10px 22px -8px color-mix(in srgb, var(--accent-confirm) 70%, transparent);
+}
+[data-theme="dark"] .fa-barra-nuevo { color: #04210F; }
+[data-theme="rosa"] .fa-barra-tab.is-activa .fa-barra-icono { background: color-mix(in srgb, var(--accent-confirm) 12%, transparent); }
+@media (prefers-reduced-motion: reduce) {
+  .fa-barra-icono, .fa-barra-tab { transition: none; }
+}

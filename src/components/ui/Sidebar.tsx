@@ -256,76 +256,39 @@ export default function Sidebar({ userName }: { userName?: string }) {
         </div>
       )}
 
-      {/* ── MOBILE: bottom navigation bar ── */}
+      {/* ── MOBILE: barra inferior (isla flotante) ── */}
       <nav
-        className="fa-vidrio fa-isla-nav fixed left-3 right-3 z-40 rounded-[28px] border lg:hidden"
-        style={{
-          borderColor: 'var(--border-subtle)',
-          bottom: 'calc(env(safe-area-inset-bottom, 0px) + 10px)',
-        }}
+        aria-label="Navegación principal"
+        className="fa-isla-nav fa-barra fixed left-3 right-3 z-40 rounded-[26px] lg:hidden"
+        style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 10px)' }}
       >
-        <div className="flex h-[62px] items-center justify-around px-1">
-          {/* Resumen */}
-          <BottomTab
-            href="/dashboard"
-            label="Resumen"
-            icono={<Home size={22} strokeWidth={2} />}
-            activa={pathname === '/dashboard'}
-          />
+        <div className="grid h-[64px] grid-cols-5 items-center px-1.5">
+          <BottomTab href="/dashboard" label="Resumen" icono={<Home size={22} />} activa={pathname === '/dashboard'} />
+          <BottomTab href="/dashboard/gastos-variables" label="Movimientos" icono={<ShoppingCart size={22} />} activa={pathname === '/dashboard/gastos-variables'} />
 
-          {/* Movimientos */}
-          <BottomTab
-            href="/dashboard/gastos-variables"
-            label="Movimientos"
-            icono={<ShoppingCart size={22} strokeWidth={2} />}
-            activa={pathname === '/dashboard/gastos-variables'}
-          />
-
-          {/* Nuevo movimiento — botón central destacado (antes abría Luca) */}
+          {/* Nuevo movimiento: acción principal, apenas elevada */}
           <button
             onClick={() => setShowAgregar(true)}
-            className="flex flex-col items-center gap-0.5"
-            style={{ marginTop: '-22px' }}
+            aria-label="Nuevo movimiento"
+            className="group flex flex-col items-center justify-center gap-1"
           >
-            <span
-              className="flex h-[56px] w-[56px] items-center justify-center rounded-full transition-transform active:scale-95"
-              style={{ background: 'radial-gradient(circle at 30% 25%, color-mix(in srgb, var(--accent-confirm) 70%, #fff 30%), var(--accent-confirm) 60%)', boxShadow: '0 10px 24px -6px var(--accent-confirm)' }}
-            >
-              <Plus size={27} color="white" strokeWidth={2.2} />
+            <span className="fa-barra-nuevo -mt-5 flex h-[54px] w-[54px] items-center justify-center rounded-full transition-transform duration-200 group-active:scale-95">
+              <Plus size={26} strokeWidth={2.2} />
             </span>
-            <span
-              className="text-[10px] font-semibold"
-              style={{ color: 'var(--accent-confirm)' }}
-            >
-              Nuevo
-            </span>
+            <span className="text-[11px] font-semibold leading-none text-primary">Nuevo</span>
           </button>
 
-          {/* Tarjetas */}
-          <BottomTab
-            href="/dashboard/tarjetas"
-            label="Tarjetas"
-            icono={<CreditCard size={22} strokeWidth={2} />}
-            activa={pathname === '/dashboard/tarjetas'}
-          />
+          <BottomTab href="/dashboard/tarjetas" label="Tarjetas" icono={<CreditCard size={22} />} activa={pathname === '/dashboard/tarjetas'} />
 
-          {/* Más — abre el drawer completo (derecha) */}
+          {/* Más: abre el panel completo */}
           <button
             onClick={() => setAbierta(v => !v)}
             aria-label="Más opciones"
-            className="flex min-h-[48px] min-w-[48px] flex-col items-center justify-center gap-0.5"
+            aria-expanded={abierta}
+            className={`fa-barra-tab flex min-h-[48px] flex-col items-center justify-center gap-1 ${abierta ? 'is-activa' : ''}`}
           >
-            <LayoutGrid
-              size={22}
-              strokeWidth={2}
-              style={{ color: abierta ? 'var(--accent-confirm)' : 'var(--text-muted)' }}
-            />
-            <span
-              className="text-[10px] font-medium"
-              style={{ color: abierta ? 'var(--accent-confirm)' : 'var(--text-muted)' }}
-            >
-              Más
-            </span>
+            <span className="fa-barra-icono"><LayoutGrid size={22} /></span>
+            <span className="fa-barra-label">Más</span>
           </button>
         </div>
       </nav>
@@ -364,16 +327,14 @@ function BottomTab({
   icono: ReactNode
   activa: boolean
 }) {
-  const color = activa ? 'var(--accent-confirm)' : 'var(--text-muted)'
   return (
     <Link
       href={href}
-      className={`flex min-h-[44px] min-w-[44px] flex-col items-center justify-center gap-0.5 transition-transform active:scale-95 ${activa ? 'fa-tab-activa' : ''}`}
+      aria-current={activa ? 'page' : undefined}
+      className={`fa-barra-tab flex min-h-[48px] flex-col items-center justify-center gap-1 ${activa ? 'is-activa' : ''}`}
     >
-      <span style={{ color, filter: activa ? 'drop-shadow(0 0 6px var(--accent-confirm))' : undefined }}>{icono}</span>
-      <span className="text-[10px] font-medium" style={{ color }}>
-        {label}
-      </span>
+      <span className="fa-barra-icono">{icono}</span>
+      <span className="fa-barra-label">{label}</span>
     </Link>
   )
 }
