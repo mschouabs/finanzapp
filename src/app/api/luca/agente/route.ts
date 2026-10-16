@@ -46,6 +46,18 @@ const HERRAMIENTAS = [
     },
   },
   {
+    name: 'consultar_seccion',
+    description: 'Lee cualquier sección de FinanzApp (solo lectura) con todo su detalle, más allá del resumen del contexto. Antes de decir que no tenés un dato, buscalo acá. Secciones: trabajos (sueldos/ingresos fijos y proyectos freelance con sus cobros), gastos_fijos (fijos y suscripciones), inversiones, billeteras, tarjetas, metas, me_deben, patrimonio_historico (cierre de cada mes), secciones_personalizadas (las secciones que creó el usuario y sus registros), viajes.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        seccion: { type: 'string', enum: ['trabajos', 'gastos_fijos', 'inversiones', 'billeteras', 'tarjetas', 'metas', 'me_deben', 'patrimonio_historico', 'secciones_personalizadas', 'viajes'] },
+        texto: { type: 'string', description: 'Filtro opcional por nombre (ej. un cliente, un viaje o una sección)' },
+      },
+      required: ['seccion'],
+    },
+  },
+  {
     name: 'revisar_cuentas',
     description: 'Diagnóstico de datos (solo lectura): cuentas cuyo saldo no coincide con el libro de movimientos, gastos posiblemente duplicados, consumos de crédito sin tarjeta y gastos de débito sin cuenta. Usala cuando el usuario diga que algo "no cuadra", un saldo está raro o sospeche un error.',
     input_schema: { type: 'object', properties: {} },
@@ -241,6 +253,49 @@ async function consultarViajes(supabase: SupabaseClient<any, any, any>, texto: s
   })
 }
 
+/* Lectura de cualquier sección de la app. Devuelve las filas tal cual
+   (sin user_id) para que Luca responda con datos reales, nunca inventados. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function consultarSeccion(supabase: SupabaseClient<any, any, any>, seccion: string, texto: string): Promise<string> {
+  const t = texto.trim().toLowerCase()
+  const limpiar = (filas: unknown[] | null) => (filas ?? []).map(f => { const { user_id: _u, ...r } = f as Record<string, unknown>; void _u; return r })
+  const filtrar = (filas: Record<string, unknown>[]) => !t ? filas : filas.filter(f => JSON.stringify(f).toLowerCase().includes(t))
+  const tabla = async (nombre: string, orden?: string) => {
+    let q = supabase.from(nombre).select('*').limit(300)
+    if (orden) q = q.order(orden, { ascending: false })
+    const { data, error } = await q
+    return error ? null : filtrar(limpiar(data))
+  }
+  let out: unknown
+  switch (seccion) {
+    case 'viajes': return consultarViajes(supabase, texto)
+    case 'trabajos': out = { sueldos_e_ingresos_fijos: await tabla('ingresos_fijos'), proyectos_freelance: await tabla('ingresos_freelance', 'fecha') }; break
+    case 'gastos_fijos': out = await tabla('gastos_fijos'); break
+    case 'inversiones':
+    case 'billeteras': out = await tabla('inversiones'); break
+    case 'tarjetas': out = await tabla('tarjetas_cuentas'); break
+    case 'metas': out = await tabla('metas'); break
+    case 'me_deben': out = await tabla('me_deben'); break
+    case 'patrimonio_historico': out = await tabla('patrimonio_mensual', 'mes'); break
+    case 'secciones_personalizadas': {
+      const { data: secs } = await supabase.from('secciones').select('id, nombre, emoji, tipo, campos')
+      const lista = filtrar(limpiar(secs))
+      const { data: regs } = lista.length
+        ? await supabase.from('seccion_registros').select('seccion_id, datos, monto, fecha').in('seccion_id', lista.map(x => x.id as string)).order('fecha', { ascending: false }).limit(300)
+        : { data: [] }
+      out = lista.map(x => {
+        const r = (regs ?? []).filter((g: { seccion_id: string }) => g.seccion_id === x.id)
+        return { ...x, total: r.reduce((a: number, g: { monto: number | null }) => a + Number(g.monto ?? 0), 0), registros: r.slice(0, 60) }
+      })
+      break
+    }
+    default: return 'Sección desconocida.'
+  }
+  if (out == null) return 'No se pudo consultar.'
+  const json = JSON.stringify(out)
+  return json.length > 14000 ? json.slice(0, 14000) + '…(recortado: pedí con un filtro de texto para ver más)' : json
+}
+
 const GUIA_APP = `GUÍA DE LA APP (usala para explicar cómo funciona; si algo no está acá, decí que no estás segura y ofrecé reportarlo):
 - Resumen (inicio): "Libre para usar" = disponible − comprometido de los próximos 30 días (tarjetas, fijos pendientes, cuotas). Patrimonio neto = billeteras + inversiones − deuda de tarjetas, en pesos al dólar blue.
 - Planificación → Viajes: cada viaje tiene presupuesto en pesos y sus propios gastos (en cualquier moneda, convertidos a pesos). Están separados de Movimientos: para leerlos usá consultar_viajes. Todavía no podés cargar gastos de viaje por el chat: indicale que lo haga desde el viaje.
@@ -268,6 +323,7 @@ CÓMO TRABAJÁS
 - Usá los ids exactos de cuentas y tarjetas del contexto. Si la petición es ambigua (no sabés qué cuenta), preguntá en una línea en vez de adivinar.
 - Si el usuario cuenta varios movimientos en un mensaje, proponé una acción por cada uno.
 - Si el mensaje no tiene que ver con sus finanzas, respondé breve y volvé al tema.
+- ACCESO: podés leer TODA la app con consultar_seccion, consultar_viajes y buscar_movimientos. Si el contexto no alcanza, consultá la sección correspondiente antes de responder; nunca le pidas al usuario un dato que podés leer vos.
 - SOPORTE: si el usuario dice que algo está mal, no cuadra o no entiende un número, primero usá revisar_cuentas y/o buscar_movimientos para encontrar la causa, explicala en simple y proponé la corrección (editar_gasto, borrar_gasto, corregir_saldo). Nunca corrijas nada sin explicar antes qué encontraste. Si no lográs resolverlo, ofrecé reportar_problema.
 - Hoy es ${hoy}. "Ayer", "el viernes", etc. se resuelven contra esa fecha.`,
       cache_control: { type: 'ephemeral' },
@@ -344,6 +400,8 @@ export async function POST(req: NextRequest) {
           if (typeof input.hasta === 'string') q = q.lte('fecha', input.hasta)
           const { data, error } = await q
           salida = error ? 'No se pudo consultar.' : JSON.stringify(data ?? [])
+        } else if (nombre === 'consultar_seccion') {
+          salida = await consultarSeccion(supabase, String(input.seccion ?? ''), typeof input.texto === 'string' ? input.texto : '')
         } else if (nombre === 'consultar_viajes') {
           salida = await consultarViajes(supabase, typeof input.texto === 'string' ? input.texto : '')
         } else if (nombre === 'revisar_cuentas') {
