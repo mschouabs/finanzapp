@@ -2,9 +2,9 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import Image from 'next/image'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
+import AuthShell from '@/components/ui/AuthShell'
 import OAuthButtons from '@/components/ui/OAuthButtons'
 
 export default function LoginPage() {
@@ -32,45 +32,33 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-dvh flex items-center justify-center bg-page px-4">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <Image
-            src="/logo-f.png"
-            alt=""
-            width={296}
-            height={353}
-            priority
-            className="mx-auto mb-3 h-14 w-auto"
-          />
-          <h1 className="text-3xl font-bold text-primary">FinanzApp</h1>
-          <p className="text-secondary mt-1">Controlá tus finanzas personales</p>
-        </div>
-
-        <div className="bg-card rounded-2xl shadow-lg p-8">
-          <h2 className="text-xl font-semibold text-primary mb-6">Iniciar sesión</h2>
+    <AuthShell titulo="Tu plata, en orden." bajada="Controlá tus finanzas personales">
+        <>
+          <h2 className="mb-6 text-xl font-semibold text-primary">Iniciar sesión</h2>
 
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-secondary mb-1">Email</label>
+              <label htmlFor="email" className="block text-sm font-medium text-secondary mb-1">Email</label>
               <input
+                id="email"
                 type="email"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
                 required
-                className="w-full bg-card border border-line rounded-xl px-4 py-3 text-primary placeholder-muted focus:outline-none focus:ring-2 focus:ring-confirm"
+                className="w-full rounded-xl bg-alternate px-4 py-3 text-primary placeholder-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-confirm"
                 placeholder="tu@email.com"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-secondary mb-1">Contraseña</label>
+              <label htmlFor="password" className="block text-sm font-medium text-secondary mb-1">Contraseña</label>
               <input
+                id="password"
                 type="password"
                 value={password}
                 onChange={e => setPassword(e.target.value)}
                 required
-                className="w-full bg-card border border-line rounded-xl px-4 py-3 text-primary placeholder-muted focus:outline-none focus:ring-2 focus:ring-confirm"
+                className="w-full rounded-xl bg-alternate px-4 py-3 text-primary placeholder-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-confirm"
                 placeholder="••••••••"
               />
             </div>
@@ -84,7 +72,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-confirm hover:bg-confirm-hover disabled:opacity-50 text-white font-semibold rounded-xl py-3 transition-colors"
+              className="fa-press w-full rounded-full bg-confirm py-3 font-semibold text-white transition-colors hover:bg-confirm-hover disabled:opacity-50"
             >
               {loading ? 'Ingresando...' : 'Ingresar'}
             </button>
@@ -98,8 +86,7 @@ export default function LoginPage() {
               Registrate
             </Link>
           </p>
-        </div>
-      </div>
-    </div>
+        </>
+    </AuthShell>
   )
 }

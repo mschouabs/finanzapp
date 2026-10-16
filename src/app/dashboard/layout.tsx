@@ -47,9 +47,15 @@ export default async function DashboardLayout({
 
   return (
     <div className="min-h-dvh bg-page">
+      <a
+        href="#contenido"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-[60] focus:rounded-lg focus:bg-confirm focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-white"
+      >
+        Saltar al contenido
+      </a>
       <Sidebar userName={userName} />
       {/* lg:ml-64 deja lugar a la sidebar fija en desktop */}
-      <main className="lg:ml-64">
+      <main id="contenido" className="lg:ml-64">
         <Header />
         <Experiencia />
         <div className="fa-container px-4 pt-4 sm:pt-6 sm:px-6 lg:px-10 pb-bottom-nav">

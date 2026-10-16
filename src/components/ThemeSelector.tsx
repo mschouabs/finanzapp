@@ -12,7 +12,6 @@ export function ThemeSelector() {
     borderRadius: '50%',
     cursor: 'pointer',
     padding: 0,
-    outline: 'none',
     flexShrink: 0,
     transition: 'border-color 200ms, transform 200ms',
   }

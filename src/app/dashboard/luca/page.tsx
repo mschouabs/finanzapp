@@ -668,8 +668,8 @@ export default function LucaChatPage() {
               <LucaAvatar estado="thinking" size={28} />
               <div className="bg-alternate rounded-2xl rounded-tl-sm px-4 py-2.5">
                 <span className="flex gap-1">
-                  {[0, 150, 300].map(d => (
-                    <span key={d} className="w-1.5 h-1.5 bg-secondary rounded-full animate-bounce" style={{ animationDelay: `${d}ms` }} />
+                  {[1, 2, 3].map(n => (
+                    <span key={n} className={`luca-dot-${n} h-1.5 w-1.5 rounded-full bg-secondary`} />
                   ))}
                 </span>
               </div>
