@@ -258,10 +258,10 @@ export default function Sidebar({ userName }: { userName?: string }) {
 
       {/* ── MOBILE: bottom navigation bar ── */}
       <nav
-        className="fa-vidrio fixed bottom-0 left-0 right-0 z-40 border-t lg:hidden"
+        className="fa-vidrio fa-isla-nav fixed left-3 right-3 z-40 rounded-[28px] border lg:hidden"
         style={{
           borderColor: 'var(--border-subtle)',
-          paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+          bottom: 'calc(env(safe-area-inset-bottom, 0px) + 10px)',
         }}
       >
         <div className="flex h-[62px] items-center justify-around px-1">

@@ -207,7 +207,7 @@ a:focus-visible,
 @media (hover: hover) and (pointer: fine) {
 .fa-lift:hover {
   transform: translateY(-3px);
-  box-shadow: 0 16px 36px rgba(0, 0, 0, .34);
+  box-shadow: 0 28px 60px -28px rgba(0, 0, 0, .45);
   border-color: color-mix(in srgb, var(--accent-positive) 35%, var(--border-color));
 }
 [data-theme="rosa"] .fa-lift:hover {
@@ -240,8 +240,8 @@ a:focus-visible,
 :root {
   --dur-fast: 140ms;
   --dur-std: 240ms;
-  --dur-emph: 380ms;
-  --ease-out: cubic-bezier(.2, .8, .2, 1);
+  --dur-emph: 560ms;
+  --ease-out: cubic-bezier(.32, .72, 0, 1);
   --ease-in-out: cubic-bezier(.65, 0, .35, 1);
   --glow-positive: color-mix(in srgb, var(--accent-positive) 14%, transparent);
   --glow-negative: color-mix(in srgb, var(--accent-negative) 14%, transparent);
@@ -256,7 +256,7 @@ a:focus-visible,
 .fa-press:active { transform: scale(.97); }
 
 /* Aparece al entrar en pantalla (lo activa <Revelar>) */
-.fa-reveal { opacity: 0; transform: translateY(10px); }
+.fa-reveal { opacity: 0; transform: translateY(18px); }
 .fa-reveal[data-visible="true"] {
   opacity: 1; transform: none;
   transition: opacity var(--dur-emph) var(--ease-out), transform var(--dur-emph) var(--ease-out);
@@ -438,7 +438,7 @@ a:focus-visible,
    (60px) más el home indicator de iOS (env safe-area-inset-bottom).
    En desktop (lg+) se sobreescribe con el padding estándar.        */
 .pb-bottom-nav {
-  padding-bottom: calc(60px + env(safe-area-inset-bottom, 0px) + 1rem);
+  padding-bottom: calc(62px + 10px + env(safe-area-inset-bottom, 0px) + 1.25rem);
 }
 @media (min-width: 1024px) {
   .pb-bottom-nav {
@@ -662,3 +662,49 @@ body {
 @media (hover: none) {
   .fa-press:active { transform: scale(.97); }
 }
+
+
+/* ════════ Capa premium: doble borde, movimiento con masa, isla de navegación ════════
+   Todo vive en este bloque; para volver atrás basta con borrarlo.                       */
+:root {
+  --bisel-relleno: color-mix(in srgb, #fff 3.2%, transparent);
+  --bisel-linea: color-mix(in srgb, #fff 8%, transparent);
+  --bisel-brillo: color-mix(in srgb, #fff 7%, transparent);
+  --ambiente: 0 24px 48px -30px rgba(0, 0, 0, .55);
+}
+[data-theme="rosa"] {
+  --bisel-relleno: rgba(199, 122, 154, .07);
+  --bisel-linea: rgba(199, 122, 154, .20);
+  --bisel-brillo: rgba(255, 255, 255, .9);
+  --ambiente: 0 26px 50px -32px rgba(199, 80, 130, .35);
+}
+
+/* Doble bisel: la caja es el "núcleo"; el anillo exterior es la bandeja. */
+.fa-panel, .fa-card, .fa-hero {
+  box-shadow:
+    inset 0 1px 1px var(--bisel-brillo),
+    0 0 0 4px var(--bisel-relleno),
+    0 0 0 5px var(--bisel-linea),
+    var(--ambiente);
+}
+@media (max-width: 640px) {
+  .fa-panel, .fa-card, .fa-hero {
+    box-shadow: inset 0 1px 1px var(--bisel-brillo), 0 0 0 3px var(--bisel-relleno), 0 0 0 4px var(--bisel-linea), var(--ambiente);
+  }
+}
+
+/* Botones principales: pastilla, con presión física */
+button.bg-confirm, a.bg-confirm { border-radius: 9999px; }
+.fa-press { transition-timing-function: var(--ease-out); }
+.fa-press:active { transform: scale(.98); }
+
+/* Iconos de trazo fino */
+svg.lucide { stroke-width: 1.6; }
+
+/* Barra inferior flotante (isla de vidrio, siempre fija: el blur es seguro acá) */
+.fa-isla-nav {
+  box-shadow: inset 0 1px 1px var(--bisel-brillo), 0 18px 40px -16px rgba(0, 0, 0, .55);
+  backdrop-filter: saturate(170%) blur(22px);
+  -webkit-backdrop-filter: saturate(170%) blur(22px);
+}
+[data-theme="rosa"] .fa-isla-nav { box-shadow: inset 0 1px 1px #fff, 0 18px 40px -16px rgba(199, 80, 130, .35); }

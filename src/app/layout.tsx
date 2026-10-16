@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
-import { Inter } from "next/font/google";
+import { Geist } from "next/font/google";
 import { ThemeProvider } from "@/components/ThemeProvider";
 
 export const viewport: Viewport = {
@@ -23,8 +23,8 @@ export const metadata: Metadata = {
   },
 };
 
-/* Inter: cifras parejas y legibles (antes se pedía pero nunca se cargaba) */
-const inter = Inter({ subsets: ["latin"], display: "swap", variable: "--font-inter" });
+/* Geist: grotesca geométrica con cifras tabulares parejas. Se mantiene la variable --font-inter para no tocar el resto del CSS. */
+const inter = Geist({ subsets: ["latin"], display: "swap", variable: "--font-inter" });
 
 // Aplica el tema guardado antes del primer paint para evitar el flash de color.
 const themeInitScript = `
