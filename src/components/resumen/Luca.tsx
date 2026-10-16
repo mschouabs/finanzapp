@@ -14,6 +14,8 @@ import { CATEGORIAS, getCat } from '@/lib/categorias'
 import { fmt, fmtFechaCorta } from './base'
 import type { Insight, TipoInsight } from '@/lib/finanzas/insights'
 import { hoyISO } from '@/lib/fechas'
+import { useRouter } from 'next/navigation'
+import { parsear, parsearVarios } from '@/lib/parser'
 
 const TIPO: Record<TipoInsight, { label: string; color: string; Icono: typeof Lightbulb }> = {
   atencion: { label: 'Atención', color: 'var(--accent-warning)', Icono: AlertTriangle },
@@ -157,6 +159,7 @@ export function CapturaLuca({ onGuardar, autoFoco = false, flotante = false }: {
   const [g, setG] = useState<GastoDetectado | null>(null)
   const [error, setError] = useState('')
   const input = useRef<HTMLInputElement>(null)
+  const router = useRouter()
 
   useEffect(() => { if (autoFoco) setTimeout(() => input.current?.focus(), 60) }, [autoFoco])
 
@@ -164,6 +167,16 @@ export function CapturaLuca({ onGuardar, autoFoco = false, flotante = false }: {
     if (!texto.trim()) return
     setPaso('pensando')
     setError('')
+    /* Acá se confirma al instante solo un gasto simple. Preguntas, varios
+       movimientos, ingresos, transferencias, viajes o cualquier otra cosa
+       van a Luca completo, que tiene acceso a toda la app. */
+    const local = parsear(texto)
+    const pregunta = /\?/.test(texto) || /^(cu[aá]nto|cu[aá]l|qu[eé]|c[oó]mo|puedo|me alcanza|por qu[eé]|d[oó]nde|cu[aá]ndo|mostr|decime|explic|revis|correg|borr|deshac|transfer|pagu[eé]|cobr)/i.test(texto.trim())
+    const simple = local.tipo === 'gasto_variable' && !pregunta && !parsearVarios(texto)
+    if (!simple) {
+      router.push(`/dashboard/luca?q=${encodeURIComponent(texto.trim())}`)
+      return
+    }
     try {
       const r = await fetch('/api/ai', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: texto }) })
       const d = await r.json()
@@ -171,8 +184,7 @@ export function CapturaLuca({ onGuardar, autoFoco = false, flotante = false }: {
       setG({ ...d, monto: Number(d.monto) })
       setPaso('confirmar')
     } catch {
-      setError('No lo pude entender. Probá con monto y en qué: “12.500 en farmacia”.')
-      setPaso('error')
+      router.push(`/dashboard/luca?q=${encodeURIComponent(texto.trim())}`)
     }
   }
 

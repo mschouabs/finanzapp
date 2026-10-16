@@ -100,6 +100,24 @@ export default function LucaChatPage() {
     } catch { /* ignore */ }
   }, [])
 
+  /* Lo que se le contó a Luca desde otra sección (Resumen, Movimientos…)
+     llega como ?q= y se envía solo, para que responda igual que acá. */
+  const [pendiente, setPendiente] = useState<string | null>(null)
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search).get('q')
+    if (q?.trim()) {
+      setPendiente(q.trim())
+      window.history.replaceState(null, '', window.location.pathname)
+    }
+  }, [])
+  useEffect(() => {
+    if (!pendiente || !mensajes.length) return
+    const q = pendiente
+    setPendiente(null)
+    enviar(q)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendiente, mensajes.length])
+
   useEffect(() => {
     if (!mensajes.length) return
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(mensajes)) } catch { /* ignore */ }
@@ -197,8 +215,8 @@ export default function LucaChatPage() {
   const cancelarAccion = (msg: Mensaje) =>
     setMensajes(prev => prev.map(m => m.id === msg.id ? { ...m, estadoAccion: 'cancelada' } : m))
 
-  const enviar = async () => {
-    const texto = input.trim()
+  const enviar = async (forzado?: unknown) => {
+    const texto = (typeof forzado === 'string' ? forzado : input).trim()
     if (!texto || loading) return
 
     const userMsg: Mensaje = { id: getId(), rol: 'user', texto, timestamp: Date.now() }
@@ -717,7 +735,7 @@ export default function LucaChatPage() {
             className="flex-1 px-3 py-2.5 text-xs rounded-xl border bg-field text-primary disabled:opacity-60 focus:outline-none focus:border-confirm"
           />
           <button
-            onClick={enviar}
+            onClick={() => enviar()}
             disabled={loading || !input.trim() || grabando || transcribiendo}
             className="px-4 py-2.5 rounded-xl bg-confirm text-white text-xs font-semibold disabled:opacity-40 hover:bg-confirm-hover transition-colors"
           >
