@@ -36,6 +36,16 @@ const HERRAMIENTAS = [
     },
   },
   {
+    name: 'consultar_viajes',
+    description: 'Lee la sección Planificación → Viajes (solo lectura): cada viaje con destino, fechas, presupuesto, total gastado en pesos y sus gastos. Usala SIEMPRE que pregunten por viajes o por lo gastado/presupuestado en un viaje: esos gastos NO están en buscar_movimientos.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        texto: { type: 'string', description: 'Parte del nombre o destino del viaje (opcional; sin texto devuelve todos)' },
+      },
+    },
+  },
+  {
     name: 'revisar_cuentas',
     description: 'Diagnóstico de datos (solo lectura): cuentas cuyo saldo no coincide con el libro de movimientos, gastos posiblemente duplicados, consumos de crédito sin tarjeta y gastos de débito sin cuenta. Usala cuando el usuario diga que algo "no cuadra", un saldo está raro o sospeche un error.',
     input_schema: { type: 'object', properties: {} },
@@ -202,8 +212,38 @@ async function diagnostico(supabase: SupabaseClient<any, any, any>): Promise<str
   return JSON.stringify(out)
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function consultarViajes(supabase: SupabaseClient<any, any, any>, texto: string): Promise<string> {
+  const { data: vs, error } = await supabase.from('viajes')
+    .select('id, nombre, destino, fecha_inicio, fecha_fin, presupuesto, archivado, notas')
+    .order('fecha_inicio', { ascending: false, nullsFirst: false }).limit(30)
+  if (error) return 'No se pudo consultar.'
+  const t = texto.trim().toLowerCase()
+  const viajes = ((vs ?? []) as { id: string; nombre: string; destino: string | null; fecha_inicio: string | null; fecha_fin: string | null; presupuesto: number | null; archivado: boolean; notas: string | null }[])
+    .filter(v => !t || `${v.nombre} ${v.destino ?? ''}`.toLowerCase().includes(t))
+  if (!viajes.length) return JSON.stringify({ viajes: [], aviso: 'No hay viajes cargados' + (t ? ' que coincidan' : '') })
+  const { data: gs } = await supabase.from('viaje_gastos')
+    .select('viaje_id, concepto, categoria, monto, moneda, tipo_cambio, monto_ars, fecha')
+    .in('viaje_id', viajes.map(v => v.id)).order('fecha', { ascending: false }).limit(400)
+  const filas = (gs ?? []) as { viaje_id: string; concepto: string; categoria: string; monto: number; moneda: string; tipo_cambio: number; monto_ars: number; fecha: string }[]
+  return JSON.stringify({
+    viajes: viajes.map(v => {
+      const g = filas.filter(x => x.viaje_id === v.id)
+      const total = g.reduce((a, x) => a + Number(x.monto_ars || 0), 0)
+      return {
+        ...v, id: undefined,
+        gastado_ars: Math.round(total),
+        restante_ars: v.presupuesto != null ? Math.round(Number(v.presupuesto) - total) : null,
+        cantidad_gastos: g.length,
+        gastos: g.slice(0, 40).map(x => ({ concepto: x.concepto, categoria: x.categoria, monto: x.monto, moneda: x.moneda, monto_ars: x.monto_ars, fecha: x.fecha })),
+      }
+    }),
+  })
+}
+
 const GUIA_APP = `GUÍA DE LA APP (usala para explicar cómo funciona; si algo no está acá, decí que no estás segura y ofrecé reportarlo):
 - Resumen (inicio): "Libre para usar" = disponible − comprometido de los próximos 30 días (tarjetas, fijos pendientes, cuotas). Patrimonio neto = billeteras + inversiones − deuda de tarjetas, en pesos al dólar blue.
+- Planificación → Viajes: cada viaje tiene presupuesto en pesos y sus propios gastos (en cualquier moneda, convertidos a pesos). Están separados de Movimientos: para leerlos usá consultar_viajes. Todavía no podés cargar gastos de viaje por el chat: indicale que lo haga desde el viaje.
 - Movimientos: gastos variables. Se cargan con "Registrar" o hablándome. Los de crédito van a una tarjeta y al resumen según su fecha de cierre/vencimiento; los de débito descuentan de una billetera.
 - Gastos fijos: mensuales; "Pagado/Pendiente" marca si ya se debitó. Las suscripciones son fijos con tipo propio. Suman igual al gasto del mes.
 - Billeteras: cuentas, inversiones y saldos. Las transferencias entre cuentas se hacen ahí y quedan en el libro.
@@ -304,6 +344,8 @@ export async function POST(req: NextRequest) {
           if (typeof input.hasta === 'string') q = q.lte('fecha', input.hasta)
           const { data, error } = await q
           salida = error ? 'No se pudo consultar.' : JSON.stringify(data ?? [])
+        } else if (nombre === 'consultar_viajes') {
+          salida = await consultarViajes(supabase, typeof input.texto === 'string' ? input.texto : '')
         } else if (nombre === 'revisar_cuentas') {
           salida = await diagnostico(supabase)
         } else if (ACCIONES.has(nombre)) {

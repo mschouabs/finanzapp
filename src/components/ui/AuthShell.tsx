@@ -22,7 +22,7 @@ export default function AuthShell({
           <span className="text-lg font-semibold tracking-tight text-primary">FinanzApp</span>
         </div>
         <div className="mt-12 lg:mt-0">
-          <h1 className="max-w-[12ch] text-5xl font-semibold leading-[0.95] tracking-[-0.04em] text-primary sm:text-6xl lg:text-7xl">
+          <h1 className="max-w-[12ch] font-semibold leading-[0.95] tracking-[-0.03em] text-primary text-balance" style={{ fontSize: 'clamp(3rem, 6.5vw, 6rem)' }}>
             {titulo}
           </h1>
           <p className="mt-5 max-w-sm text-base text-secondary">{bajada}</p>

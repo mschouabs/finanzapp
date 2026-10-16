@@ -3,7 +3,6 @@
 export default function Error({ reset }: { error: Error; reset: () => void }) {
   return (
     <main className="flex min-h-dvh flex-col items-center justify-center bg-page px-6 text-center" role="alert">
-      <p className="fa-kicker">Algo salió mal</p>
       <h1 className="mt-2 text-2xl font-semibold tracking-tight text-primary">No pudimos cargar esta pantalla</h1>
       <p className="mt-2 max-w-sm text-sm text-secondary">
         Tus datos están a salvo. Probá de nuevo; si sigue fallando, volvé al inicio.
