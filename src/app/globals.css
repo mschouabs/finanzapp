@@ -764,3 +764,20 @@ input:focus-visible, textarea:focus-visible, select:focus-visible {
 @media (prefers-reduced-motion: reduce) {
   .fa-barra-icono, .fa-barra-tab { transition: none; }
 }
+
+/* Nada se sale de costado: si algo se pasa del ancho, la página no se
+   ensancha y la barra inferior queda centrada en la pantalla. */
+html, body { overflow-x: clip; }
+
+/* Invitación a instalar la app (celular, desde el navegador) */
+.fa-instalar {
+  background: color-mix(in srgb, var(--bg-card) 96%, transparent);
+  border: 1px solid var(--border-subtle);
+  box-shadow: 0 18px 40px -16px rgba(0, 0, 0, .55);
+  backdrop-filter: saturate(170%) blur(22px);
+  -webkit-backdrop-filter: saturate(170%) blur(22px);
+  animation: fa-sheet-up 420ms cubic-bezier(.32,.72,0,1);
+}
+[data-theme="rosa"] .fa-instalar { box-shadow: 0 18px 40px -16px rgba(199, 80, 130, .35); }
+[data-theme="dark"] .fa-instalar .bg-confirm { color: #04210F; }
+@media (prefers-reduced-motion: reduce) { .fa-instalar { animation: none; } }

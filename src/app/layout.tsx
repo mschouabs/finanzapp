@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { Geist } from "next/font/google";
 import { ThemeProvider } from "@/components/ThemeProvider";
+import InstalarApp from "@/components/ui/InstalarApp";
 
 export const viewport: Viewport = {
   width: 'device-width',
@@ -14,6 +15,8 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   title: "FinanzApp - Tus finanzas personales",
   description: "Controlá tus ingresos, gastos e inversiones",
+  manifest: "/manifest.webmanifest",
+  appleWebApp: { capable: true, title: "FinanzApp", statusBarStyle: "black-translucent" },
   icons: {
     icon: [
       { url: "/favicon.png", sizes: "32x32", type: "image/png" },
@@ -47,6 +50,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
         <ThemeProvider>
           {children}
+          <InstalarApp />
         </ThemeProvider>
       </body>
     </html>
