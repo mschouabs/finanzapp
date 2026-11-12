@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { pedidoAutorizado } from '@/lib/servidor/sesion'
 
 export async function POST(req: NextRequest) {
+  /* solo usuarios con sesión: la clave de OpenAI cuesta plata */
+  if (!(await pedidoAutorizado(req))) return NextResponse.json({ error: 'Iniciá sesión para usar el micrófono' }, { status: 401 })
   const apiKey = process.env.OPENAI_API_KEY
   if (!apiKey) {
     return NextResponse.json({ error: 'OPENAI_API_KEY no configurada' }, { status: 500 })

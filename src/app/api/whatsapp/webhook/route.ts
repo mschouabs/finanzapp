@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { CABECERA_INTERNA, huellaInterna } from '@/lib/servidor/sesion'
 import crypto from 'crypto'
 import { guardarGastoVariable } from '@/lib/movimientos'
 import { createAdminClient } from '@/lib/supabaseAdmin'
@@ -51,7 +52,7 @@ export async function POST(req: NextRequest) {
   const origin = new URL(req.url).origin
   const res = await fetch(`${origin}/api/ai`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...(huellaInterna() ? { [CABECERA_INTERNA]: huellaInterna()! } : {}) },
     body: JSON.stringify({ messages: [{ role: 'user', content: texto }] }),
   })
   const data = await res.json()

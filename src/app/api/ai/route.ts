@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { detectarMoneda, extraerCuotas, parsear, parsearVarios } from '@/lib/parser'
 import { detectarFormaPago, detectarMedioPago } from '@/lib/tarjetas'
 import { hoyArgentina } from '@/lib/fechas'
+import { pedidoAutorizado } from '@/lib/servidor/sesion'
 
 function getToday() {
   return hoyArgentina()
@@ -180,6 +181,8 @@ async function handleParse(text: string) {
 }
 
 export async function POST(req: NextRequest) {
+  /* solo usuarios con sesión (o el propio servidor): la clave de Anthropic cuesta plata */
+  if (!(await pedidoAutorizado(req))) return NextResponse.json({ error: 'sin_sesion' }, { status: 401 })
   try {
     const body = await req.json()
     if (Array.isArray(body.messages) && body.messages.length > 0) {
