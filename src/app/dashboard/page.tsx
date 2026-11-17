@@ -268,7 +268,8 @@ export default function ResumenPage() {
       onSeleccion={c => { setCatFiltro(c); if (c) setTimeout(() => document.getElementById('t-act')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 60) }} />
   )
 
-  const visibles = layout.orden.filter(id => !layout.ocultos.includes(id))
+  /* en computadora Luca vive en la barra superior: el widget sería repetido */
+  const visibles = layout.orden.filter(id => !layout.ocultos.includes(id) && !(desktop && id === 'luca'))
   const cambiar = (l: Layout) => { setLayout(l); guardarLayout(createClient(), l) }
   const ant = serie.at(-2)
   const gastoMes = serie.at(-1)?.gastos.total ?? 0

@@ -3,11 +3,13 @@
 /* ── Luca, capa de inteligencia ────────────────────────────────────
    1) LucaInsights: lo que Luca detectó, de a uno, con su "¿por qué?"
       y una acción. Se pueden ocultar (por hoy).
-   2) CapturaLuca: registrar un gasto en lenguaje natural con
-      confirmación visual antes de guardar.                            */
+   2) CapturaLuca: el input único de Luca, en todas las pantallas.
+      Escribís en lenguaje natural; Luca muestra lo que entendió y vos
+      confirmás, editás o cancelás. No es un chat: el chat completo
+      queda aparte (/dashboard/luca) para seguir una conversación.     */
 
 import Link from 'next/link'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { AlertTriangle, Check, ChevronDown, Lightbulb, Sparkles, TrendingUp, X } from 'lucide-react'
 import { LucaAvatar, type LucaEstado } from '@/components/luca/LucaAvatar'
 import { CATEGORIAS, getCat } from '@/lib/categorias'
@@ -16,6 +18,12 @@ import type { Insight, TipoInsight } from '@/lib/finanzas/insights'
 import { hoyISO } from '@/lib/fechas'
 import { useRouter } from 'next/navigation'
 import { parsear, parsearVarios } from '@/lib/parser'
+import { createClient } from '@/lib/supabase'
+import { guardarGastoVariable } from '@/lib/movimientos'
+import { snapshotCompartido } from '@/lib/finanzas/compartido'
+import { construirContexto } from '@/lib/luca/contexto'
+import { comoRegistroSimple, ejecutarAccion, prepararAccion, type AccionPropuesta, type Vista } from '@/lib/luca/acciones'
+import { EVENTO_DATOS } from '@/lib/eventos'
 
 const TIPO: Record<TipoInsight, { label: string; color: string; Icono: typeof Lightbulb }> = {
   atencion: { label: 'Atención', color: 'var(--accent-warning)', Icono: AlertTriangle },
@@ -145,11 +153,31 @@ export interface GastoDetectado {
   moneda?: 'ARS' | 'USD'
 }
 
-type Paso = 'idle' | 'escuchando' | 'pensando' | 'confirmar' | 'guardando' | 'error'
+type Paso = 'idle' | 'escuchando' | 'pensando' | 'confirmar' | 'guardando' | 'respuesta' | 'error'
 
-export function CapturaLuca({ onGuardar, autoFoco = false, flotante = false }: {
+/* guardado por defecto de un gasto (cuando la pantalla no trae el suyo) */
+async function guardarGastoPorDefecto(g: GastoDetectado): Promise<string | null> {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return 'Tu sesión venció. Volvé a entrar.'
+  const r = await guardarGastoVariable(supabase, user.id, {
+    nombre: g.nombre, monto: Number(g.monto), categoria: g.categoria, fecha: g.fecha,
+    medio_pago: g.medio_pago, forma_pago: g.forma_pago,
+    cuotas: g.forma_pago === 'credito' ? g.cuotas : undefined,
+    moneda: g.moneda === 'USD' ? 'USD' : 'ARS',
+  })
+  if (r.error && !r.guardado) return 'No se pudo guardar el gasto.'
+  window.dispatchEvent(new Event(EVENTO_DATOS))
+  return null
+}
+
+interface Propuesta { id: number; a: AccionPropuesta; vista: Vista | null; estado: 'pendiente' | 'haciendo' | 'hecha' | 'cancelada' | 'error'; msg?: string }
+
+export function CapturaLuca({ onGuardar = guardarGastoPorDefecto, autoFoco = false, flotante = false, compacto = false }: {
   /** guarda y devuelve un error (o null) */
-  onGuardar: (g: GastoDetectado) => Promise<string | null>
+  onGuardar?: (g: GastoDetectado) => Promise<string | null>
+  /** input más bajo (barra superior) */
+  compacto?: boolean
   autoFoco?: boolean
   /** desktop: la confirmación flota debajo del input sin empujar la pantalla */
   flotante?: boolean
@@ -158,8 +186,73 @@ export function CapturaLuca({ onGuardar, autoFoco = false, flotante = false }: {
   const [paso, setPaso] = useState<Paso>('idle')
   const [g, setG] = useState<GastoDetectado | null>(null)
   const [error, setError] = useState('')
+  const [respuesta, setRespuesta] = useState<{ texto: string; propuestas: Propuesta[] } | null>(null)
   const input = useRef<HTMLInputElement>(null)
+  const idInput = useId()
   const router = useRouter()
+  const enChat = () => router.push(`/dashboard/luca?q=${encodeURIComponent(texto.trim())}`)
+
+  /* Luca completo (con acceso a toda la app), pero la respuesta se muestra
+     acá mismo: lo que entendió y cada acción para confirmar o cancelar. */
+  async function consultarAgente() {
+    try {
+      const supabase = createClient()
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) throw new Error('sesion')
+      const s = await snapshotCompartido()
+      const res = await fetch('/api/luca/agente', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ messages: [{ role: 'user', content: texto.trim() }], contexto: construirContexto(s) }),
+      })
+      if (!res.ok) throw new Error('ia')
+      const data = await res.json() as { mensaje?: string; acciones?: AccionPropuesta[] }
+      const acciones = data.acciones ?? []
+      /* un solo gasto: la tarjeta editable de siempre */
+      const unico = acciones.length === 1 ? comoRegistroSimple(acciones[0]) : null
+      if (unico?.tabla === 'gasto_variable') {
+        const dd = unico.datos as Record<string, unknown>
+        setG({ nombre: String(dd.nombre), monto: Number(dd.monto), categoria: String(dd.categoria), fecha: String(dd.fecha),
+          medio_pago: dd.medio_pago as string | undefined, forma_pago: dd.forma_pago as 'debito' | 'credito' | undefined,
+          cuotas: dd.cuotas as number | undefined, moneda: dd.moneda === 'USD' ? 'USD' : 'ARS' })
+        setPaso('confirmar')
+        return
+      }
+      const propuestas: Propuesta[] = []
+      for (const [i, a] of acciones.entries()) {
+        const simple = comoRegistroSimple(a)
+        propuestas.push({ id: i, a, vista: simple ? null : await prepararAccion(supabase, s, a), estado: 'pendiente' })
+      }
+      setRespuesta({ texto: data.mensaje || 'Listo.', propuestas })
+      setPaso('respuesta')
+    } catch {
+      setError('Luca no pudo responder ahora. Probá de nuevo en un rato.')
+      setPaso('error')
+    }
+  }
+
+  async function confirmarPropuesta(p: Propuesta) {
+    const upd = (c: Partial<Propuesta>) => setRespuesta(r => r && { ...r, propuestas: r.propuestas.map(x => x.id === p.id ? { ...x, ...c } : x) })
+    upd({ estado: 'haciendo' })
+    try {
+      const supabase = createClient()
+      const s = await snapshotCompartido(true)
+      const uid = (await supabase.auth.getUser()).data.user?.id ?? ''
+      const r = await ejecutarAccion(supabase, uid, s, p.a)
+      if (r.error) throw new Error(r.error)
+      upd({ estado: 'hecha', msg: r.ok ?? 'Hecho.' })
+      window.dispatchEvent(new Event(EVENTO_DATOS))
+    } catch (e) {
+      upd({ estado: 'error', msg: e instanceof Error ? e.message : 'No se pudo completar.' })
+    }
+  }
+
+  function cerrarRespuesta(limpiar: boolean) {
+    setRespuesta(null)
+    setPaso(limpiar ? 'idle' : 'escuchando')
+    if (limpiar) setTexto('')
+    else input.current?.focus()
+  }
 
   useEffect(() => { if (autoFoco) setTimeout(() => input.current?.focus(), 60) }, [autoFoco])
 
@@ -173,10 +266,7 @@ export function CapturaLuca({ onGuardar, autoFoco = false, flotante = false }: {
     const local = parsear(texto)
     const pregunta = /\?/.test(texto) || /^(cu[aá]nto|cu[aá]l|qu[eé]|c[oó]mo|puedo|me alcanza|por qu[eé]|d[oó]nde|cu[aá]ndo|mostr|decime|explic|revis|correg|borr|deshac|transfer|pagu[eé]|cobr)/i.test(texto.trim())
     const simple = local.tipo === 'gasto_variable' && !pregunta && !parsearVarios(texto)
-    if (!simple) {
-      router.push(`/dashboard/luca?q=${encodeURIComponent(texto.trim())}`)
-      return
-    }
+    if (!simple) { await consultarAgente(); return }
     try {
       const r = await fetch('/api/ai', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: texto }) })
       const d = await r.json()
@@ -184,7 +274,7 @@ export function CapturaLuca({ onGuardar, autoFoco = false, flotante = false }: {
       setG({ ...d, monto: Number(d.monto) })
       setPaso('confirmar')
     } catch {
-      router.push(`/dashboard/luca?q=${encodeURIComponent(texto.trim())}`)
+      await consultarAgente()
     }
   }
 
@@ -200,31 +290,33 @@ export function CapturaLuca({ onGuardar, autoFoco = false, flotante = false }: {
 
   function cancelar() {
     setG(null)
+    setRespuesta(null)
     setPaso(texto ? 'escuchando' : 'idle')
     setError('')
     input.current?.focus()
   }
 
   const estado: LucaEstado = paso === 'escuchando' ? 'listening' : paso === 'pensando' ? 'thinking'
-    : paso === 'guardando' ? 'saving' : paso === 'error' ? 'warning' : paso === 'confirmar' ? 'insight' : 'idle'
+    : paso === 'guardando' ? 'saving' : paso === 'error' ? 'warning' : paso === 'confirmar' || paso === 'respuesta' ? 'insight' : 'idle'
 
   return (
     <div className="relative w-full">
       <form onSubmit={e => { e.preventDefault(); if (paso === 'confirmar') confirmar(); else interpretar() }}
-        className="flex items-center gap-2 rounded-2xl border px-2 py-1.5 transition-colors focus-within:border-[var(--accent-confirm)]"
+        className={`flex items-center gap-2 rounded-control border px-2 transition-colors focus-within:border-[var(--accent-confirm)] ${compacto ? 'py-1' : 'py-1.5'}`}
         style={{ background: 'var(--bg-input)', borderColor: 'var(--border-color)' }}>
-        <span className="shrink-0"><LucaAvatar estado={estado} size={30} /></span>
-        <label htmlFor="captura-luca" className="sr-only">Contale a Luca un gasto</label>
-        <input id="captura-luca" ref={input} value={texto} autoComplete="off"
+        <span className="shrink-0"><LucaAvatar estado={estado} size={compacto ? 24 : 30} /></span>
+        <label htmlFor={idInput} className="sr-only">Contale o preguntale a Luca</label>
+        <input id={idInput} ref={input} value={texto} autoComplete="off"
           onChange={e => { setTexto(e.target.value); if (paso === 'idle' || paso === 'error') setPaso('escuchando') }}
           onFocus={() => paso === 'idle' && setPaso('escuchando')}
           onBlur={() => paso === 'escuchando' && !texto && setPaso('idle')}
           onKeyDown={e => { if (e.key === 'Escape') cancelar() }}
           disabled={paso === 'pensando' || paso === 'guardando'}
-          placeholder="Contale a Luca: “Gasté 18.500 en comida con Mercado Pago”"
-          className="min-w-0 flex-1 border-0 bg-transparent px-1 py-2 text-sm text-primary outline-none placeholder:text-muted" />
+          placeholder="Contale o preguntale a Luca: “gasté 18.500 en el súper”"
+          enterKeyHint="send"
+          className="min-w-0 flex-1 border-0 bg-transparent px-1 py-2 text-sm text-primary outline-none focus-visible:outline-none placeholder:text-muted" style={{ outline: "none" }} />
         <button type="submit" disabled={!texto.trim() || paso === 'pensando' || paso === 'guardando'}
-          className="fa-press shrink-0 rounded-xl bg-confirm px-3.5 py-2 text-xs font-semibold text-white hover:bg-confirm-hover disabled:opacity-40">
+          className="fa-press shrink-0 rounded-[9px] bg-confirm px-3.5 py-2 text-xs font-semibold hover:bg-confirm-hover disabled:opacity-40">
           {paso === 'pensando' ? 'Pensando…' : paso === 'confirmar' ? 'Confirmar' : paso === 'guardando' ? 'Guardando…' : 'Enviar'}
         </button>
       </form>
@@ -233,7 +325,7 @@ export function CapturaLuca({ onGuardar, autoFoco = false, flotante = false }: {
 
       {/* lo que entendió Luca: se confirma antes de guardar */}
       {g && (paso === 'confirmar' || paso === 'guardando') && (
-        <div className={`fa-pop mt-2 rounded-2xl border p-4 shadow-card-hover ${flotante ? 'absolute inset-x-0 top-full z-40' : ''}`} style={{ background: 'var(--bg-alternate)', borderColor: 'var(--border-color)' }}
+        <div className={`fa-pop mt-2 rounded-[18px] p-4 ${flotante ? 'absolute inset-x-0 top-full z-40' : ''}`} style={{ background: 'var(--bg-card)', boxShadow: 'var(--shadow-pop)' }}
           role="dialog" aria-label="Confirmar gasto detectado">
           <p className="text-xs font-medium tracking-[0.05em] text-secondary">Luca entendió</p>
           <div className="mt-2 flex flex-wrap items-end justify-between gap-3">
@@ -265,11 +357,53 @@ export function CapturaLuca({ onGuardar, autoFoco = false, flotante = false }: {
           )}
           <div className="mt-3 flex items-center gap-2">
             <button onClick={confirmar} disabled={paso === 'guardando' || !(g.monto > 0)} autoFocus
-              className="fa-press inline-flex items-center gap-1.5 rounded-lg bg-confirm px-3.5 py-2 text-xs font-semibold text-white hover:bg-confirm-hover disabled:opacity-50">
+              className="fa-press inline-flex items-center gap-1.5 rounded-[9px] bg-confirm px-3.5 py-2 text-xs font-semibold hover:bg-confirm-hover disabled:opacity-50">
               <Check size={14} /> {paso === 'guardando' ? 'Guardando…' : 'Confirmar gasto'}
             </button>
             <button onClick={cancelar} className="fa-press rounded-lg px-3 py-2 text-xs font-semibold text-secondary hover:bg-card hover:text-primary">Cancelar</button>
             <span className="ml-auto hidden text-[11px] text-muted sm:inline">Enter confirma · Esc cancela</span>
+          </div>
+        </div>
+      )}
+
+      {/* respuesta de Luca: lo que entendió y cada acción para confirmar */}
+      {respuesta && paso === 'respuesta' && (
+        <div className={`fa-pop mt-2 rounded-[18px] p-4 shadow-pop ${flotante ? 'absolute inset-x-0 top-full z-40' : ''}`} style={{ background: 'var(--bg-card)', boxShadow: 'var(--shadow-pop)' }}
+          role="dialog" aria-label="Respuesta de Luca">
+          <p className="whitespace-pre-line text-sm leading-relaxed text-primary">{respuesta.texto}</p>
+          {respuesta.propuestas.length > 0 && (
+            <ul className="mt-3 space-y-2">
+              {respuesta.propuestas.map(p => {
+                const simple = comoRegistroSimple(p.a)
+                const titulo = p.vista?.titulo ?? simple?.mensaje.replace(' para confirmar:', '') ?? 'Acción'
+                const lineas = p.vista?.lineas ?? (simple ? [String((simple.datos as Record<string, unknown>).nombre ?? (simple.datos as Record<string, unknown>).cliente ?? ''), fmt(Number((simple.datos as Record<string, unknown>).monto ?? 0))] : [])
+                return (
+                  <li key={p.id} className="rounded-control bg-alternate p-3">
+                    <p className="text-sm font-medium text-primary">{titulo}</p>
+                    {lineas.filter(Boolean).map((l, i) => <p key={i} className="text-xs text-secondary">{l}</p>)}
+                    {p.vista?.error && <p className="mt-1 text-xs text-negative">{p.vista.error}</p>}
+                    <div className="mt-2 flex items-center gap-2">
+                      {p.estado === 'hecha' ? <span className="inline-flex items-center gap-1 text-xs font-medium text-positive"><Check size={14} />{p.msg}</span>
+                        : p.estado === 'cancelada' ? <span className="text-xs text-muted">Cancelado</span>
+                        : simple ? (
+                          <button onClick={enChat} className="fa-press rounded-[9px] bg-confirm px-3 py-1.5 text-xs font-semibold">Revisar y guardar</button>
+                        ) : !p.vista?.error && (<>
+                          <button onClick={() => confirmarPropuesta(p)} disabled={p.estado === 'haciendo'}
+                            className="fa-press rounded-[9px] bg-confirm px-3 py-1.5 text-xs font-semibold disabled:opacity-50">{p.estado === 'haciendo' ? 'Haciendo…' : p.estado === 'error' ? 'Reintentar' : 'Confirmar'}</button>
+                          <button onClick={() => setRespuesta(r => r && { ...r, propuestas: r.propuestas.map(x => x.id === p.id ? { ...x, estado: 'cancelada' } : x) })}
+                            className="fa-press rounded-[9px] px-3 py-1.5 text-xs font-medium text-secondary hover:text-primary">Cancelar</button>
+                        </>)}
+                    </div>
+                    {p.estado === 'error' && p.msg && <p className="mt-1 text-xs text-negative">{p.msg}</p>}
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+          <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs font-medium">
+            <button onClick={() => cerrarRespuesta(false)} className="text-secondary hover:text-primary">Editar lo que escribí</button>
+            <button onClick={enChat} className="text-secondary hover:text-primary">Seguir en el chat</button>
+            <button onClick={() => cerrarRespuesta(true)} className="ml-auto text-secondary hover:text-primary">Cerrar</button>
           </div>
         </div>
       )}

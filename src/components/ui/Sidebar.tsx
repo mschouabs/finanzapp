@@ -12,6 +12,7 @@ import { AgregarMovimientoModal } from '@/components/AgregarMovimientoModal'
 import type { Seccion } from '@/lib/secciones'
 import { EVENTO_DATOS, EVENTO_NUEVO } from '@/lib/eventos'
 import { LucaLateral } from '@/components/luca/LucaLateral'
+import { CapturaLuca } from '@/components/resumen/Luca'
 import { Icono } from '@/components/ui/Icono'
 
 /* Navegación agrupada por función, no por orden alfabético: así la
@@ -73,6 +74,7 @@ export default function Sidebar({ userName }: { userName?: string }) {
   const [modal, setModal] = useState(false)
   const [abierta, setAbierta] = useState(false)
   const [showAgregar, setShowAgregar] = useState(false)
+  const [hojaLuca, setHojaLuca] = useState(false)
 
   /* el buscador (Ctrl+K) puede pedir abrir "Nuevo movimiento" */
   useEffect(() => {
@@ -98,7 +100,7 @@ export default function Sidebar({ userName }: { userName?: string }) {
   useEffect(() => { cargarSecciones() }, [cargarSecciones])
 
   // Al navegar en mobile, el panel se cierra solo.
-  useEffect(() => { setAbierta(false) }, [pathname])
+  useEffect(() => { setAbierta(false); setHojaLuca(false) }, [pathname])
 
   async function salir() {
     const supabase = createClient()
@@ -269,7 +271,7 @@ export default function Sidebar({ userName }: { userName?: string }) {
 
           {/* Nuevo movimiento: acción principal, apenas elevada */}
           <button
-            onClick={() => setShowAgregar(true)}
+            onClick={() => setHojaLuca(true)}
             aria-label="Nuevo movimiento"
             className="group flex flex-col items-center justify-center gap-1"
           >
@@ -299,6 +301,23 @@ export default function Sidebar({ userName }: { userName?: string }) {
           onClose={() => setModal(false)}
           onCreated={() => { cargarSecciones(); router.refresh() }}
         />
+      )}
+
+      {/* Nuevo (celular): primero Luca; la carga a mano queda a un toque */}
+      {hojaLuca && (
+        <div className="fixed inset-0 z-[55] flex items-end lg:hidden" role="dialog" aria-modal="true" aria-label="Nuevo movimiento">
+          <button className="fa-fade-in absolute inset-0 bg-black/60" aria-label="Cerrar" onClick={() => setHojaLuca(false)} />
+          <div className="fa-sheet-up relative w-full rounded-t-[26px] p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom,0px))]" style={{ background: 'var(--bg-card)' }}>
+            <div className="mx-auto mb-4 h-1 w-10 rounded-full" style={{ background: 'var(--border-color)' }} />
+            <p className="mb-3 text-[15px] font-semibold text-primary">Contale a Luca</p>
+            <CapturaLuca autoFoco />
+            <p className="mt-3 text-xs text-muted">Ej: “uber 4500”, “super 32 mil con naranja en 3 cuotas”, “¿cuánto gasté en viajes?”.</p>
+            <button onClick={() => { setHojaLuca(false); setShowAgregar(true) }}
+              className="fa-press mt-4 flex h-11 w-full items-center justify-center rounded-control bg-alternate text-sm font-medium text-primary">
+              Cargar a mano
+            </button>
+          </div>
+        </div>
       )}
 
       {showAgregar && (

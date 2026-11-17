@@ -10,7 +10,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
-import { useRouter } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
+import { CapturaLuca } from '@/components/resumen/Luca'
 import { Bell, CornerDownLeft, Eye, EyeOff, Plus, Search, X } from 'lucide-react'
 import { EVENTO_PRIVADO, alternarPrivado, privadoActivo } from '@/lib/eventos'
 import { NAV_GRUPOS } from './Sidebar'
@@ -43,6 +44,7 @@ const TONO: Record<Insight['tipo'], string> = {
 
 export function Header() {
   const router = useRouter()
+  const pathname = usePathname()
   const [snap, setSnap] = useState<Snapshot | null>(null)
   const [abierto, setAbierto] = useState(false)
   const [q, setQ] = useState('')
@@ -186,6 +188,11 @@ export function Header() {
     <div className="sticky top-0 z-30 flex items-center justify-end gap-1.5 border-b px-4 pb-2 pt-[max(0.5rem,env(safe-area-inset-top,0px))] backdrop-blur fa-hairline lg:gap-2 lg:px-10 lg:pb-3 lg:pt-3"
       style={{ background: 'color-mix(in srgb, var(--bg-page) 85%, transparent)' }}>
       <span className="mr-auto text-sm font-extrabold tracking-tight text-primary lg:hidden">FinanzApp</span>
+
+      {/* Luca, el input único: en todas las pantallas (menos en su chat) */}
+      {desktop && !pathname?.startsWith('/dashboard/luca') && (
+        <div className="mr-auto w-full max-w-xl"><CapturaLuca flotante compacto /></div>
+      )}
 
       {/* buscador: barra en desktop, ícono en mobile */}
       <button onClick={() => setAbierto(true)} aria-label="Buscar"
