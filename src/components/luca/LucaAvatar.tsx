@@ -1,7 +1,10 @@
 'use client'
 
-/* Estados base + los del nuevo lenguaje de Luca (escuchando, insight,
-   guardando, éxito). Todos son sutiles: cambian ojos y boca, nada más. */
+/* ── Luca ────────────────────────────────────────────────────────────
+   Avatar geométrico, coherente con la marca: una placa redondeada (como
+   el isotipo) con una pantalla. Los estados cambian solo ojos, boca y
+   el punto de la antena. Colores desde los tokens del tema.           */
+
 export type LucaEstado =
   | 'idle' | 'thinking' | 'celebration' | 'sad' | 'warning'
   | 'listening' | 'insight' | 'saving' | 'success'
@@ -12,171 +15,75 @@ interface Props {
   className?: string
 }
 
-function FaceIdle() {
-  return (
-    <>
-      <ellipse cx="25" cy="30" rx="8" ry="9" fill="#22c55e" opacity="0.12" />
-      <ellipse cx="25" cy="30" rx="5.5" ry="6.5" fill="#22c55e" />
-      <ellipse cx="23" cy="28" rx="1.8" ry="2.2" fill="white" opacity="0.55" />
-      <ellipse cx="51" cy="30" rx="8" ry="9" fill="#22c55e" opacity="0.12" />
-      <ellipse cx="51" cy="30" rx="5.5" ry="6.5" fill="#22c55e" />
-      <ellipse cx="49" cy="28" rx="1.8" ry="2.2" fill="white" opacity="0.55" />
-      <path d="M 24 44 Q 38 53 52 44" stroke="#22c55e" strokeWidth="2.5" fill="none" strokeLinecap="round" />
-    </>
-  )
+const OJO = 'var(--luca-glow)'
+
+function Cara({ estado }: { estado: LucaEstado }) {
+  const trazo = { stroke: OJO, strokeWidth: 3, strokeLinecap: 'round' as const, fill: 'none' }
+  switch (estado) {
+    case 'celebration':
+    case 'success':
+      return <>
+        <path d="M21 33l4-4 4 4M35 33l4-4 4 4" {...trazo} />
+        <path d="M24 40q8 6 16 0" {...trazo} />
+      </>
+    case 'sad':
+      return <>
+        <rect x="22" y="31" width="5" height="5" rx="2.5" fill={OJO} />
+        <rect x="37" y="31" width="5" height="5" rx="2.5" fill={OJO} />
+        <path d="M25 43q7-4 14 0" {...trazo} />
+      </>
+    case 'warning':
+      return <>
+        <path d="M21 32h7M36 32h7" {...trazo} />
+        <path d="M26 41h12" {...trazo} />
+      </>
+    case 'thinking':
+      return <>
+        <rect x="24" y="26" width="5" height="8" rx="2.5" fill={OJO} />
+        <rect x="38" y="26" width="5" height="8" rx="2.5" fill={OJO} />
+        <circle cx="27" cy="42" r="1.6" fill={OJO} className="luca-dot-1" />
+        <circle cx="32" cy="42" r="1.6" fill={OJO} className="luca-dot-2" />
+        <circle cx="37" cy="42" r="1.6" fill={OJO} className="luca-dot-3" />
+      </>
+    case 'listening':
+      return <>
+        <circle cx="24.5" cy="32" r="4" fill={OJO} />
+        <circle cx="39.5" cy="32" r="4" fill={OJO} />
+        <path d="M27 41q5 3 10 0" {...trazo} />
+      </>
+    case 'insight':
+      return <>
+        <rect x="22" y="27" width="5" height="9" rx="2.5" fill={OJO} />
+        <rect x="37" y="27" width="5" height="9" rx="2.5" fill={OJO} />
+        <circle cx="32" cy="42" r="2.5" {...trazo} strokeWidth={2.5} />
+      </>
+    case 'saving':
+      return <>
+        <path d="M21 32h6M37 32h6" {...trazo} />
+        <path d="M27 41q5 2 10 0" {...trazo} />
+      </>
+    default:
+      return <>
+        <rect x="22" y="27" width="5" height="9" rx="2.5" fill={OJO} />
+        <rect x="37" y="27" width="5" height="9" rx="2.5" fill={OJO} />
+        <path d="M25 40q7 5 14 0" {...trazo} />
+      </>
+  }
 }
 
-function FaceThinking() {
-  return (
-    <>
-      <circle cx="22" cy="33" r="4.5" fill="#22c55e">
-        <animate attributeName="opacity" values="0.2;1;0.2" dur="1.2s" begin="0s" repeatCount="indefinite" />
-      </circle>
-      <circle cx="38" cy="33" r="4.5" fill="#22c55e">
-        <animate attributeName="opacity" values="0.2;1;0.2" dur="1.2s" begin="0.4s" repeatCount="indefinite" />
-      </circle>
-      <circle cx="54" cy="33" r="4.5" fill="#22c55e">
-        <animate attributeName="opacity" values="0.2;1;0.2" dur="1.2s" begin="0.8s" repeatCount="indefinite" />
-      </circle>
-    </>
-  )
-}
-
-function FaceCelebration() {
-  return (
-    <>
-      <text x="12" y="40" fontSize="19" fill="#fbbf24">&#9733;</text>
-      <text x="44" y="40" fontSize="19" fill="#fbbf24">&#9733;</text>
-      <path d="M 20 46 Q 38 58 56 46" stroke="#22c55e" strokeWidth="3" fill="none" strokeLinecap="round" />
-    </>
-  )
-}
-
-function FaceSad() {
-  return (
-    <>
-      <line x1="19" y1="24" x2="31" y2="36" stroke="#f87171" strokeWidth="2.5" strokeLinecap="round" />
-      <line x1="31" y1="24" x2="19" y2="36" stroke="#f87171" strokeWidth="2.5" strokeLinecap="round" />
-      <line x1="45" y1="24" x2="57" y2="36" stroke="#f87171" strokeWidth="2.5" strokeLinecap="round" />
-      <line x1="57" y1="24" x2="45" y2="36" stroke="#f87171" strokeWidth="2.5" strokeLinecap="round" />
-      <path d="M 24 50 Q 38 43 52 50" stroke="#f87171" strokeWidth="2.5" fill="none" strokeLinecap="round" />
-    </>
-  )
-}
-
-function FaceWarning() {
-  return (
-    <>
-      <ellipse cx="25" cy="30" rx="5.5" ry="6.5" fill="#fbbf24" />
-      <ellipse cx="51" cy="30" rx="5.5" ry="6.5" fill="#fbbf24" />
-      <line x1="24" y1="47" x2="52" y2="47" stroke="#fbbf24" strokeWidth="2.5" strokeLinecap="round" />
-    </>
-  )
-}
-
-/* Escuchando: ojos abiertos y una onda de "te oigo" en la boca */
-function FaceListening() {
-  return (
-    <>
-      <ellipse cx="25" cy="30" rx="5.5" ry="7" fill="#22c55e" />
-      <ellipse cx="51" cy="30" rx="5.5" ry="7" fill="#22c55e" />
-      <rect x="27" y="44" width="3" height="6" rx="1.5" fill="#22c55e">
-        <animate attributeName="height" values="4;9;4" dur="0.9s" repeatCount="indefinite" />
-        <animate attributeName="y" values="45;42.5;45" dur="0.9s" repeatCount="indefinite" />
-      </rect>
-      <rect x="36.5" y="42" width="3" height="10" rx="1.5" fill="#22c55e">
-        <animate attributeName="height" values="10;4;10" dur="0.9s" repeatCount="indefinite" />
-        <animate attributeName="y" values="42;45;42" dur="0.9s" repeatCount="indefinite" />
-      </rect>
-      <rect x="46" y="44" width="3" height="6" rx="1.5" fill="#22c55e">
-        <animate attributeName="height" values="4;8;4" dur="0.9s" begin="0.3s" repeatCount="indefinite" />
-        <animate attributeName="y" values="45;43;45" dur="0.9s" begin="0.3s" repeatCount="indefinite" />
-      </rect>
-    </>
-  )
-}
-
-/* Insight: detectó algo. Mirada atenta y un brillo arriba */
-function FaceInsight() {
-  return (
-    <>
-      <ellipse cx="25" cy="31" rx="5.5" ry="6" fill="#63A9FF" />
-      <ellipse cx="51" cy="31" rx="5.5" ry="6" fill="#63A9FF" />
-      <ellipse cx="23.5" cy="29" rx="1.6" ry="1.9" fill="white" opacity="0.7" />
-      <ellipse cx="49.5" cy="29" rx="1.6" ry="1.9" fill="white" opacity="0.7" />
-      <path d="M 28 46 Q 38 50 48 46" stroke="#63A9FF" strokeWidth="2.5" fill="none" strokeLinecap="round" />
-      <path d="M 60 16 l 1.6 3.4 3.4 1.6 -3.4 1.6 -1.6 3.4 -1.6 -3.4 -3.4 -1.6 3.4 -1.6 z" fill="#63A9FF">
-        <animate attributeName="opacity" values="0.3;1;0.3" dur="2.2s" repeatCount="indefinite" />
-      </path>
-    </>
-  )
-}
-
-/* Guardando: un arco que gira entre los ojos */
-function FaceSaving() {
-  return (
-    <>
-      <ellipse cx="25" cy="30" rx="5" ry="3" fill="#22c55e" />
-      <ellipse cx="51" cy="30" rx="5" ry="3" fill="#22c55e" />
-      <g>
-        <path d="M 32 46 A 6 6 0 1 1 38 52" stroke="#22c55e" strokeWidth="2.5" fill="none" strokeLinecap="round" />
-        <animateTransform attributeName="transform" type="rotate" from="0 38 46" to="360 38 46" dur="0.9s" repeatCount="indefinite" />
-      </g>
-    </>
-  )
-}
-
-/* Éxito: ojos felices (arcos) y sonrisa, sin estrellas: más sobrio que "celebration" */
-function FaceSuccess() {
-  return (
-    <>
-      <path d="M 19 32 Q 25 24 31 32" stroke="#22c55e" strokeWidth="3" fill="none" strokeLinecap="round" />
-      <path d="M 45 32 Q 51 24 57 32" stroke="#22c55e" strokeWidth="3" fill="none" strokeLinecap="round" />
-      <path d="M 24 44 Q 38 55 52 44" stroke="#22c55e" strokeWidth="2.8" fill="none" strokeLinecap="round" />
-    </>
-  )
-}
-
-const FACES = {
-  idle: FaceIdle,
-  thinking: FaceThinking,
-  celebration: FaceCelebration,
-  sad: FaceSad,
-  warning: FaceWarning,
-  listening: FaceListening,
-  insight: FaceInsight,
-  saving: FaceSaving,
-  success: FaceSuccess,
+const ANTENA: Partial<Record<LucaEstado, string>> = {
+  warning: 'var(--accent-warning)', sad: 'var(--accent-negative)',
+  success: 'var(--accent-positive)', celebration: 'var(--accent-positive)',
 }
 
 export function LucaAvatar({ estado = 'idle', size = 40, className }: Props) {
-  const Face = FACES[estado]
-
   return (
-    <svg
-      width={size}
-      height={Math.round(size * 1.1)}
-      viewBox="0 0 76 84"
-      fill="none"
-      className={className}
-      xmlns="http://www.w3.org/2000/svg"
-      aria-label="Luca"
-    >
-      <line x1="38" y1="2" x2="38" y2="10" stroke="#cbd5e1" strokeWidth="2.5" strokeLinecap="round" />
-      <circle cx="38" cy="1.5" r="3.5" fill="#22c55e" />
-      <ellipse cx="38" cy="36" rx="34" ry="30" fill="white" />
-      <ellipse cx="38" cy="64" rx="22" ry="3" fill="black" opacity="0.06" />
-      <rect x="1" y="22" width="9" height="22" rx="4.5" fill="#15803d" />
-      <rect x="2.5" y="27" width="6" height="12" rx="3" fill="#22c55e" opacity="0.55" />
-      <rect x="66" y="22" width="9" height="22" rx="4.5" fill="#15803d" />
-      <rect x="67.5" y="27" width="6" height="12" rx="3" fill="#22c55e" opacity="0.55" />
-      <rect x="9" y="12" width="58" height="48" rx="16" fill="#0f1623" />
-      <rect x="9" y="12" width="58" height="48" rx="16" fill="#22c55e" opacity="0.03" />
-      <Face />
-      <rect x="17" y="66" width="42" height="18" rx="9" fill="white" />
-      <text x="38" y="80" fontSize="13" fontWeight="bold" fill="#15803d" fontFamily="system-ui, -apple-system, sans-serif" textAnchor="middle">F</text>
-      <ellipse cx="11" cy="74" rx="6" ry="7" fill="white" />
-      <ellipse cx="65" cy="74" rx="6" ry="7" fill="white" />
+    <svg width={size} height={size} viewBox="0 0 64 64" fill="none" className={className} xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Luca">
+      <path d="M32 9V4" stroke="var(--text-muted)" strokeWidth="2.5" strokeLinecap="round" />
+      <circle cx="32" cy="4" r="3.5" fill={ANTENA[estado] ?? 'var(--luca-glow)'} />
+      <rect x="6" y="10" width="52" height="48" rx="15" fill="var(--luca-shell)" stroke="var(--border-color)" strokeWidth="1.5" />
+      <rect x="12" y="16" width="40" height="36" rx="10" fill="var(--luca-screen)" />
+      <Cara estado={estado} />
     </svg>
   )
 }
