@@ -387,7 +387,7 @@ export default function MetasPage() {
         {!tablaFalta && (
           <button onClick={() => setEditando('nueva')}
             className="fa-press flex h-11 items-center gap-1.5 rounded-xl bg-confirm px-4 text-sm font-semibold text-white hover:bg-confirm-hover">
-            <Plus size={16} strokeWidth={2.5} /> Nueva meta
+            <Plus size={16} strokeWidth={2.5} /> Agregar meta
           </button>
         )}
       </header>
@@ -417,7 +417,7 @@ export default function MetasPage() {
       })()}
 
       {lucaInsight && (
-        <div className="flex items-start gap-3 rounded-2xl border px-4 py-3"
+        <div className="flex items-start gap-3 rounded-2xl px-4 py-3 bg-alternate"
           style={{ borderColor: 'color-mix(in srgb, var(--accent-positive) 22%, var(--border-subtle))', background: 'color-mix(in srgb, var(--accent-positive) 4%, var(--bg-card))' }}>
           <LucaAvatar estado="insight" size={30} />
           <p className="text-sm leading-relaxed text-primary">{lucaInsight}</p>
@@ -597,7 +597,7 @@ function EditarMeta({ inicial, apps, nombreApp, onGuardar, onBorrar, onCerrar }:
           </div>
           <div>
             <span className={label}>Moneda</span>
-            <div className="flex overflow-hidden rounded-lg border">
+            <div className="flex overflow-hidden rounded-control bg-alternate">
               {(['ARS', 'USD'] as const).map(m => (
                 <button key={m} type="button" onClick={() => setD({ ...d, moneda: m })}
                   className={`px-4 py-2.5 text-sm font-semibold ${d.moneda === m ? 'bg-confirm text-white' : 'text-secondary hover:bg-alternate'}`}>

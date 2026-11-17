@@ -171,7 +171,7 @@ export function Experiencia() {
       {visible && (
         <div className="pointer-events-none fixed left-1/2 z-[60] -translate-x-1/2 lg:hidden"
           style={{ top: `calc(env(safe-area-inset-top, 0px) + ${actualizando ? 64 : 8 + tirando * 0.6}px)`, transition: tirando ? 'none' : 'top 200ms ease' }}>
-          <span className="fa-vidrio grid h-10 w-10 place-items-center rounded-full border fa-hairline"
+          <span className="fa-vidrio grid h-10 w-10 place-items-center rounded-full bg-alternate"
             style={{ boxShadow: '0 8px 20px -10px rgba(0,0,0,.5)' }}>
             <RefreshCw size={17} className={actualizando ? 'animate-spin' : ''}
               style={{ color: tirando >= 64 || actualizando ? 'var(--accent-confirm)' : 'var(--text-muted)', transform: actualizando ? undefined : `rotate(${tirando * 4}deg)` }} />

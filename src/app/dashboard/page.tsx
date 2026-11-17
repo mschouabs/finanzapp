@@ -204,7 +204,7 @@ export default function ResumenPage() {
   /* ── estados de carga / error ─────────────────────────────────── */
   if (estado === 'error') {
     return (
-      <div className="fa-page-in mx-auto mt-10 max-w-md rounded-2xl border p-8 text-center fa-hairline">
+      <div className="fa-page-in mx-auto mt-10 max-w-md rounded-2xl p-8 text-center bg-alternate">
         <LucaAvatar estado="sad" size={56} className="mx-auto" />
         <p className="mt-4 font-semibold text-primary">No pude traer tus datos</p>
         <p className="mt-1 text-sm text-secondary">Puede ser la conexión. Tus datos están a salvo.</p>
@@ -254,7 +254,7 @@ export default function ResumenPage() {
             mesSel={modo === 'patrimonio' ? null : mesSel}
             onElegir={modo === 'patrimonio' ? undefined : k => setMesSel(k)} alto={desktop ? 330 : 210} />
         ) : (
-          <p className="rounded-xl border border-dashed px-4 py-10 text-center text-xs text-secondary fa-hairline">
+          <p className="rounded-xl px-4 py-10 text-center text-xs text-secondary bg-alternate">
             {modo === 'patrimonio' ? 'La evolución del patrimonio arranca con la foto de cada mes: el mes que viene vas a ver la primera línea.' : 'Con dos meses de datos aparece la evolución.'}
           </p>
         )}

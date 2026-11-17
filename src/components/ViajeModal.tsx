@@ -209,7 +209,7 @@ export function ViajeModal({
             </button>
             <button
               onClick={onClose}
-              className="rounded-md border px-4 py-2 text-xs font-semibold text-secondary hover:bg-alternate"
+              className="rounded-control px-4 py-2 text-xs font-semibold text-secondary hover:bg-alternate bg-alternate"
             >
               Cancelar
             </button>

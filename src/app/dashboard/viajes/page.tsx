@@ -161,7 +161,7 @@ export default function ViajesPage() {
         </div>
         <button onClick={() => setModal(true)}
           className="fa-press flex h-11 items-center gap-1.5 rounded-xl bg-confirm px-4 text-sm font-semibold text-white hover:bg-confirm-hover">
-          <Plus size={16} strokeWidth={2.5} /> Nuevo viaje
+          <Plus size={16} strokeWidth={2.5} /> Agregar viaje
         </button>
       </header>
 
@@ -195,7 +195,7 @@ export default function ViajesPage() {
       )}
 
       {luca && (
-        <div className="flex items-start gap-3 rounded-2xl border px-4 py-3"
+        <div className="flex items-start gap-3 rounded-2xl px-4 py-3 bg-alternate"
           style={{ borderColor: 'color-mix(in srgb, var(--accent-secondary) 22%, var(--border-subtle))', background: 'color-mix(in srgb, var(--accent-secondary) 4%, var(--bg-card))' }}>
           <LucaAvatar estado="insight" size={30} />
           <p className="text-sm leading-relaxed text-primary">{luca}</p>

@@ -2,20 +2,18 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { createClient } from '@/lib/supabase'
-import { guardarGastoVariable } from '@/lib/movimientos'
 import { esPreguntaDeTarjetas, responderSobreTarjetas } from '@/lib/lucaTarjetas'
 import { COLUMNAS_CONSUMO, estadoTarjeta, type Consumo, type TarjetaInfo } from '@/lib/resumenes'
 import { traerCotizaciones } from '@/lib/patrimonio'
 import { LucaAvatar } from '@/components/luca/LucaAvatar'
 import type { LucaEstado } from '@/components/luca/LucaAvatar'
 import { extensionDeAudio, mensajeErrorMicrofono, microfonoDisponible, tipoAudioSoportado } from '@/lib/audio'
-import { hoyISO } from '@/lib/fechas'
-import { guardarIngresoFijo } from '@/lib/ingresos'
 import { parsear, parsearVarios } from '@/lib/parser'
 import { snapshotCompartido } from '@/lib/finanzas/compartido'
 import { construirContexto } from '@/lib/luca/contexto'
 import { comoRegistroSimple, ejecutarAccion, prepararAccion, type AccionPropuesta, type Vista } from '@/lib/luca/acciones'
 import { EVENTO_DATOS } from '@/lib/eventos'
+import { guardarRegistroSimple } from '@/lib/luca/registro'
 
 type TipoRegistro = 'gasto_variable' | 'gasto_fijo' | 'ingreso_fijo' | 'ingreso_freelance' | 'inversion'
 
@@ -343,71 +341,9 @@ export default function LucaChatPage() {
       const { data: { user } } = await supabase.auth.getUser()
       const uid = user?.id
       if (!uid) throw new Error('No hay sesion activa. Inicia sesion para poder guardar.')
-      let error
-      /* guardado, pero con algo para avisar (ej: no se pudo descontar del saldo) */
-      let aviso: string | null = null
-
-      if (msg.tabla === 'gasto_variable') {
-        /* Si Luca detectó con qué app/tarjeta se pagó, el gasto queda
-           asociado a esa tarjeta (y se crea si todavía no existe). */
-        const r = await guardarGastoVariable(supabase, uid, {
-          nombre: msg.datos.nombre ?? 'Gasto',
-          monto: Number(msg.datos.monto),
-          categoria: msg.datos.categoria ?? 'varios',
-          fecha: msg.datos.fecha ?? hoyISO(),
-          medio_pago: msg.datos.medio_pago,
-          forma_pago: msg.datos.forma_pago,
-          cuotas: msg.datos.cuotas,
-          moneda: msg.datos.moneda === 'USD' ? 'USD' : 'ARS',
-        })
-        /* si el gasto SE GUARDÓ pero falló el descuento del saldo, no es un
-           error: marcarlo así hacía que se reintentara y se duplicara */
-        if (r.error && !r.guardado) error = new Error(r.error)
-        else aviso = r.error ?? r.avisoSaldoNegativo ?? null
-      } else if (msg.tabla === 'gasto_fijo') {
-        const { error: e } = await supabase.from('gastos_fijos').insert({
-          user_id: uid, nombre: msg.datos.nombre, monto: msg.datos.monto,
-          categoria: msg.datos.categoria ?? 'servicios', tipo: msg.datos.tipo === 'suscripcion' ? 'suscripcion' : 'fijo', activo: true,
-        })
-        error = e
-      } else if (msg.tabla === 'ingreso_fijo') {
-        /* Si ya existe un sueldo activo con el mismo nombre, actualizamos su
-           "cobrado este mes" en vez de crear una fila nueva (eso era lo que
-           generaba sueldos duplicados cada vez que se anotaba un cobro). */
-        const { data: existentes } = await supabase
-          .from('ingresos_fijos')
-          .select('id')
-          .eq('user_id', uid)
-          .eq('activo', true)
-          .ilike('nombre', msg.datos.nombre ?? '')
-        if (existentes && existentes.length > 0) {
-          const { error: e } = await guardarIngresoFijo(supabase, { monto_cobrado: msg.datos.monto }, existentes[0].id)
-          error = e
-        } else {
-          const { error: e } = await guardarIngresoFijo(supabase, {
-            user_id: uid, nombre: msg.datos.nombre, monto: msg.datos.monto,
-            monto_cobrado: msg.datos.monto, activo: true,
-          })
-          error = e
-        }
-      } else if (msg.tabla === 'ingreso_freelance') {
-        const { error: e } = await supabase.from('ingresos_freelance').insert({
-          user_id: uid, cliente: msg.datos.cliente, descripcion: msg.datos.descripcion,
-          monto_total: msg.datos.monto_total, monto_cobrado: 0, fecha: msg.datos.fecha,
-        })
-        error = e
-      } else if (msg.tabla === 'inversion') {
-        const { error: e } = await supabase.from('inversiones').insert({
-          user_id: uid, nombre: msg.datos.nombre, monto: msg.datos.monto,
-          tipo: msg.datos.tipo ?? 'otro', moneda: msg.datos.moneda ?? 'ARS',
-          nivel_riesgo: msg.datos.nivel_riesgo ?? 'conservador', app: 'Otro',
-        })
-        error = e
-      } else {
-        throw new Error(`Tipo de registro no soportado: ${msg.tabla}`)
-      }
-
-      if (error) throw error
+      const r = await guardarRegistroSimple(supabase, uid, msg.tabla, msg.datos as Record<string, unknown>)
+      if (r.error) throw new Error(r.error)
+      const aviso = r.aviso
       setMensajes(prev => prev.map(m => m.id === msg.id ? { ...m, guardado: true } : m))
       if (aviso) setErrores(prev => ({ ...prev, [msg.id]: `Guardado. Ojo: ${aviso}` }))
       setLucaEstado('celebration')
@@ -566,7 +502,7 @@ export default function LucaChatPage() {
 
                 {/* Acción propuesta por Luca: se ejecuta solo si confirmás */}
                 {msg.accion && msg.vista && !msg.estadoAccion && (
-                  <div className="rounded-xl border bg-card p-3 text-xs space-y-1.5">
+                  <div className="rounded-xl bg-card p-3 text-xs space-y-1.5">
                     <p className="font-bold text-primary">{msg.vista.titulo}</p>
                     {msg.vista.lineas.map((l, i) => <p key={i} className="text-secondary">{l}</p>)}
                     {msg.vista.error ? (
@@ -592,7 +528,7 @@ export default function LucaChatPage() {
 
                 {/* Tarjeta de registro detectado */}
                 {msg.tabla && msg.datos && !msg.guardado && (
-                  <div className="mt-2 rounded-xl border bg-card p-3 text-xs space-y-1.5">
+                  <div className="mt-2 rounded-xl bg-card p-3 text-xs space-y-1.5">
                     <p className="font-bold text-primary">{TIPO_LABELS[msg.tabla]}</p>
 
                     {msg.datos.nombre && <p className="text-secondary">{msg.datos.nombre}</p>}

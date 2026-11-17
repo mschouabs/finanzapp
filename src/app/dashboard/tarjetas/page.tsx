@@ -254,7 +254,7 @@ export default function TarjetasPage() {
 
         {/* registrar consumo */}
         {consumoForm === t.id ? (
-          <div className="flex flex-col gap-2 rounded-xl border p-3">
+          <div className="flex flex-col gap-2 rounded-xl p-3 bg-alternate">
             <input autoFocus placeholder="¿Qué compraste?" value={form.nombre}
               onChange={ev => setForm({ ...form, nombre: ev.target.value })}
               className="rounded-lg border bg-field px-3 py-2 text-sm text-primary" />
@@ -388,7 +388,7 @@ export default function TarjetasPage() {
             <div className="flex flex-col gap-2">
               {avisos.map(a => (
                 <div key={a.tarjeta.id + a.resumen.clave}
-                  className="flex flex-wrap items-center gap-3 rounded-2xl border px-4 py-3 text-sm"
+                  className="flex flex-wrap items-center gap-3 rounded-2xl px-4 py-3 text-sm bg-alternate"
                   style={{
                     borderColor: a.dias < 0 ? 'var(--accent-negative)' : 'color-mix(in srgb, var(--accent-warning) 60%, var(--border-color))',
                     background: a.dias < 0 ? 'var(--glow-negative)' : 'color-mix(in srgb, var(--accent-warning) 6%, var(--bg-card))',
@@ -412,7 +412,7 @@ export default function TarjetasPage() {
             const restanteTotal = cuotas.reduce((s, c) => s + aPesosCuota(c.restante, c.moneda), 0)
             const porMesTotal = cuotas.reduce((s, c) => s + aPesosCuota(c.montoCuota, c.moneda), 0)
             return (
-              <div className="flex items-start gap-3 rounded-2xl border px-4 py-3"
+              <div className="flex items-start gap-3 rounded-2xl px-4 py-3 bg-alternate"
                 style={{ borderColor: 'color-mix(in srgb, var(--accent-positive) 22%, var(--border-subtle))', background: 'color-mix(in srgb, var(--accent-positive) 4%, var(--bg-card))' }}>
                 <LucaAvatar estado="insight" size={30} />
                 <div className="space-y-1 text-sm leading-relaxed text-primary">
@@ -527,7 +527,7 @@ function CompromisosPorMes({ filas, tarjetas }: { filas: Record<string, number |
   const totales = filas.map(f => tarjetas.reduce((a, t) => a + (Number(f[t.id]) || 0), 0))
   const max = Math.max(...totales, 1)
   if (totales.every(t => t === 0)) {
-    return <p className="mt-4 rounded-xl border border-dashed px-4 py-8 text-center text-xs text-secondary fa-hairline">No tenés nada comprometido para los próximos meses.</p>
+    return <p className="mt-4 rounded-xl px-4 py-8 text-center text-xs text-secondary bg-alternate">No tenés nada comprometido para los próximos meses.</p>
   }
   return (
     <div className="mt-4">

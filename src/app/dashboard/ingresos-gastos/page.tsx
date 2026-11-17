@@ -307,7 +307,7 @@ export default function TrabajosPage() {
   const pctEntro = totalMes > 0 ? Math.min(100, (yaEntro / totalMes) * 100) : 0
 
   const panelCobro = (sugerido: number) => cobrando && (
-    <div className="fa-pop mt-3 rounded-xl border p-3 fa-hairline" style={{ background: 'var(--bg-alternate)' }}>
+    <div className="fa-pop mt-3 rounded-xl p-3 bg-alternate" style={{ background: 'var(--bg-alternate)' }}>
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         <div>
           <label className={labelCls} htmlFor="cobro-monto">¿Cuánto cobraste?</label>
@@ -372,7 +372,7 @@ export default function TrabajosPage() {
       </section>
 
       {luca && (
-        <div className="flex items-start gap-3 rounded-2xl border px-4 py-3"
+        <div className="flex items-start gap-3 rounded-2xl px-4 py-3 bg-alternate"
           style={{ borderColor: 'color-mix(in srgb, var(--accent-secondary) 22%, var(--border-subtle))', background: 'color-mix(in srgb, var(--accent-secondary) 4%, var(--bg-card))' }}>
           <LucaAvatar estado="insight" size={30} />
           <p className="text-sm leading-relaxed text-primary">{luca}</p>
@@ -420,7 +420,7 @@ export default function TrabajosPage() {
           )}
 
           {fijos.length === 0 ? (
-            <p className="rounded-xl border border-dashed px-4 py-8 text-center text-sm text-secondary fa-hairline">
+            <p className="rounded-xl px-4 py-8 text-center text-sm text-secondary bg-alternate">
               Todavía no cargaste ningún sueldo.
             </p>
           ) : (
@@ -552,7 +552,7 @@ export default function TrabajosPage() {
         )}
 
         {visibles.length === 0 ? (
-          <p className="rounded-xl border border-dashed px-4 py-8 text-center text-sm text-secondary fa-hairline">
+          <p className="rounded-xl px-4 py-8 text-center text-sm text-secondary bg-alternate">
             {filtro === 'pendientes' ? 'Nadie te debe nada.' : filtro === 'cobrados' ? 'Todavía no hay proyectos cobrados completos.' : 'Todavía no cargaste proyectos.'}
           </p>
         ) : (

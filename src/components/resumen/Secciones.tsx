@@ -168,7 +168,7 @@ export function Categorias({ cats, mes, esActual, seleccion, onSeleccion, max = 
       <Encabezado id="t-cat" titulo={titulo}
         sub={sub ?? `${esActual ? 'Este mes' : nombreMes(mes)} · la marca gris es ${esActual ? 'el mes pasado a esta altura' : 'el mes anterior'}`} />
       {cats.length === 0 ? (
-        <p className="mt-6 rounded-xl border border-dashed px-4 py-8 text-center text-xs text-secondary fa-hairline">
+        <p className="mt-6 rounded-xl px-4 py-8 text-center text-xs text-secondary bg-alternate">
           No hay gastos en este período.
         </p>
       ) : (
@@ -253,7 +253,7 @@ export function ListaCompromisos({ comp, foco, onFoco, onPagar }: {
         sub={`Lo que ya tiene destino: ${fmt(comp.total)} en ${comp.horizonte} días`}
         derecha={<Link href="/dashboard/tarjetas" className="text-xs font-semibold text-info hover:underline">Tarjetas →</Link>} />
       {comp.items.length === 0 ? (
-        <div className="mt-4 flex items-center gap-3 rounded-xl border border-dashed px-4 py-5 text-sm fa-hairline">
+        <div className="mt-4 flex items-center gap-3 rounded-xl px-4 py-5 text-sm bg-alternate">
           <CalendarClock size={18} className="text-positive" />
           <span className="text-secondary">No tenés pagos pendientes en los próximos {comp.horizonte} días.</span>
         </div>
@@ -270,7 +270,7 @@ export function ListaCompromisos({ comp, foco, onFoco, onPagar }: {
                       onMouseEnter={() => onFoco(it.id)}
                       className="-mx-2 flex items-center gap-3 rounded-lg px-2 py-2 transition-colors"
                       style={{ background: on ? 'var(--bg-alternate)' : undefined }}>
-                      <span className="relative z-[1] flex h-9 w-9 shrink-0 flex-col items-center justify-center rounded-xl border text-[11px] font-semibold leading-none"
+                      <span className="relative z-[1] flex h-9 w-9 shrink-0 flex-col items-center justify-center rounded-xl text-[11px] font-semibold leading-none bg-alternate"
                         style={{
                           background: it.vencido ? 'color-mix(in srgb, var(--accent-negative) 16%, var(--bg-card))' : 'var(--bg-card)',
                           borderColor: it.vencido ? 'var(--accent-negative)' : on ? 'var(--accent-warning)' : 'var(--border-subtle)',
@@ -296,7 +296,7 @@ export function ListaCompromisos({ comp, foco, onFoco, onPagar }: {
                           Pagar
                         </button>
                       ) : (
-                        <Link href={it.href} className="fa-press rounded-lg border px-2.5 py-1 text-xs font-semibold text-secondary hover:text-primary fa-hairline">Marcar</Link>
+                        <Link href={it.href} className="fa-press rounded-control px-2.5 py-1 text-xs font-semibold text-secondary hover:text-primary bg-alternate">Marcar</Link>
                       )}
                     </li>
                   )
@@ -332,12 +332,12 @@ export function ListaActividad({ items, filtro, onLimpiar, nuevos }: {
         sub={filtro ? undefined : 'Tus últimos movimientos, de todas las fuentes'}
         derecha={<Link href="/dashboard/historial" className="text-xs font-semibold text-info hover:underline">Ver todo →</Link>} />
       {filtro && (
-        <button onClick={onLimpiar} className="fa-press fa-pop mt-2 inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs text-primary hover:bg-alternate fa-hairline">
+        <button onClick={onLimpiar} className="fa-press fa-pop mt-2 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs text-primary hover:bg-alternate bg-alternate">
           Filtrado por <b className="capitalize">{filtro === 'fijos' ? 'gastos fijos' : getCat(filtro).label}</b> <X size={12} />
         </button>
       )}
       {items.length === 0 ? (
-        <p className="mt-4 rounded-xl border border-dashed px-4 py-6 text-center text-xs text-secondary fa-hairline">
+        <p className="mt-4 rounded-xl px-4 py-6 text-center text-xs text-secondary bg-alternate">
           {filtro === 'fijos' ? 'Los gastos fijos no tienen movimientos con fecha: se ven en Movimientos.' : filtro ? 'No hay movimientos recientes en esta categoría.' : 'Todavía no hay movimientos. Contale a Luca tu primer gasto.'}
         </p>
       ) : (

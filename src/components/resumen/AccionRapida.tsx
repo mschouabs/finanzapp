@@ -56,7 +56,7 @@ export function AccionRapida({ onAccion, pagoHint }: { onAccion: (a: AccionTipo)
 
       {abierto && (
         <div role="menu" aria-label="Registrar"
-          className="fa-pop absolute right-0 top-[calc(100%+8px)] z-40 w-64 rounded-2xl border p-1.5 shadow-card-hover"
+          className="fa-pop absolute right-0 top-[calc(100%+8px)] z-40 w-64 rounded-2xl p-1.5 shadow-card-hover bg-alternate"
           style={{ background: 'var(--bg-alternate)', borderColor: 'var(--border-color)' }}>
           {ACCIONES.map((a, i) => (
             <button key={a.k} role="menuitem" ref={el => { items.current[i] = el }}

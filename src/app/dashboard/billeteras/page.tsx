@@ -571,7 +571,7 @@ export default function BilleterasPage() {
           <GraficoMensual datos={serieHistoria.slice(-12).map(h => ({ mes: h.mes, patrimonio: h.total }))} modo="patrimonio"
             etiquetaSerie="Lo que tenés" ocultarMontos={oculto} alto={desktop ? 230 : 190} />
         ) : (
-          <div className="flex flex-col items-center justify-center rounded-xl border border-dashed py-10 text-center fa-hairline">
+          <div className="flex flex-col items-center justify-center rounded-xl py-10 text-center bg-alternate">
             <LineChart size={24} className="text-muted" />
             <p className="mt-2 text-sm text-secondary">Guardé la foto de este mes.</p>
             <p className="text-xs text-muted">Desde el mes que viene vas a ver la curva.</p>
@@ -703,7 +703,7 @@ export default function BilleterasPage() {
       <LibroCuentas lineas={lineas} oculto={oculto} />
 
       {/* Luca */}
-      <div className="flex flex-wrap items-center gap-3 rounded-2xl border px-4 py-3"
+      <div className="flex flex-wrap items-center gap-3 rounded-2xl px-4 py-3 bg-alternate"
         style={{ borderColor: 'color-mix(in srgb, var(--accent-positive) 22%, var(--border-subtle))', background: 'color-mix(in srgb, var(--accent-positive) 4%, var(--bg-card))' }}>
         <LucaAvatar estado={variacion !== null && variacion < 0 ? 'warning' : 'insight'} size={30} />
         <p className="min-w-0 flex-1 text-sm text-primary">
@@ -712,7 +712,7 @@ export default function BilleterasPage() {
             : 'Ya guardé la foto de este mes. '}
           El {pctInv}% está invertido{rindeDisponibleMes > 0 && !oculto ? ` y tu disponible genera ~${fmtK(rindeDisponibleMes)} por mes de interés` : ''}.
         </p>
-        <Link href="/dashboard/inversiones" className="fa-press flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold text-primary hover:bg-alternate fa-hairline">
+        <Link href="/dashboard/inversiones" className="fa-press flex items-center gap-1.5 rounded-control px-3 py-1.5 text-xs font-semibold text-primary hover:bg-alternate bg-alternate">
           Ver Portfolio <ArrowRight size={14} />
         </Link>
       </div>

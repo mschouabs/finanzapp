@@ -167,7 +167,7 @@ export default function PortfolioPage() {
           {cot.dolar && <Chip label="Dólar blue" valor={fmtPesos(cot.dolar)} />}
           {cot.btcUsd && <Chip label="BTC" valor={`US$ ${Math.round(cot.btcUsd).toLocaleString('es-AR')}`} />}
           <button onClick={actualizarCot} aria-label="Actualizar cotizaciones" title={cotAt ? `Actualizado ${cotAt.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}` : ''}
-            className="fa-press flex h-11 w-11 items-center justify-center rounded-xl border text-secondary hover:bg-alternate hover:text-primary fa-hairline">
+            className="fa-press flex h-11 w-11 items-center justify-center rounded-xl text-secondary hover:bg-alternate hover:text-primary bg-alternate">
             <RefreshCw size={15} />
           </button>
           <button onClick={() => setEditando('nuevo')}
@@ -185,7 +185,7 @@ export default function PortfolioPage() {
       </div>
 
       {base.length === 0 ? (
-        <div className="rounded-2xl border border-dashed p-10 text-center fa-hairline">
+        <div className="rounded-2xl p-10 text-center bg-alternate">
           <LucaAvatar estado="idle" size={56} className="mx-auto" />
           <p className="mt-3 font-semibold text-primary">Todavía no cargaste inversiones</p>
           <p className="mx-auto mt-1 max-w-sm text-sm text-secondary">Plazos fijos, FCI, CEDEARs o cripto: cargalos con su TNA y te muestro cuánto rinden y cuánto riesgo corrés.</p>
@@ -221,7 +221,7 @@ export default function PortfolioPage() {
             const pctAlto = alto ? Math.round((alto.valor / total) * 100) : 0
             const sinRendir = base.filter(l => tna(l) === 0 && !['acciones', 'cedear', 'cripto'].includes(l.tipo)).reduce((a, l) => a + valor(l), 0)
             return (
-              <div className="flex items-start gap-3 rounded-2xl border px-4 py-3"
+              <div className="flex items-start gap-3 rounded-2xl px-4 py-3 bg-alternate"
                 style={{ borderColor: 'color-mix(in srgb, var(--accent-positive) 22%, var(--border-subtle))', background: 'color-mix(in srgb, var(--accent-positive) 4%, var(--bg-card))' }}>
                 <LucaAvatar estado={pctTop >= 60 || pctAlto >= 50 ? 'warning' : 'insight'} size={30} />
                 <div className="space-y-1 text-sm leading-relaxed text-primary">
@@ -441,7 +441,7 @@ function EditarActivo({ inicial, apps, cuentas, onGuardar, onBorrar, onCerrar }:
         )}
         <div>
           <span className={label}>Riesgo</span>
-          <div className="flex overflow-hidden rounded-lg border">
+          <div className="flex overflow-hidden rounded-control bg-alternate">
             {(Object.keys(RIESGO) as Riesgo[]).map(r => (
               <button key={r} type="button" onClick={() => setD({ ...d, riesgo: r })} title={RIESGO[r].label}
                 className="flex-1 py-2.5 text-sm"

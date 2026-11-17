@@ -66,7 +66,7 @@ export function LucaMensaje({
         <LucaAvatar estado={estado} size={30} />
         <h3 className="text-sm font-bold text-primary">{titulo ?? 'Luca dice:'}</h3>
       </div>
-      <div className="rounded-xl border bg-alternate p-4 text-sm leading-relaxed text-primary">
+      <div className="rounded-xl bg-alternate p-4 text-sm leading-relaxed text-primary">
         {children}
       </div>
       {boton}

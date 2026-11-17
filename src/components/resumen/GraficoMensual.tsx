@@ -211,7 +211,7 @@ export function GraficoMensual({ datos, modo, mesSel, onElegir, alto = 240, etiq
 
       {/* tooltip */}
       {puntoHover && hover !== null && (
-        <div className="fa-vidrio fa-pop pointer-events-none absolute z-10 min-w-[170px] rounded-xl border px-3 py-2.5 text-xs"
+        <div className="fa-vidrio fa-pop pointer-events-none absolute z-10 min-w-[170px] rounded-xl px-3 py-2.5 text-xs bg-alternate"
           style={{
             borderColor: 'var(--border-color)', boxShadow: '0 16px 32px -16px rgba(0,0,0,.55)',
             left: Math.min(Math.max(x(hover) - 85, 0), ancho - 180), top: 0,

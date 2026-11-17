@@ -24,6 +24,7 @@ import { snapshotCompartido } from '@/lib/finanzas/compartido'
 import { construirContexto } from '@/lib/luca/contexto'
 import { comoRegistroSimple, ejecutarAccion, prepararAccion, type AccionPropuesta, type Vista } from '@/lib/luca/acciones'
 import { EVENTO_DATOS } from '@/lib/eventos'
+import { guardarRegistroSimple, type TablaRegistro } from '@/lib/luca/registro'
 
 const TIPO: Record<TipoInsight, { label: string; color: string; Icono: typeof Lightbulb }> = {
   atencion: { label: 'Atención', color: 'var(--accent-warning)', Icono: AlertTriangle },
@@ -238,9 +239,16 @@ export function CapturaLuca({ onGuardar = guardarGastoPorDefecto, autoFoco = fal
       const supabase = createClient()
       const s = await snapshotCompartido(true)
       const uid = (await supabase.auth.getUser()).data.user?.id ?? ''
-      const r = await ejecutarAccion(supabase, uid, s, p.a)
-      if (r.error) throw new Error(r.error)
-      upd({ estado: 'hecha', msg: r.ok ?? 'Hecho.' })
+      const simple = comoRegistroSimple(p.a)
+      if (simple) {
+        const g = await guardarRegistroSimple(supabase, uid, simple.tabla as TablaRegistro, simple.datos)
+        if (g.error) throw new Error(g.error)
+        upd({ estado: 'hecha', msg: g.aviso ? `Guardado. Ojo: ${g.aviso}` : 'Guardado.' })
+      } else {
+        const r = await ejecutarAccion(supabase, uid, s, p.a)
+        if (r.error) throw new Error(r.error)
+        upd({ estado: 'hecha', msg: r.ok ?? 'Hecho.' })
+      }
       window.dispatchEvent(new Event(EVENTO_DATOS))
     } catch (e) {
       upd({ estado: 'error', msg: e instanceof Error ? e.message : 'No se pudo completar.' })
@@ -345,8 +353,8 @@ export function CapturaLuca({ onGuardar = guardarGastoPorDefecto, autoFoco = fal
                 {!CATEGORIAS.some(c => c.key === g.categoria) && <option value={g.categoria}>{g.categoria}</option>}
                 {CATEGORIAS.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
               </select>
-              <span className="rounded-full border px-2.5 py-1 text-secondary fa-hairline">{g.medio_pago ? `${g.medio_pago} · ${g.forma_pago === 'credito' ? `crédito${(g.cuotas ?? 1) > 1 ? ` · ${g.cuotas} cuotas` : ''}` : 'débito'}` : 'Efectivo / sin medio'}</span>
-              <span className="rounded-full border px-2.5 py-1 text-secondary fa-hairline">{fmtFechaCorta(g.fecha)}</span>
+              <span className="rounded-full px-2.5 py-1 text-secondary bg-alternate">{g.medio_pago ? `${g.medio_pago} · ${g.forma_pago === 'credito' ? `crédito${(g.cuotas ?? 1) > 1 ? ` · ${g.cuotas} cuotas` : ''}` : 'débito'}` : 'Efectivo / sin medio'}</span>
+              <span className="rounded-full px-2.5 py-1 text-secondary bg-alternate">{fmtFechaCorta(g.fecha)}</span>
             </div>
           </div>
           {g.medio_pago && g.forma_pago !== 'credito' && (
@@ -385,9 +393,7 @@ export function CapturaLuca({ onGuardar = guardarGastoPorDefecto, autoFoco = fal
                     <div className="mt-2 flex items-center gap-2">
                       {p.estado === 'hecha' ? <span className="inline-flex items-center gap-1 text-xs font-medium text-positive"><Check size={14} />{p.msg}</span>
                         : p.estado === 'cancelada' ? <span className="text-xs text-muted">Cancelado</span>
-                        : simple ? (
-                          <button onClick={enChat} className="fa-press rounded-[9px] bg-confirm px-3 py-1.5 text-xs font-semibold">Revisar y guardar</button>
-                        ) : !p.vista?.error && (<>
+                        : !p.vista?.error && (<>
                           <button onClick={() => confirmarPropuesta(p)} disabled={p.estado === 'haciendo'}
                             className="fa-press rounded-[9px] bg-confirm px-3 py-1.5 text-xs font-semibold disabled:opacity-50">{p.estado === 'haciendo' ? 'Haciendo…' : p.estado === 'error' ? 'Reintentar' : 'Confirmar'}</button>
                           <button onClick={() => setRespuesta(r => r && { ...r, propuestas: r.propuestas.map(x => x.id === p.id ? { ...x, estado: 'cancelada' } : x) })}

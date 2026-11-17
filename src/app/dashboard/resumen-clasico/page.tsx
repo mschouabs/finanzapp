@@ -367,7 +367,7 @@ export default function ResumenClasicoPage() {
         <div className="flex flex-col gap-2">
           {avisos.map(a => (
             <div key={a.tarjeta.id + a.resumen.clave}
-              className="flex flex-wrap items-center gap-2 rounded-xl border p-3 text-sm"
+              className="flex flex-wrap items-center gap-2 rounded-xl p-3 text-sm bg-alternate"
               style={{ borderColor: a.dias < 0 ? 'var(--accent-negative)' : 'var(--accent-warning, #F5C451)' }}>
               <Icono nombre={a.dias < 0 ? '⚠' : '📅'} size={15} />
               <span className="flex-1 text-primary">

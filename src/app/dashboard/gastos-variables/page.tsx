@@ -469,7 +469,7 @@ export default function MovimientosPage() {
   )
 
   const luca = lucaTexto.length > 0 && (
-    <div className="flex items-start gap-3 rounded-2xl border px-4 py-3"
+    <div className="flex items-start gap-3 rounded-2xl px-4 py-3 bg-alternate"
       style={{ borderColor: 'color-mix(in srgb, var(--accent-positive) 22%, var(--border-subtle))', background: 'color-mix(in srgb, var(--accent-positive) 4%, var(--bg-card))' }}>
       <LucaAvatar estado={totales.variacion !== null && totales.variacion >= 10 ? 'warning' : 'insight'} size={30} />
       <p className="text-sm leading-relaxed text-primary">{lucaTexto.join(' ')}</p>
@@ -492,7 +492,7 @@ export default function MovimientosPage() {
           <GraficoBarras key={`${rango.desde}-${vista}-${filtroCat}`} datos={puntos} modo={rango.esMes ? vista : 'barras'}
             seleccion={diaSel} onElegir={setDiaSel} alto={desktop ? 240 : 190} etiquetaAnterior="Mes anterior" />
         ) : (
-          <p className="rounded-xl border border-dashed px-4 py-10 text-center text-xs text-secondary fa-hairline">Sin gastos en este período.</p>
+          <p className="rounded-xl px-4 py-10 text-center text-xs text-secondary bg-alternate">Sin gastos en este período.</p>
         )}
       </div>
     </section>
@@ -554,7 +554,7 @@ export default function MovimientosPage() {
           style={soloHormiga ? { background: 'var(--riesgo-medio-tint)', borderColor: 'var(--riesgo-medio)', color: 'var(--riesgo-medio)' } : { color: 'var(--text-secondary)' }}>
           Hormiga
         </button>
-        <button onClick={exportarCSV} className="fa-press flex items-center gap-1.5 rounded-lg border px-2.5 py-2 text-xs font-semibold text-secondary hover:bg-alternate fa-hairline" title="Exportar lo que estás viendo">
+        <button onClick={exportarCSV} className="fa-press flex items-center gap-1.5 rounded-control px-2.5 py-2 text-xs font-semibold text-secondary hover:bg-alternate bg-alternate" title="Exportar lo que estás viendo">
           <Download size={14} /> CSV
         </button>
         {hayFiltros && (
@@ -569,7 +569,7 @@ export default function MovimientosPage() {
       </div>
 
       {porFecha.length === 0 ? (
-        <div className="rounded-2xl border border-dashed px-4 py-10 text-center fa-hairline">
+        <div className="rounded-2xl px-4 py-10 text-center bg-alternate">
           <p className="text-sm text-secondary">{hayFiltros ? 'Nada con estos filtros.' : 'Todavía no hay gastos en este período.'}</p>
           {hayFiltros ? <button onClick={limpiar} className="mt-3 text-xs font-semibold text-info hover:underline">Limpiar filtros</button>
             : <button onClick={() => setAgregar(true)} className="fa-press mt-3 rounded-lg bg-confirm px-3 py-1.5 text-xs font-semibold text-white">Registrar un gasto</button>}
@@ -606,7 +606,7 @@ export default function MovimientosPage() {
                   const medio = g.tarjeta_id ? cuentas[g.tarjeta_id] : g.billetera_linea_id ? cuentas[`l:${g.billetera_linea_id}`] : null
                   if (editando === g.id) {
                     return (
-                      <li key={g.id} className="fa-pop -mx-2 my-1 rounded-xl border p-3 fa-hairline" style={{ background: 'var(--bg-alternate)' }}>
+                      <li key={g.id} className="fa-pop -mx-2 my-1 rounded-xl p-3 bg-alternate" style={{ background: 'var(--bg-alternate)' }}>
                         <div className="grid grid-cols-2 gap-2 sm:grid-cols-6">
                           <input value={formEdit.nombre} onChange={e => setFormEdit(p => ({ ...p, nombre: e.target.value }))} aria-label="Descripción" className={`${inputCls} col-span-2 sm:col-span-2`} />
                           <input type="number" inputMode="decimal" value={formEdit.monto} onChange={e => setFormEdit(p => ({ ...p, monto: e.target.value }))} aria-label="Monto" className={inputCls} />
@@ -702,7 +702,7 @@ export default function MovimientosPage() {
         <div>
           {formFijo && (
             <div className="mt-3 grid grid-cols-2 gap-2">
-              <div role="group" aria-label="Tipo" className="col-span-2 grid grid-cols-2 gap-1 rounded-lg border p-1 fa-hairline">
+              <div role="group" aria-label="Tipo" className="col-span-2 grid grid-cols-2 gap-1 rounded-control p-1 bg-alternate">
                 {([['fijo', 'Gasto fijo'], ['suscripcion', 'Suscripción']] as const).map(([k, t]) => (
                   <button key={k} type="button" aria-pressed={formFijo.tipo === k} onClick={() => setFormFijo({ ...formFijo, tipo: k })}
                     className="fa-press rounded-md py-1.5 text-xs font-semibold"
@@ -787,7 +787,7 @@ export default function MovimientosPage() {
 
 function Chip({ children, onQuitar }: { children: React.ReactNode; onQuitar: () => void }) {
   return (
-    <button onClick={onQuitar} className="fa-press fa-pop inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs text-primary hover:bg-alternate fa-hairline">
+    <button onClick={onQuitar} className="fa-press fa-pop inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs text-primary hover:bg-alternate bg-alternate">
       {children} <X size={12} className="text-muted" />
     </button>
   )

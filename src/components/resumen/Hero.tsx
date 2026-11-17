@@ -133,7 +133,7 @@ export function PatrimonioHero({ p, serie, compacto = false }: { p: Patrimonio; 
         <div className="fa-colapsable" data-abierto={!!abierto}>
           <div>
             {abierto && (
-              <ul className="mt-2 divide-y fa-hairline rounded-xl border fa-hairline" aria-label={`Detalle de ${ETIQUETA[abierto]}`}>
+              <ul className="mt-2 divide-y rounded-xl bg-alternate" aria-label={`Detalle de ${ETIQUETA[abierto]}`}>
                 {posiciones[abierto].slice(0, 6).map(x => (
                   <li key={x.clave}>
                     <Link href={x.href} className="flex items-center gap-3 px-3 py-2 text-sm hover:bg-alternate">

@@ -144,7 +144,7 @@ export function Toasts({ items, onCerrar }: { items: Toast[]; onCerrar: (id: num
     <div className="pointer-events-none fixed inset-x-0 bottom-[calc(76px+env(safe-area-inset-bottom,0px))] z-[60] flex flex-col items-center gap-2 px-4 lg:bottom-6 lg:left-auto lg:right-6 lg:items-end"
       role="status" aria-live="polite">
       {items.map(t => (
-        <div key={t.id} className="fa-toast-in pointer-events-auto flex w-full max-w-sm items-center gap-3 rounded-xl border px-4 py-3 text-sm shadow-card-hover"
+        <div key={t.id} className="fa-toast-in pointer-events-auto flex w-full max-w-sm items-center gap-3 rounded-xl px-4 py-3 text-sm shadow-card-hover bg-alternate"
           style={{ background: 'var(--bg-alternate)', borderColor: t.tono === 'error' ? 'var(--accent-negative)' : 'var(--border-color)' }}>
           <span className="h-2 w-2 shrink-0 rounded-full"
             style={{ background: t.tono === 'error' ? 'var(--accent-negative)' : t.tono === 'info' ? 'var(--accent-secondary)' : 'var(--accent-positive)' }} />
@@ -228,7 +228,7 @@ export function Confirmar({ titulo, detalle, accion = 'Confirmar', peligro = fal
   return (
     <div className="fixed inset-0 z-[70] flex items-end justify-center p-4 sm:items-center" role="alertdialog" aria-modal="true" aria-labelledby="confirmar-titulo">
       <button className="fa-fade-in absolute inset-0 bg-black/60" aria-label="Cancelar" onClick={onCancelar} />
-      <div className="fa-pop relative w-full max-w-sm rounded-2xl border p-5 shadow-card-hover" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+      <div className="fa-pop relative w-full max-w-sm rounded-2xl p-5 shadow-card-hover bg-alternate" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
         <p id="confirmar-titulo" className="font-semibold text-primary">{titulo}</p>
         {detalle && <div className="mt-1.5 text-sm text-secondary">{detalle}</div>}
         <div className="mt-5 flex justify-end gap-2">

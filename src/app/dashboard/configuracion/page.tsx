@@ -264,7 +264,7 @@ export default function ConfiguracionPage() {
       {/* Cerrar sesión */}
       <button
         onClick={cerrarSesion}
-        className="w-full py-3 rounded-xl border text-negative font-semibold text-sm hover:bg-negative/10 transition-colors flex items-center justify-center gap-2"
+        className="w-full py-3 rounded-xl text-negative font-semibold text-sm hover:bg-negative/10 transition-colors flex items-center justify-center gap-2 bg-alternate"
       >
         <LogOut size={16} />
         Cerrar sesión

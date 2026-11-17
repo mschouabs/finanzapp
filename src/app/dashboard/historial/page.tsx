@@ -355,7 +355,7 @@ export default function HistorialPage() {
           <h1 className="mt-0.5 text-xl font-extrabold tracking-tight text-primary lg:text-2xl">Todo lo que entró y salió</h1>
         </div>
         <button onClick={exportarCSV} disabled={!filtrados.length}
-          className="fa-press flex h-11 items-center gap-1.5 rounded-xl border px-4 text-sm font-semibold text-primary hover:bg-alternate disabled:opacity-40 fa-hairline">
+          className="fa-press flex h-11 items-center gap-1.5 rounded-xl px-4 text-sm font-semibold text-primary hover:bg-alternate disabled:opacity-40 bg-alternate">
           <Download size={16} /> Exportar CSV
         </button>
       </header>
@@ -383,7 +383,7 @@ export default function HistorialPage() {
       </section>
 
       {luca && (
-        <div className="flex items-start gap-3 rounded-2xl border px-4 py-3"
+        <div className="flex items-start gap-3 rounded-2xl px-4 py-3 bg-alternate"
           style={{ borderColor: 'color-mix(in srgb, var(--accent-secondary) 22%, var(--border-subtle))', background: 'color-mix(in srgb, var(--accent-secondary) 4%, var(--bg-card))' }}>
           <LucaAvatar estado="insight" size={30} />
           <p className="text-sm leading-relaxed text-primary">{luca}</p>
@@ -507,7 +507,7 @@ export default function HistorialPage() {
                             ) : esCuenta(m.tipo) ? (
                               <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-secondary">
                                 <span>Movió plata entre tus cuentas, no cuenta como ingreso ni gasto. Lo podés deshacer desde el libro en Billeteras.</span>
-                                <Link href="/dashboard/billeteras" className="rounded-lg border px-3 py-1.5 font-semibold text-primary hover:bg-card">Ir al libro →</Link>
+                                <Link href="/dashboard/billeteras" className="rounded-control px-3 py-1.5 font-semibold text-primary hover:bg-card bg-alternate">Ir al libro →</Link>
                               </div>
                             ) : (
                               <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-secondary">
@@ -516,7 +516,7 @@ export default function HistorialPage() {
                                     ? 'Es un movimiento fijo: se repite todos los meses. Lo editás desde su sección.'
                                     : 'Este movimiento se edita desde su sección.'}
                                 </span>
-                                <Link href={linkDe(m)} className="rounded-lg border px-3 py-1.5 font-semibold text-primary hover:bg-card">Ir a editarlo →</Link>
+                                <Link href={linkDe(m)} className="rounded-control px-3 py-1.5 font-semibold text-primary hover:bg-card bg-alternate">Ir a editarlo →</Link>
                               </div>
                             )}
                           </div>

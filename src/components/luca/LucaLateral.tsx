@@ -37,7 +37,7 @@ export function LucaLateral() {
         <Link href={href} className="mt-1.5 inline-block text-[11px] font-semibold text-info hover:underline">{top.accion!.label} →</Link>
       )}
       <Link href="/dashboard/luca"
-        className="fa-press mt-3 block rounded-lg border px-3 py-2 text-center text-xs font-semibold hover:bg-alternate"
+        className="fa-press mt-3 block rounded-control px-3 py-2 text-center text-xs font-semibold hover:bg-alternate bg-alternate"
         style={{ borderColor: 'var(--accent-confirm)', color: 'var(--accent-confirm)' }}>
         Hablar con Luca
       </Link>

@@ -112,7 +112,7 @@ export default function MeDebenPage() {
       <Encabezado titulo="Me deben" sub="Plata que ya pusiste y te tienen que devolver"
         derecha={
           <button onClick={() => setNueva(true)} className="fa-press inline-flex h-10 items-center gap-1.5 rounded-xl bg-confirm px-4 text-sm font-semibold text-white hover:bg-confirm-hover">
-            <Plus size={16} /> Anotar
+            <Plus size={16} /> Agregar deuda
           </button>
         } />
 
@@ -254,7 +254,7 @@ function FormNueva({ personas, onGuardar, onCerrar }: {
           </div>
           <div>
             <span className={label}>Moneda</span>
-            <div className="flex overflow-hidden rounded-lg border">
+            <div className="flex overflow-hidden rounded-control bg-alternate">
               {(['ARS', 'USD'] as const).map(m => (
                 <button key={m} type="button" onClick={() => setD({ ...d, moneda: m })}
                   className={`px-4 py-2.5 text-sm font-semibold ${d.moneda === m ? 'bg-confirm text-white' : 'text-secondary hover:bg-alternate'}`}>
@@ -273,7 +273,7 @@ function FormNueva({ personas, onGuardar, onCerrar }: {
           <button type="submit" disabled={guardando} className="fa-press h-11 flex-1 rounded-xl bg-confirm text-sm font-semibold text-white hover:bg-confirm-hover disabled:opacity-50">
             {guardando ? 'Guardando…' : 'Anotar'}
           </button>
-          <button type="button" onClick={onCerrar} className="h-11 rounded-xl border px-4 text-sm font-semibold text-secondary hover:bg-alternate">Cancelar</button>
+          <button type="button" onClick={onCerrar} className="h-11 rounded-xl px-4 text-sm font-semibold text-secondary hover:bg-alternate bg-alternate">Cancelar</button>
         </div>
       </form>
     </Modal>
@@ -330,7 +330,7 @@ function FormCobro({ deuda, lineas, onCobrar, onCerrar }: {
           <button type="submit" disabled={guardando || cuentas.length === 0} className="fa-press h-11 flex-1 rounded-xl bg-confirm text-sm font-semibold text-white hover:bg-confirm-hover disabled:opacity-50">
             {guardando ? 'Registrando…' : 'Registrar cobro'}
           </button>
-          <button type="button" onClick={onCerrar} className="h-11 rounded-xl border px-4 text-sm font-semibold text-secondary hover:bg-alternate">Cancelar</button>
+          <button type="button" onClick={onCerrar} className="h-11 rounded-xl px-4 text-sm font-semibold text-secondary hover:bg-alternate bg-alternate">Cancelar</button>
         </div>
       </form>
     </Modal>

@@ -232,7 +232,7 @@ export function LucaWidget({ onSaved }: { onSaved?: () => void }) {
           <button
             onClick={reset}
             disabled={!input && !parsed}
-            className="px-5 py-3 text-xs font-semibold rounded-md border text-secondary hover:bg-alternate disabled:opacity-40 transition-colors"
+            className="px-5 py-3 text-xs font-semibold rounded-control text-secondary hover:bg-alternate disabled:opacity-40 transition-colors bg-alternate"
           >
             Cancelar
           </button>
@@ -249,7 +249,7 @@ export function LucaWidget({ onSaved }: { onSaved?: () => void }) {
 
       {/* Resultado interpretado */}
       {parsed && !saved && (
-        <div className="mt-4 rounded-md border bg-alternate p-4">
+        <div className="mt-4 rounded-control bg-alternate p-4">
           <p className="text-sm text-primary mb-3">Luca entiende:</p>
 
           <dl className="text-xs">
@@ -289,7 +289,7 @@ export function LucaWidget({ onSaved }: { onSaved?: () => void }) {
             <div className="flex items-center gap-4 border-t py-2.5">
               <dt className="text-secondary w-24 shrink-0">Moneda:</dt>
               <dd className="flex flex-1 items-center gap-2 text-primary">
-                <div className="flex overflow-hidden rounded border text-[11px] font-semibold">
+                <div className="flex overflow-hidden rounded text-[11px] font-semibold bg-alternate">
                   {(['ARS', 'USD'] as const).map(m => (
                     <button key={m} type="button" onClick={() => setParsed(p => p ? { ...p, moneda: m } : p)}
                       className={`px-3 py-1.5 ${(parsed.moneda ?? 'ARS') === m ? 'bg-confirm text-white' : 'text-secondary hover:bg-card'}`}>
@@ -318,7 +318,7 @@ export function LucaWidget({ onSaved }: { onSaved?: () => void }) {
                   ))}
                 </select>
                 {parsed.medio_pago && (
-                  <div className="flex overflow-hidden rounded border text-[11px] font-semibold">
+                  <div className="flex overflow-hidden rounded text-[11px] font-semibold bg-alternate">
                     {(['debito', 'credito'] as const).map(f => (
                       <button
                         key={f}
@@ -373,7 +373,7 @@ export function LucaWidget({ onSaved }: { onSaved?: () => void }) {
             </button>
             <button
               onClick={reset}
-              className="px-3 py-2 text-[11px] font-semibold rounded-md border text-secondary hover:bg-card transition-colors"
+              className="px-3 py-2 text-[11px] font-semibold rounded-control text-secondary hover:bg-card transition-colors bg-alternate"
             >
               Descartar
             </button>

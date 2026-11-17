@@ -262,7 +262,7 @@ export function Header() {
       {abierto && createPortal(
         <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/60 p-3 pt-[8vh] lg:pt-[12vh]" onClick={() => setAbierto(false)}>
           <div role="dialog" aria-modal="true" aria-label="Buscar"
-            className="fa-pop w-full max-w-xl overflow-hidden rounded-2xl border shadow-card-hover"
+            className="fa-pop w-full max-w-xl overflow-hidden rounded-2xl shadow-card-hover bg-alternate"
             style={{ background: 'var(--bg-alternate)', borderColor: 'var(--border-color)' }}
             onClick={e => e.stopPropagation()}>
             <div className="flex items-center gap-2 border-b px-4 fa-hairline">

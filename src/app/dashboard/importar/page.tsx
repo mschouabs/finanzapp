@@ -309,7 +309,7 @@ export default function ImportarPage() {
       </ol>
 
       {error && (
-        <div className="flex items-start gap-2 rounded-xl border p-4 text-sm" style={{ background: 'var(--riesgo-medio-tint)', borderColor: 'var(--riesgo-medio)' }}>
+        <div className="flex items-start gap-2 rounded-xl p-4 text-sm bg-alternate" style={{ background: 'var(--riesgo-medio-tint)', borderColor: 'var(--riesgo-medio)' }}>
           <AlertTriangle size={16} style={{ color: 'var(--riesgo-medio)' }} className="mt-0.5 shrink-0" />
           <span className="text-primary">{error}</span>
         </div>
@@ -395,7 +395,7 @@ export default function ImportarPage() {
           </div>
 
           <div className="flex justify-between gap-2">
-            <button onClick={reiniciar} className="flex items-center gap-1.5 rounded-xl border px-4 py-2.5 text-sm text-secondary hover:bg-alternate"><ArrowLeft size={15} /> Otro archivo</button>
+            <button onClick={reiniciar} className="flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-sm text-secondary hover:bg-alternate bg-alternate"><ArrowLeft size={15} /> Otro archivo</button>
             <button onClick={irARevisar} className="flex items-center gap-1.5 rounded-xl bg-confirm px-5 py-2.5 text-sm font-semibold text-white hover:bg-confirm-hover">Revisar <ArrowRight size={15} /></button>
           </div>
         </div>
@@ -412,7 +412,7 @@ export default function ImportarPage() {
           </div>
 
           {(duplicadas > 0 || invalidas > 0 || porCat.length > 0) && (
-            <div className="flex items-start gap-3 rounded-2xl border px-4 py-3"
+            <div className="flex items-start gap-3 rounded-2xl px-4 py-3 bg-alternate"
               style={{ borderColor: 'color-mix(in srgb, var(--accent-secondary) 22%, var(--border-subtle))', background: 'color-mix(in srgb, var(--accent-secondary) 4%, var(--bg-card))' }}>
               <LucaAvatar estado={duplicadas > 0 ? 'warning' : 'insight'} size={30} />
               <p className="text-sm leading-relaxed text-primary">
@@ -471,7 +471,7 @@ export default function ImportarPage() {
                       <tr key={f.idx} onClick={() => f.valida && toggleFila(f.idx)}
                         className={`border-t border-line transition-colors ${f.valida ? 'cursor-pointer hover:bg-alternate' : ''} ${incluida ? '' : 'opacity-45'}`}>
                         <td className="px-3 py-2.5">
-                          <span className="flex h-4 w-4 items-center justify-center rounded border"
+                          <span className="flex h-4 w-4 items-center justify-center rounded bg-alternate"
                             style={incluida ? { background: 'var(--accent-confirm)', borderColor: 'var(--accent-confirm)', color: '#fff' } : undefined}>
                             {incluida && <Check size={11} />}
                           </span>
@@ -519,7 +519,7 @@ export default function ImportarPage() {
           <div className="mt-2 flex flex-wrap justify-center gap-2">
             <Link href={ultima.tabla === 'gastos_variables' ? '/dashboard/gastos-variables' : ultima.tabla === 'ingresos_freelance' ? '/dashboard/ingresos-gastos' : '/dashboard/historial'}
               className="rounded-xl bg-confirm px-4 py-2.5 text-sm font-semibold text-white hover:bg-confirm-hover">Ver movimientos</Link>
-            <button onClick={reiniciar} className="rounded-xl border px-4 py-2.5 text-sm font-semibold text-primary hover:bg-alternate">Importar otro</button>
+            <button onClick={reiniciar} className="rounded-xl px-4 py-2.5 text-sm font-semibold text-primary hover:bg-alternate bg-alternate">Importar otro</button>
             <button onClick={() => deshacer(ultima)} disabled={deshaciendo === ultima.id}
               className="flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-sm text-negative hover:bg-alternate disabled:opacity-50">
               <RotateCcw size={14} /> {deshaciendo === ultima.id ? 'Deshaciendo…' : 'Deshacer'}

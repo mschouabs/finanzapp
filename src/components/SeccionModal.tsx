@@ -228,7 +228,7 @@ export function SeccionModal({
                 <label className="text-xs font-semibold text-secondary">Campos</label>
                 <button
                   onClick={agregarCampo}
-                  className="rounded-md border px-2.5 py-1 text-[11px] font-semibold text-secondary hover:bg-alternate"
+                  className="rounded-control px-2.5 py-1 text-[11px] font-semibold text-secondary hover:bg-alternate bg-alternate"
                 >
                   + Agregar campo
                 </button>
@@ -238,7 +238,7 @@ export function SeccionModal({
                 {campos.map((c, i) => {
                   const fijo = esCampoFijo(c.key)
                   return (
-                    <div key={i} className="rounded-md border bg-alternate p-2.5">
+                    <div key={i} className="rounded-control bg-alternate p-2.5">
                       <div className="flex flex-wrap items-center gap-2">
                         <input
                           value={c.label}
@@ -308,7 +308,7 @@ export function SeccionModal({
               </button>
               <button
                 onClick={onClose}
-                className="rounded-md border px-4 py-2 text-xs font-semibold text-secondary hover:bg-alternate"
+                className="rounded-control px-4 py-2 text-xs font-semibold text-secondary hover:bg-alternate bg-alternate"
               >
                 Cancelar
               </button>

@@ -138,7 +138,7 @@ export function GraficoBarras({ datos, modo, seleccion, onElegir, alto = 220, co
       </svg>
 
       {p && hover !== null && (
-        <div className="pointer-events-none absolute z-10 min-w-[160px] rounded-xl border px-3 py-2 text-xs shadow-card-hover"
+        <div className="pointer-events-none absolute z-10 min-w-[160px] rounded-xl px-3 py-2 text-xs shadow-card-hover bg-alternate"
           style={{ background: 'var(--bg-alternate)', borderColor: 'var(--border-color)', left: Math.min(Math.max(x(hover) - 80, 0), ancho - 170), top: -6 }}>
           <p className="mb-1 font-semibold text-primary">{p.etiqueta}</p>
           {modo === 'barras' ? (

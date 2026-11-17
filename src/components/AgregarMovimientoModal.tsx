@@ -176,7 +176,7 @@ export function AgregarMovimientoModal({
         </div>
 
         {/* tabs */}
-        <div className="mb-4 flex overflow-hidden rounded-lg border text-sm font-semibold">
+        <div className="mb-4 flex overflow-hidden rounded-control text-sm font-semibold bg-alternate">
           <button
             onClick={() => setTab('gasto')}
             className={`flex-1 px-3 py-2.5 ${tab === 'gasto' ? 'bg-confirm text-white' : 'text-secondary hover:bg-alternate'}`}
@@ -200,7 +200,7 @@ export function AgregarMovimientoModal({
               <input placeholder={formGasto.moneda === 'USD' ? 'Monto (US$)' : 'Monto ($)'} type="number" inputMode="decimal"
                 value={formGasto.monto} onChange={e => setFormGasto(p => ({ ...p, monto: e.target.value }))}
                 className={`${inputCls} flex-1`} />
-              <div className="flex overflow-hidden rounded-lg border text-xs font-semibold">
+              <div className="flex overflow-hidden rounded-control text-xs font-semibold bg-alternate">
                 {(['ARS', 'USD'] as const).map(m => (
                   <button key={m} type="button" onClick={() => setFormGasto(p => ({ ...p, moneda: m }))}
                     className={`px-2.5 ${formGasto.moneda === m ? 'bg-confirm text-white' : 'text-secondary hover:bg-card'}`}>
@@ -223,7 +223,7 @@ export function AgregarMovimientoModal({
             </select>
 
             {formGasto.medio && (
-              <div className="flex overflow-hidden rounded-lg border text-xs font-semibold">
+              <div className="flex overflow-hidden rounded-control text-xs font-semibold bg-alternate">
                 {(['debito', 'credito'] as const).map(f => (
                   <button key={f} type="button" onClick={() => setFormGasto(p => ({ ...p, forma: f }))}
                     className={`flex-1 px-3 py-2.5 ${formGasto.forma === f ? 'bg-confirm text-white' : 'text-secondary hover:bg-card'}`}>
@@ -256,7 +256,7 @@ export function AgregarMovimientoModal({
 
             {aviso ? (
               <>
-                <p className="rounded-lg border p-3 text-xs text-secondary" style={{ borderColor: 'var(--accent-warning, #F5C451)' }}>
+                <p className="rounded-control p-3 text-xs text-secondary bg-alternate" style={{ borderColor: 'var(--accent-warning, #F5C451)' }}>
                   {aviso}
                 </p>
                 <div className="mt-1 flex gap-2">
@@ -279,7 +279,7 @@ export function AgregarMovimientoModal({
 
         {tab === 'ingreso' && (
           <div className="flex flex-col gap-3">
-            <div className="flex overflow-hidden rounded-lg border text-xs font-semibold">
+            <div className="flex overflow-hidden rounded-control text-xs font-semibold bg-alternate">
               <button onClick={() => setSubIngreso('freelance')}
                 className={`flex-1 px-3 py-2 ${subIngreso === 'freelance' ? 'bg-confirm text-white' : 'text-secondary hover:bg-alternate'}`}>
                 Freelance / puntual
@@ -308,7 +308,7 @@ export function AgregarMovimientoModal({
                     <option value="">Se deposita en… (opcional)</option>
                     {medios.map(m => <option key={m} value={m}>{m}</option>)}
                   </select>
-                  <div className="flex overflow-hidden rounded-lg border text-xs font-semibold">
+                  <div className="flex overflow-hidden rounded-control text-xs font-semibold bg-alternate">
                     {(['ARS', 'USD'] as const).map(m => (
                       <button key={m} type="button" onClick={() => setFormFreelance(p => ({ ...p, moneda: m }))}
                         className={`px-2.5 ${formFreelance.moneda === m ? 'bg-confirm text-white' : 'text-secondary hover:bg-card'}`}>
@@ -346,7 +346,7 @@ export function AgregarMovimientoModal({
                     <option value="">Se deposita en… (opcional)</option>
                     {medios.map(m => <option key={m} value={m}>{m}</option>)}
                   </select>
-                  <div className="flex overflow-hidden rounded-lg border text-xs font-semibold">
+                  <div className="flex overflow-hidden rounded-control text-xs font-semibold bg-alternate">
                     {(['ARS', 'USD'] as const).map(m => (
                       <button key={m} type="button" onClick={() => setFormFijo(p => ({ ...p, moneda: m }))}
                         className={`px-2.5 ${formFijo.moneda === m ? 'bg-confirm text-white' : 'text-secondary hover:bg-card'}`}>
