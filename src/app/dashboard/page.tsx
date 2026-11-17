@@ -17,9 +17,9 @@
    abre a demanda.                                                     */
 
 import Link from 'next/link'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
-import { BarChart3, ChevronDown, MessageCircle } from 'lucide-react'
+import { Check, GripVertical, LayoutGrid, MessageCircle, Plus } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { esLiquida } from '@/lib/patrimonio'
 import { infoResumen, type ResumenInfo, type TarjetaInfo } from '@/lib/resumenes'
@@ -35,13 +35,17 @@ import { sumarMeses } from '@/lib/ciclos'
 import { AgregarMovimientoModal } from '@/components/AgregarMovimientoModal'
 import { PagarResumen } from '@/components/tarjetas/Modales'
 import { LucaAvatar } from '@/components/luca/LucaAvatar'
-import { DIAS, Encabezado, Pestanas, Revelar, Toasts, fmt, useMedia, useToasts } from '@/components/resumen/base'
+import { DIAS, Encabezado, Pestanas, Toasts, fmt, fmtCorto, useMedia, useToasts } from '@/components/resumen/base'
 import { LibreParaUsar, PatrimonioHero } from '@/components/resumen/Hero'
 import { Categorias, FlujoPeriodo, ListaActividad, ListaCompromisos } from '@/components/resumen/Secciones'
 import { CapturaLuca, LucaInsights, type GastoDetectado } from '@/components/resumen/Luca'
 import { GraficoMensual, type Modo, type PuntoMes } from '@/components/resumen/GraficoMensual'
 import { AccionRapida, type AccionTipo } from '@/components/resumen/AccionRapida'
 import { useAlCambiarDatos } from '@/lib/eventos'
+import { GrillaOrdenable } from '@/components/GrillaOrdenable'
+import { SPAN, Sparkline, Widget } from '@/components/widgets/Widget'
+import { Icono } from '@/components/ui/Icono'
+import { LAYOUT_DEFECTO, WIDGETS, guardar as guardarLayout, leerCuenta, leerLocal, tamDe, type DefWidget, type IdWidget, type Layout } from '@/lib/inicio'
 
 const MODOS = [
   { key: 'balance', label: 'Balance' },
@@ -65,8 +69,8 @@ export default function ResumenPage() {
   const [agregar, setAgregar] = useState<'gasto' | 'ingreso' | null>(null)
   const [pagando, setPagando] = useState<{ t: TarjetaInfo; r: ResumenInfo } | null>(null)
   const [hoja, setHoja] = useState(false)
-  const [analisis, setAnalisis] = useState(false)
-  const [verPatrimonio, setVerPatrimonio] = useState(false)
+  const [layout, setLayout] = useState<Layout>(LAYOUT_DEFECTO)
+  const [editando, setEditando] = useState(false)
   const toasts = useToasts()
 
   /* carga: la primera con skeleton; las siguientes en silencio, para
@@ -110,6 +114,13 @@ export default function ResumenPage() {
     }
   }, [cargar])
   useAlCambiarDatos(useCallback(() => { cargar(true) }, [cargar]))
+
+  /* layout del inicio: primero el de este dispositivo; si no hay, el de tu cuenta */
+  useEffect(() => {
+    const local = leerLocal()
+    if (local) setLayout(local)
+    else leerCuenta(createClient()).then(l => { if (l) setLayout(l) })
+  }, [])
 
   /* ── todo lo derivado sale del núcleo ─────────────────────────── */
   const d = useMemo(() => {
@@ -257,122 +268,161 @@ export default function ResumenPage() {
       onSeleccion={c => { setCatFiltro(c); if (c) setTimeout(() => document.getElementById('t-act')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 60) }} />
   )
 
+  const visibles = layout.orden.filter(id => !layout.ocultos.includes(id))
+  const cambiar = (l: Layout) => { setLayout(l); guardarLayout(createClient(), l) }
+  const ant = serie.at(-2)
+  const gastoMes = serie.at(-1)?.gastos.total ?? 0
+  const varMes = ant && ant.gastos.total > 0 ? ((gastoMes - ant.gastos.total) / ant.gastos.total) * 100 : null
+  const venc = comp.items.find(i => i.tipo === 'tarjeta' && i.fecha)
+  const numero = 'font-semibold tracking-[-0.03em] tabular-nums text-primary'
+
+  /* contenido de cada widget: [cuerpo, estado, vacío] */
+  function contenido(id: IdWidget): { cuerpo: ReactNode; estado?: 'ok' | 'vacio'; vacioTxt?: ReactNode; sinMarco?: boolean } {
+    switch (id) {
+      case 'luca': return {
+        cuerpo: desktop ? <CapturaLuca onGuardar={guardarDesdeLuca} flotante /> : (
+          <button onClick={() => setHoja(true)} className="fa-press flex w-full items-center gap-3 rounded-control bg-alternate px-3 py-3 text-left text-sm text-secondary">
+            <LucaAvatar estado="idle" size={24} /><span className="flex-1">Contale a Luca un gasto…</span><MessageCircle size={16} />
+          </button>),
+      }
+      case 'libre': return { cuerpo: <LibreParaUsar p={p} comp={comp} foco={focoComp} onFoco={setFocoComp} /> }
+      case 'patrimonio': return { cuerpo: <PatrimonioHero p={p} serie={d!.seriePat} compacto={!desktop} /> }
+      case 'mes': return {
+        estado: serie.some(f => f.conDatos) ? 'ok' : 'vacio',
+        vacioTxt: <>Todavía no hay gastos este mes. <button onClick={() => setAgregar('gasto')} className="font-medium text-info">Registrar uno</button></>,
+        cuerpo: <>
+          <p className={`text-[28px] leading-none ${numero}`}>{fmt(gastoMes)}</p>
+          <div className="mt-3"><Sparkline valores={serie.slice(-6).map(f => f.gastos.total)} /></div>
+          {ant && <p className="mt-2 text-xs text-secondary">
+            {varMes != null && <span className="mr-1.5 rounded-full px-1.5 py-0.5 font-medium tabular-nums" style={{ color: varMes <= 0 ? 'var(--accent-positive)' : 'var(--accent-negative)', background: `color-mix(in srgb, ${varMes <= 0 ? 'var(--accent-positive)' : 'var(--accent-negative)'} 14%, transparent)` }}>{varMes > 0 ? '+' : ''}{Math.round(varMes)}%</span>}
+            vs. {nombreMes(ant.mes)} completo (<span className="tabular-nums">{fmt(ant.gastos.total)}</span>)</p>}
+        </>,
+      }
+      case 'vencimiento': {
+        if (!venc?.fecha) return { estado: 'vacio', vacioTxt: 'Nada que pagar en los próximos 30 días.', cuerpo: null }
+        const dias = Math.round((venc.fecha.getTime() - new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate()).getTime()) / 864e5)
+        return { cuerpo: <>
+          <p className={`text-2xl leading-none ${numero}`}>{fmt(venc.monto)}</p>
+          <p className="mt-2 truncate text-xs text-secondary">{venc.titulo.replace('Resumen ', '')}</p>
+          <p className="text-xs" style={{ color: dias < 0 ? 'var(--accent-negative)' : dias <= 3 ? 'var(--accent-warning)' : 'var(--text-secondary)' }}>
+            {dias < 0 ? `Vencido hace ${-dias} ${dias === -1 ? 'día' : 'días'}` : dias === 0 ? 'Vence hoy' : `Vence en ${dias} ${dias === 1 ? 'día' : 'días'}`}</p>
+          <button onClick={() => abrirPago(venc)} className="fa-press mt-auto self-start rounded-control bg-alternate px-3 py-1.5 text-xs font-medium text-primary">Pagar</button>
+        </> }
+      }
+      case 'inversiones': return {
+        estado: p.invertido > 0 ? 'ok' : 'vacio',
+        vacioTxt: <>Sin inversiones cargadas. <Link href="/dashboard/inversiones" className="font-medium text-info">Agregar</Link></>,
+        cuerpo: <>
+          <p className={`text-2xl leading-none ${numero}`}>{fmt(p.invertido)}</p>
+          <ul className="mt-2 space-y-0.5 text-xs">
+            {p.inversiones.slice(0, 2).map(x => <li key={x.clave} className="flex justify-between gap-2"><span className="truncate text-secondary">{x.nombre}</span><span className="tabular-nums text-primary">{fmtCorto(x.monto)}</span></li>)}
+          </ul>
+          <p className="mt-auto pt-2 text-[11px] text-muted">Dólar blue <span className="tabular-nums">{fmt(snap!.dolar)}</span></p>
+        </>,
+      }
+      case 'metas': return {
+        estado: d!.metas.length ? 'ok' : 'vacio',
+        vacioTxt: <>Ponete un objetivo y seguí el avance. <Link href="/dashboard/metas" className="font-medium text-info">Crear meta</Link></>,
+        cuerpo: <ul className="space-y-3">
+          {d!.metas.slice(0, 3).map(mt => (
+            <li key={mt.id}>
+              <div className="flex items-center justify-between gap-2 text-sm">
+                <span className="flex min-w-0 items-center gap-2 text-primary"><Icono nombre={mt.emoji} size={15} className="shrink-0 text-secondary" /><span className="truncate">{mt.nombre}</span></span>
+                <span className="tabular-nums text-secondary">{Math.round(mt.pct)}%</span>
+              </div>
+              <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-alternate">
+                <div className="h-full rounded-full" style={{ width: `${Math.min(100, mt.pct)}%`, background: mt.pct >= 100 ? 'var(--accent-positive)' : 'var(--text-primary)' }} />
+              </div>
+            </li>
+          ))}
+        </ul>,
+      }
+      case 'flujo': return { cuerpo: <FlujoPeriodo {...flujoProps} compacto={!desktop} /> }
+      case 'insights': return { cuerpo: <LucaInsights insights={d!.insights} />, sinMarco: true }
+      case 'evolucion': return { cuerpo: evolucion }
+      case 'actividad': return { cuerpo: <ListaActividad items={act} filtro={catFiltro} onLimpiar={() => setCatFiltro(null)} nuevos={nuevos} /> }
+      case 'categorias': return { cuerpo: <div id="categorias">{categoriasBloque}</div> }
+      case 'compromisos': return { cuerpo: <ListaCompromisos comp={comp} foco={focoComp} onFoco={setFocoComp} onPagar={abrirPago} /> }
+    }
+  }
+
+  /* algunos componentes ya traen su propio título: el widget no lo repite */
+  const conTitulo: IdWidget[] = ['luca', 'mes', 'vencimiento', 'inversiones', 'metas']
+
   return (
-    <div className="fa-page-in mx-auto flex max-w-[1480px] flex-col gap-6 pb-6 lg:gap-7">
+    <div className="fa-page-in mx-auto flex max-w-[1480px] flex-col gap-6 pb-6">
       {/* ── contexto + acciones ── */}
-      <header className="flex flex-wrap items-center gap-x-6 gap-y-3">
+      <header className="flex flex-wrap items-end gap-x-6 gap-y-3">
         <div className="min-w-0 flex-1">
-          <p className="fa-kicker">{hoy.getHours() < 12 ? 'Buenos días' : hoy.getHours() < 20 ? 'Buenas tardes' : 'Buenas noches'}</p>
-          <h1 className="mt-1 text-2xl font-extrabold tracking-tight text-primary lg:text-[28px]">
+          <p className="fa-label">{hoy.getHours() < 12 ? 'Buenos días' : hoy.getHours() < 20 ? 'Buenas tardes' : 'Buenas noches'}</p>
+          <h1 className="mt-1 text-2xl font-semibold tracking-[-0.025em] text-primary lg:text-[28px]">
             <span className="capitalize">{DIAS[hoy.getDay()]}</span> {hoy.getDate()} de {nombreMes(claveMes(hoy))}
           </h1>
           <p className="text-xs text-secondary">{contexto}{proximaTarjeta?.fecha ? ` · próximo vencimiento: ${proximaTarjeta.titulo.replace('Resumen ', '')}` : ''}</p>
-          <Link href="/dashboard/resumen-clasico" className="mt-1 inline-block text-[11px] text-muted hover:text-primary">Ver el Resumen clásico</Link>
         </div>
-        {desktop ? (
-          <div className="flex w-full items-start gap-3 xl:w-auto xl:min-w-[560px]">
-            <div className="min-w-0 flex-1"><CapturaLuca onGuardar={guardarDesdeLuca} flotante /></div>
-            <AccionRapida onAccion={accion} pagoHint={proximaTarjeta ? `${proximaTarjeta.titulo} · ${fmt(proximaTarjeta.monto)}` : null} />
-          </div>
-        ) : (
-          <button onClick={() => setHoja(true)}
-            className="fa-press flex w-full items-center gap-3 rounded-2xl border px-3 py-2.5 text-left text-sm text-muted fa-hairline"
-            style={{ background: 'var(--bg-input)' }}>
-            <LucaAvatar estado="idle" size={26} />
-            <span className="flex-1">Contale a Luca un gasto…</span>
-            <MessageCircle size={16} />
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          {!vacio && (
+            <button onClick={() => setEditando(v => !v)} aria-pressed={editando}
+              className={`fa-press flex h-11 items-center gap-2 rounded-control px-4 text-sm font-medium ${editando ? 'bg-confirm' : 'bg-alternate text-primary'}`}>
+              {editando ? <Check size={16} /> : <LayoutGrid size={16} />}{editando ? 'Listo' : 'Editar inicio'}
+            </button>
+          )}
+          {desktop && <AccionRapida onAccion={accion} pagoHint={proximaTarjeta ? `${proximaTarjeta.titulo} · ${fmt(proximaTarjeta.monto)}` : null} />}
+        </div>
       </header>
 
       {vacio ? (
-        <div className="rounded-2xl border p-10 text-center fa-hairline">
+        <div className="fa-card p-10 text-center">
           <LucaAvatar estado="idle" size={64} className="mx-auto" />
           <p className="mt-4 font-semibold text-primary">Empecemos por tu plata de hoy</p>
           <p className="mx-auto mt-1 max-w-sm text-sm text-secondary">Cargá tus billeteras (cuánto tenés en cada una) y tu primer gasto: con eso ya te muestro patrimonio, disponible y el mes.</p>
           <div className="mt-5 flex justify-center gap-2">
-            <Link href="/dashboard/billeteras" className="fa-press rounded-lg bg-confirm px-4 py-2 text-sm font-semibold text-white">Cargar billeteras</Link>
-            <button onClick={() => setAgregar('gasto')} className="fa-press rounded-lg border px-4 py-2 text-sm font-semibold text-primary fa-hairline">Registrar un gasto</button>
+            <Link href="/dashboard/billeteras" className="fa-press rounded-control bg-confirm px-4 py-2 text-sm font-semibold">Cargar billeteras</Link>
+            <button onClick={() => setAgregar('gasto')} className="fa-press rounded-control bg-alternate px-4 py-2 text-sm font-semibold text-primary">Registrar un gasto</button>
           </div>
         </div>
-      ) : desktop ? (
-        /* ════════ DESKTOP: centro de control ════════ */
-        <>
-          <Revelar>
-            <div className="fa-hero grid grid-cols-12 overflow-hidden">
-              <div className="col-span-7 p-8"><PatrimonioHero p={p} serie={d.seriePat} /></div>
-              <div className="col-span-5 border-l p-8 fa-hairline" style={{ background: 'color-mix(in srgb, var(--bg-alternate) 35%, transparent)' }}>
-                <LibreParaUsar p={p} comp={comp} foco={focoComp} onFoco={setFocoComp} />
-              </div>
-            </div>
-          </Revelar>
-
-          <div className="grid grid-cols-12 items-start gap-7">
-            <Revelar className="fa-tile col-span-7 p-6"><FlujoPeriodo {...flujoProps} /></Revelar>
-            <Revelar className="col-span-5" demora={60}><LucaInsights insights={d.insights} /></Revelar>
-          </div>
-
-          <div className="grid grid-cols-12 gap-7">
-            <Revelar className="fa-tile col-span-8 p-6">{evolucion}</Revelar>
-            <Revelar className="fa-tile col-span-4 p-6" demora={60} id="categorias">{categoriasBloque}</Revelar>
-          </div>
-
-          <div className="grid grid-cols-12 gap-7">
-            <Revelar className="fa-tile col-span-5 p-6"><ListaCompromisos comp={comp} foco={focoComp} onFoco={setFocoComp} onPagar={abrirPago} /></Revelar>
-            <Revelar className="fa-tile col-span-7 p-6" demora={60}>
-              <ListaActividad items={act} filtro={catFiltro} onLimpiar={() => setCatFiltro(null)} nuevos={nuevos} />
-            </Revelar>
-          </div>
-        </>
       ) : (
-        /* ════════ MOBILE: prioridades de una mano ════════ */
         <>
-          <section className="fa-hero p-5">
-            <LibreParaUsar p={p} comp={comp} foco={focoComp} onFoco={setFocoComp} />
-            <button onClick={() => setVerPatrimonio(v => !v)} aria-expanded={verPatrimonio}
-              className="fa-press mt-4 flex w-full items-center justify-between rounded-xl border px-3 py-2.5 text-sm fa-hairline">
-              <span className="text-secondary">Patrimonio neto</span>
-              <span className="flex items-center gap-2 font-semibold text-primary"><span className="tabular-nums">{fmt(p.neto)}</span>
-                <ChevronDown size={15} className="text-muted" style={{ transform: verPatrimonio ? 'rotate(180deg)' : undefined, transition: 'transform var(--dur-std) var(--ease-out)' }} /></span>
-            </button>
-            <div className="fa-colapsable" data-abierto={verPatrimonio}>
-              <div><div className="pt-4">{verPatrimonio && <PatrimonioHero p={p} serie={d.seriePat} compacto />}</div></div>
+          {editando && (
+            <div className="fa-card flex flex-wrap items-center gap-2 p-4 text-sm">
+              <span className="mr-2 text-secondary">Arrastrá desde <GripVertical size={14} className="inline align-[-2px]" />, cambiá el tamaño u ocultá widgets.</span>
+              {layout.ocultos.map(id => (
+                <button key={id} onClick={() => cambiar({ ...layout, ocultos: layout.ocultos.filter(x => x !== id) })}
+                  className="fa-press flex h-9 items-center gap-1.5 rounded-full bg-alternate px-3 text-xs font-medium text-primary">
+                  <Plus size={14} />{WIDGETS[id].titulo}
+                </button>
+              ))}
+              <button onClick={() => cambiar(LAYOUT_DEFECTO)} className="ml-auto text-xs font-medium text-secondary hover:text-primary">Restablecer</button>
             </div>
-          </section>
-
-          <section className="fa-tile p-5"><FlujoPeriodo {...flujoProps} compacto /></section>
-
-          <LucaInsights insights={d.insights} />
-
-          <Revelar className="fa-tile p-5">
-            <ListaActividad items={act} filtro={catFiltro} onLimpiar={() => setCatFiltro(null)} nuevos={nuevos} />
-          </Revelar>
-
-          <Revelar className="fa-tile p-5">
-            <ListaCompromisos comp={comp} foco={focoComp} onFoco={setFocoComp} onPagar={abrirPago} />
-          </Revelar>
-
-          <section className="fa-tile overflow-hidden">
-            <button onClick={() => setAnalisis(v => !v)} aria-expanded={analisis}
-              className="fa-press flex w-full items-center gap-3 px-5 py-4 text-left">
-              <BarChart3 size={18} className="text-info" />
-              <span className="flex-1">
-                <span className="block text-sm font-semibold text-primary">Análisis</span>
-                <span className="block text-xs text-secondary">Evolución y en qué se fue la plata</span>
-              </span>
-              <ChevronDown size={16} className="text-muted" style={{ transform: analisis ? 'rotate(180deg)' : undefined, transition: 'transform var(--dur-std) var(--ease-out)' }} />
-            </button>
-            <div className="fa-colapsable" data-abierto={analisis}>
-              <div>
-                {analisis && (
-                  <div className="space-y-8 border-t px-5 pb-6 pt-5 fa-hairline">
-                    {evolucion}
-                    <div id="categorias">{categoriasBloque}</div>
-                  </div>
-                )}
-              </div>
-            </div>
-          </section>
+          )}
+          <GrillaOrdenable
+            ids={visibles}
+            onReordenar={ids => cambiar({ ...layout, orden: [...ids, ...layout.orden.filter(x => !ids.includes(x))] as IdWidget[] })}
+            className="grid grid-flow-dense grid-cols-2 gap-4 lg:grid-cols-4 lg:gap-5"
+            itemClassName={id => SPAN[tamDe(layout, id as IdWidget)]}
+            render={(id, handle) => {
+              const w = id as IdWidget
+              const c = contenido(w)
+              const tam = tamDe(layout, w)
+              const def = WIDGETS[w] as DefWidget
+              return (
+                <Widget
+                  titulo={def.titulo}
+                  href={def.href}
+                  estado={c.estado ?? 'ok'}
+                  vacio={c.vacioTxt}
+                  sinMarco={c.sinMarco || !conTitulo.includes(w)}
+                  edicion={editando ? {
+                    handle, tam, tamanos: def.tamanos,
+                    onTam: t => cambiar({ ...layout, tam: { ...layout.tam, [w]: t } }),
+                    onOcultar: () => cambiar({ ...layout, ocultos: [...layout.ocultos, w] }),
+                  } : undefined}
+                >
+                  {c.sinMarco || conTitulo.includes(w) || editando ? c.cuerpo : <div className="fa-card h-full p-5 sm:p-6">{c.cuerpo}</div>}
+                </Widget>
+              )
+            }}
+          />
         </>
       )}
 

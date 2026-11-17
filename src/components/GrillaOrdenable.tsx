@@ -20,9 +20,11 @@ interface Props {
   onReordenar: (ids: string[]) => void
   render: (id: string, handle: HandleProps, arrastrando: boolean) => ReactNode
   className?: string
+  /** clases para el contenedor de cada ítem (ej: cuántas columnas ocupa en la grilla) */
+  itemClassName?: (id: string) => string
 }
 
-export function GrillaOrdenable({ ids, onReordenar, render, className }: Props) {
+export function GrillaOrdenable({ ids, onReordenar, render, className, itemClassName }: Props) {
   const [lista, setLista] = useState(ids)
   const [arrastrando, setArrastrando] = useState<string | null>(null)
   const contenedor = useRef<HTMLDivElement>(null)
@@ -114,6 +116,7 @@ export function GrillaOrdenable({ ids, onReordenar, render, className }: Props) 
           <div
             key={id}
             data-orden-id={id}
+            className={itemClassName?.(id)}
             ref={el => { if (el) nodos.current.set(id, el); else nodos.current.delete(id) }}
             style={{
               transition: 'box-shadow .15s, transform .15s, opacity .15s',
