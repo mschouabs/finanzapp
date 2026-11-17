@@ -32,6 +32,7 @@ import { Categorias } from '@/components/resumen/Secciones'
 import { CapturaLuca, type GastoDetectado } from '@/components/resumen/Luca'
 import { GraficoBarras, type PuntoBarra } from '@/components/resumen/GraficoBarras'
 import type { Categoria } from '@/lib/finanzas/nucleo'
+import { Icono } from '@/components/ui/Icono'
 
 interface GastoVariable {
   id: string
@@ -142,7 +143,7 @@ export default function MovimientosPage() {
     setGastosAnt((rA.data ?? []) as GastoVariable[])
     setViajes((rV.data ?? []) as GastoViaje[])
     setViajesAnt((rVA.data ?? []) as GastoViaje[])
-    setNombreViaje(Object.fromEntries(((rVs.data ?? []) as { id: string; nombre: string; emoji: string | null }[]).map(v => [v.id, `${v.emoji ?? '✈️'} ${v.nombre}`])))
+    setNombreViaje(Object.fromEntries(((rVs.data ?? []) as { id: string; nombre: string; emoji: string | null }[]).map(v => [v.id, v.nombre])))
     setFijos((rF.data ?? []) as GastoFijo[])
     const c: Record<string, string> = {}
     for (const t of (rC.data ?? []) as { id: string; nombre: string }[]) c[t.id] = t.nombre
@@ -526,7 +527,7 @@ export default function MovimientosPage() {
         {masGrandes.map((f, i) => (
           <li key={f.tipo === 'gasto' ? f.g.id : f.v.id} className="flex items-center gap-3 text-sm">
             <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-alternate text-[11px] font-bold text-secondary">{i + 1}</span>
-            <span className="min-w-0 flex-1 truncate text-primary">{f.tipo === 'gasto' ? `${getCat(f.g.categoria).emoji} ${f.g.nombre}` : `✈️ ${f.v.concepto}`}</span>
+            <span className="min-w-0 flex-1 truncate text-primary">{f.tipo === 'gasto' ? f.g.nombre : f.v.concepto}</span>
             <span className="font-semibold tabular-nums text-primary">{fmt(f.pesos)}</span>
           </li>
         ))}
@@ -551,16 +552,16 @@ export default function MovimientosPage() {
         <button onClick={() => setSoloHormiga(v => !v)} aria-pressed={soloHormiga}
           className="fa-press rounded-lg border px-2.5 py-2 text-xs font-semibold fa-hairline"
           style={soloHormiga ? { background: 'var(--riesgo-medio-tint)', borderColor: 'var(--riesgo-medio)', color: 'var(--riesgo-medio)' } : { color: 'var(--text-secondary)' }}>
-          🐜 Hormiga
+          Hormiga
         </button>
         <button onClick={exportarCSV} className="fa-press flex items-center gap-1.5 rounded-lg border px-2.5 py-2 text-xs font-semibold text-secondary hover:bg-alternate fa-hairline" title="Exportar lo que estás viendo">
           <Download size={14} /> CSV
         </button>
         {hayFiltros && (
           <div className="flex w-full flex-wrap items-center gap-1.5">
-            {filtroCat && <Chip onQuitar={() => setFiltroCat(null)}>{filtroCat === 'viajes' ? '✈️ Viajes' : `${getCat(filtroCat).emoji} ${getCat(filtroCat).label}`}</Chip>}
+            {filtroCat && <Chip onQuitar={() => setFiltroCat(null)}>{filtroCat === 'viajes' ? 'Viajes' : getCat(filtroCat).label}</Chip>}
             {diaSel && <Chip onQuitar={() => setDiaSel(null)}>{rango.esMes ? fmtFechaCorta(diaSel) : MESES[Number(diaSel.slice(5, 7)) - 1]}</Chip>}
-            {soloHormiga && <Chip onQuitar={() => setSoloHormiga(false)}>🐜 Hormiga</Chip>}
+            {soloHormiga && <Chip onQuitar={() => setSoloHormiga(false)}>Hormiga</Chip>}
             {busqueda.trim() && <Chip onQuitar={() => setBusqueda('')}>“{busqueda.trim()}”</Chip>}
             <button onClick={limpiar} className="text-xs font-semibold text-info hover:underline">Limpiar todo</button>
           </div>
@@ -589,7 +590,7 @@ export default function MovimientosPage() {
                     return (
                       <li key={`v-${f.v.id}`}>
                         <Link href={`/dashboard/viajes/${f.v.viaje_id}`} className="-mx-2 flex items-center gap-3 rounded-lg px-2 py-2.5 hover:bg-alternate">
-                          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-alternate" aria-hidden="true">✈️</span>
+                          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-alternate" aria-hidden="true"><Icono nombre="✈" size={16} /></span>
                           <span className="min-w-0 flex-1">
                             <span className="block truncate text-sm text-primary">{f.v.concepto}</span>
                             <span className="block truncate text-[11px] text-muted">Viaje · {nombreViaje[f.v.viaje_id] ?? 'Viaje'}</span>
@@ -610,13 +611,13 @@ export default function MovimientosPage() {
                           <input value={formEdit.nombre} onChange={e => setFormEdit(p => ({ ...p, nombre: e.target.value }))} aria-label="Descripción" className={`${inputCls} col-span-2 sm:col-span-2`} />
                           <input type="number" inputMode="decimal" value={formEdit.monto} onChange={e => setFormEdit(p => ({ ...p, monto: e.target.value }))} aria-label="Monto" className={inputCls} />
                           <select value={formEdit.categoria} onChange={e => setFormEdit(p => ({ ...p, categoria: e.target.value }))} aria-label="Categoría" className={inputCls}>
-                            {CATEGORIAS.map(c => <option key={c.key} value={c.key}>{c.emoji} {c.label}</option>)}
+                            {CATEGORIAS.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
                           </select>
                           <input type="date" value={formEdit.fecha} onChange={e => setFormEdit(p => ({ ...p, fecha: e.target.value }))} aria-label="Fecha" className={`${inputCls} col-span-2 sm:col-span-2`} />
                         </div>
                         <div className="mt-2 flex flex-wrap items-center gap-3">
                           <label className="flex items-center gap-1.5 text-xs text-secondary">
-                            <input type="checkbox" checked={formEdit.es_gasto_hormiga} onChange={e => setFormEdit(p => ({ ...p, es_gasto_hormiga: e.target.checked }))} /> 🐜 Hormiga
+                            <input type="checkbox" checked={formEdit.es_gasto_hormiga} onChange={e => setFormEdit(p => ({ ...p, es_gasto_hormiga: e.target.checked }))} /> Hormiga
                           </label>
                           {(g.cuotas_total ?? 1) > 1 && <span className="text-[11px] text-muted">Cuota {g.cuota_numero}/{g.cuotas_total}: solo cambia esta cuota.</span>}
                           {g.billetera_linea_id && <span className="text-[11px] text-muted">Si cambiás el monto, se corrige el saldo de {medio ?? 'la billetera'}.</span>}
@@ -635,14 +636,14 @@ export default function MovimientosPage() {
                       { label: 'Borrar', icono: <Trash2 size={16} />, onClick: () => pedirBorrar(g), peligro: true },
                     ]}>
                     <div className={`group flex items-center gap-3 rounded-lg px-2 py-2.5 hover:bg-alternate ${nuevos.has(g.id) ? 'fa-flash' : ''}`}>
-                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-alternate text-base" aria-hidden="true">{cat.emoji}</span>
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-secondary" aria-hidden="true" style={{ background: `color-mix(in srgb, ${cat.color} 14%, transparent)`, color: cat.color }}><Icono nombre={cat.emoji} size={16} /></span>
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-sm text-primary">{g.nombre}</span>
                         <span className="block truncate text-[11px] text-muted">
                           {cat.label}
                           {medio && <> · {medio}{g.forma_pago === 'credito' ? ' · crédito' : ''}</>}
                           {(g.cuotas_total ?? 1) > 1 && <> · cuota {g.cuota_numero}/{g.cuotas_total}</>}
-                          {g.es_gasto_hormiga && <> · 🐜</>}
+                          {g.es_gasto_hormiga && <> · hormiga</>}
                         </span>
                       </span>
                       <span className="text-right">
@@ -673,7 +674,7 @@ export default function MovimientosPage() {
       {xs.length === 0 && <li className="py-3 text-xs text-secondary">{vacio}</li>}
       {xs.map(f => (
         <li key={f.id} className="flex items-center gap-3 py-2.5">
-          <span className="text-base" aria-hidden="true">{f.tipo === 'suscripcion' ? '🔄' : getCat(f.categoria).emoji}</span>
+          <span className="text-secondary" aria-hidden="true"><Icono nombre={f.tipo === 'suscripcion' ? '🔄' : getCat(f.categoria).emoji} size={16} /></span>
           <span className="min-w-0 flex-1">
             <span className="block truncate text-sm text-primary">{f.nombre}</span>
             <span className="block text-[11px] tabular-nums text-muted">{fmt(Number(f.monto))} por mes</span>
@@ -681,7 +682,7 @@ export default function MovimientosPage() {
           <button onClick={() => alternarPagado(f)} role="switch" aria-checked={f.debitado} aria-label={`${f.nombre}: ${f.debitado ? 'pagado' : 'pendiente'}`}
             className="fa-press rounded-full border px-2.5 py-1 text-[11px] font-semibold"
             style={f.debitado ? { borderColor: 'var(--accent-positive)', color: 'var(--accent-positive)', background: 'var(--glow-positive)' } : { borderColor: 'var(--border-color)', color: 'var(--text-secondary)' }}>
-            {f.debitado ? '✓ Pagado' : 'Pendiente'}
+            {f.debitado ? 'Pagado' : 'Pendiente'}
           </button>
           <button onClick={() => quitarFijo(f)} aria-label={`Quitar ${f.nombre}`} className="fa-press flex h-8 w-8 items-center justify-center rounded-lg text-muted hover:bg-alternate hover:text-negative"><X size={14} /></button>
         </li>
@@ -702,7 +703,7 @@ export default function MovimientosPage() {
           {formFijo && (
             <div className="mt-3 grid grid-cols-2 gap-2">
               <div role="group" aria-label="Tipo" className="col-span-2 grid grid-cols-2 gap-1 rounded-lg border p-1 fa-hairline">
-                {([['fijo', 'Gasto fijo'], ['suscripcion', '🔄 Suscripción']] as const).map(([k, t]) => (
+                {([['fijo', 'Gasto fijo'], ['suscripcion', 'Suscripción']] as const).map(([k, t]) => (
                   <button key={k} type="button" aria-pressed={formFijo.tipo === k} onClick={() => setFormFijo({ ...formFijo, tipo: k })}
                     className="fa-press rounded-md py-1.5 text-xs font-semibold"
                     style={formFijo.tipo === k ? { background: 'var(--accent-primary, var(--bg-alternate))', color: 'var(--text-primary)' } : { color: 'var(--text-secondary)' }}>{t}</button>
@@ -711,7 +712,7 @@ export default function MovimientosPage() {
               <input autoFocus placeholder={formFijo.tipo === 'suscripcion' ? 'Nombre (ej. Netflix)' : 'Nombre (ej. Gimnasio)'} value={formFijo.nombre} onChange={e => setFormFijo({ ...formFijo, nombre: e.target.value })} className={`${inputCls} col-span-2`} />
               <input placeholder="Monto mensual" type="number" inputMode="decimal" value={formFijo.monto} onChange={e => setFormFijo({ ...formFijo, monto: e.target.value })} className={inputCls} />
               <select value={formFijo.categoria} onChange={e => setFormFijo({ ...formFijo, categoria: e.target.value })} aria-label="Categoría" className={inputCls}>
-                {CATEGORIAS.map(c => <option key={c.key} value={c.key}>{c.emoji} {c.label}</option>)}
+                {CATEGORIAS.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
               </select>
               <button onClick={guardarFijo} className="fa-press col-span-2 rounded-lg bg-confirm py-2 text-sm font-semibold text-white hover:bg-confirm-hover">{formFijo.tipo === 'suscripcion' ? 'Guardar suscripción' : 'Guardar fijo'}</button>
             </div>
@@ -720,7 +721,7 @@ export default function MovimientosPage() {
       </div>
       <p className="fa-kicker mt-4 flex justify-between"><span>Fijos</span><span className="tabular-nums">{fmt(sumaMes(soloFijos))}</span></p>
       {listaFijos(soloFijos, 'Sin gastos fijos. Agregá alquiler, expensas o impuestos.')}
-      <p className="fa-kicker mt-5 flex justify-between"><span>🔄 Suscripciones</span><span className="tabular-nums">{fmt(sumaMes(soloSubs))}</span></p>
+      <p className="fa-kicker mt-5 flex justify-between"><span>Suscripciones</span><span className="tabular-nums">{fmt(sumaMes(soloSubs))}</span></p>
       {listaFijos(soloSubs, 'Sin suscripciones. Agregá Netflix, Spotify, ChatGPT…')}
     </section>
   )

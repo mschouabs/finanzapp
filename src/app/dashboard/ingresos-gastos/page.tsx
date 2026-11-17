@@ -553,7 +553,7 @@ export default function TrabajosPage() {
 
         {visibles.length === 0 ? (
           <p className="rounded-xl border border-dashed px-4 py-8 text-center text-sm text-secondary fa-hairline">
-            {filtro === 'pendientes' ? 'Nadie te debe nada. 🎉' : filtro === 'cobrados' ? 'Todavía no hay proyectos cobrados completos.' : 'Todavía no cargaste proyectos.'}
+            {filtro === 'pendientes' ? 'Nadie te debe nada.' : filtro === 'cobrados' ? 'Todavía no hay proyectos cobrados completos.' : 'Todavía no cargaste proyectos.'}
           </p>
         ) : (
           <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">

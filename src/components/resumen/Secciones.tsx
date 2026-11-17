@@ -15,6 +15,7 @@ import {
   isoLocal, nombreMes,
   type Actividad, type Categoria, type Compromiso, type Compromisos, type Flujo, type Ritmo,
 } from '@/lib/finanzas/nucleo'
+import { Icono } from '@/components/ui/Icono'
 
 /** Color de una categoría (fijos y viajes no están en la lista de categorías). */
 const colorCat = (clave: string, color?: string) => {
@@ -188,7 +189,7 @@ export function Categorias({ cats, mes, esActual, seleccion, onSeleccion, max = 
                   <span className="flex items-center gap-2 text-sm">
                     <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[13px]" aria-hidden="true"
                       style={{ background: `color-mix(in srgb, ${colorCat(c.clave, cat.color)} 16%, transparent)` }}>
-                      {c.clave === 'fijos' ? '📌' : c.clave === 'viajes' ? '✈️' : cat.emoji}</span>
+                      <Icono nombre={c.clave === 'fijos' ? '📌' : c.clave === 'viajes' ? '✈️' : cat.emoji} size={15} /></span>
                     <span className="min-w-0 flex-1 truncate capitalize text-primary">{c.clave === 'fijos' ? 'Gastos fijos' : cat.label === c.clave ? c.nombre : cat.label}</span>
                     {delta !== null && Math.abs(delta) >= 10 && (
                       <span className="text-[11px] font-semibold tabular-nums" style={{ color: delta > 0 ? 'var(--accent-negative)' : 'var(--accent-positive)' }}>
@@ -357,7 +358,7 @@ export function ListaActividad({ items, filtro, onLimpiar, nuevos }: {
                   className="group -mx-2 flex w-[calc(100%+1rem)] items-center gap-3 rounded-lg px-2 py-2.5 text-left hover:bg-alternate">
                   <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-base"
                     style={{ background: ing ? 'var(--glow-positive)' : `color-mix(in srgb, ${colorCat(a.categoria, cat.color)} 15%, transparent)` }} aria-hidden="true">
-                    {ing ? <ArrowDownLeft size={16} className="text-positive" /> : a.categoria === 'viajes' ? '✈️' : cat.emoji}
+                    {ing ? <ArrowDownLeft size={16} className="text-positive" /> : <Icono nombre={a.categoria === 'viajes' ? '✈️' : cat.emoji} size={17} />}
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm text-primary">{a.titulo}</span>
@@ -378,7 +379,7 @@ export function ListaActividad({ items, filtro, onLimpiar, nuevos }: {
                   <div>
                     <div className="mb-2 ml-12 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-secondary">
                       {a.moneda !== 'ARS' && <span>Original: {a.moneda} {a.montoOriginal.toLocaleString('es-AR')}</span>}
-                      {a.hormiga && <span>🐜 Gasto hormiga</span>}
+                      {a.hormiga && <span>Gasto hormiga</span>}
                       <span>{new Date(a.fecha + 'T12:00:00').toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' })}</span>
                       <Link href={a.href} className="font-semibold text-info hover:underline">Abrir <ArrowUpRight size={11} className="inline" /></Link>
                     </div>

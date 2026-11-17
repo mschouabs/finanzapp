@@ -11,6 +11,7 @@ import { LucaAvatar } from '@/components/luca/LucaAvatar'
 import { NumeroAnimado, Toasts, useToasts } from '@/components/resumen/base'
 import { cobradoDelMes, cobradoFreelanceEnMes } from '@/lib/ingresos'
 import { celebrar } from '@/lib/eventos'
+import { Icono } from '@/components/ui/Icono'
 
 /* ── Metas ────────────────────────────────────────────────────────
    Arriba, dos metas "automáticas" que salen de tus números (cuánto
@@ -307,7 +308,7 @@ export default function MetasPage() {
           <button type="button" {...handle} className="-ml-1 flex h-8 w-7 items-center justify-center rounded text-muted hover:bg-alternate hover:text-primary">
             <GripVertical size={16} />
           </button>
-          <span className="text-2xl">{m.emoji || '🎯'}</span>
+          <span className="grid h-10 w-10 place-items-center rounded-control bg-alternate text-primary"><Icono nombre={m.emoji || '🎯'} size={20} /></span>
           <h3 className="min-w-0 flex-1 truncate text-sm font-bold text-primary">{m.nombre}</h3>
           {lograda && <span className="rounded-full px-2 py-0.5 text-xs font-medium text-positive" style={{ background: 'var(--glow-positive)' }}>Lograda</span>}
           <button onClick={() => setEditando(m)} aria-label={`Editar ${m.nombre}`} className="flex h-8 w-8 items-center justify-center rounded-lg text-muted hover:bg-alternate hover:text-primary">
@@ -447,7 +448,7 @@ export default function MetasPage() {
               </div>
             ) : (
               <p className="mt-1 text-xs text-secondary">
-                {tasaAhorro >= metaAhorro ? '¡Llegaste al objetivo! 🎉' : `Te falta ${fmtK(Math.max(ingresos * metaAhorro / 100 - ahorroMes, 0))} para el ${metaAhorro}%`}
+                {tasaAhorro >= metaAhorro ? 'Llegaste al objetivo.' : `Te falta ${fmtK(Math.max(ingresos * metaAhorro / 100 - ahorroMes, 0))} para el ${metaAhorro}%`}
               </p>
             )}
             <div className="mt-3 grid grid-cols-3 gap-2 text-center">
@@ -492,12 +493,12 @@ export default function MetasPage() {
 
         {tablaFalta ? (
           <div className="fa-card p-6 text-center text-sm text-secondary">
-            Falta crear la tabla de metas en la base de datos. Avisale a Claude 🙂
+            Falta crear la tabla de metas en la base de datos. Avisale a Claude.
           </div>
         ) : metas.length === 0 ? (
           <button onClick={() => setEditando('nueva')}
             className="fa-lift flex flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-line p-10 text-center hover:bg-alternate">
-            <span className="text-4xl">🎯</span>
+            <Icono nombre="🎯" size={36} strokeWidth={1.25} className="mx-auto text-secondary" />
             <span className="text-sm font-semibold text-primary">Creá tu primera meta</span>
             <span className="max-w-sm text-xs text-secondary">Un viaje, un auto, el fondo de emergencia… Poné cuánto necesitás y para cuándo, y te digo a qué ritmo vas.</span>
           </button>
@@ -580,9 +581,8 @@ function EditarMeta({ inicial, apps, nombreApp, onGuardar, onBorrar, onCerrar }:
             {EMOJIS.map(e => (
               <button key={e} type="button" onClick={() => setD({ ...d, emoji: e })}
                 className="flex h-10 w-10 items-center justify-center rounded-lg border text-xl transition-transform hover:scale-110"
-                style={d.emoji === e ? { borderColor: 'var(--accent-confirm)', background: 'color-mix(in srgb, var(--accent-confirm) 14%, transparent)' } : undefined}>
-                {e}
-              </button>
+                style={d.emoji === e ? { borderColor: 'var(--accent-confirm)', background: 'color-mix(in srgb, var(--accent-confirm) 14%, transparent)' } : undefined}><Icono nombre={e} size={20} />
+                </button>
             ))}
           </div>
         </div>

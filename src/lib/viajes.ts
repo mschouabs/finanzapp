@@ -72,21 +72,21 @@ export interface CategoriaViaje {
 }
 
 export const CATEGORIAS_VIAJE: CategoriaViaje[] = [
-  { key: 'alojamiento',     label: 'Alojamiento',     emoji: '🏨', color: 'var(--accent-secondary)' },
-  { key: 'vuelos',          label: 'Vuelos',          emoji: '✈️', color: 'var(--accent-violet)' },
-  { key: 'transporte',      label: 'Transporte',      emoji: '🚕', color: '#8B5CF6' },
-  { key: 'gastronomia',     label: 'Comida y bebida', emoji: '🍽️', color: 'var(--accent-warning)' },
-  { key: 'supermercado',    label: 'Supermercado',    emoji: '🛒', color: '#F59E0B' },
-  { key: 'salidas',         label: 'Bares y salidas', emoji: '🍻', color: '#EC4899' },
-  { key: 'actividades',     label: 'Actividades',     emoji: '🎟️', color: 'var(--accent-positive)' },
-  { key: 'entretenimiento', label: 'Entretenimiento', emoji: '🎳', color: '#14B8A6' },
-  { key: 'compras',         label: 'Compras',         emoji: '🛍️', color: 'var(--accent-negative)' },
-  { key: 'ropa',            label: 'Ropa',            emoji: '👕', color: '#F97316' },
-  { key: 'libros',          label: 'Libros',          emoji: '📚', color: '#0EA5E9' },
-  { key: 'regalos',         label: 'Regalos',         emoji: '🎁', color: '#E11D48' },
-  { key: 'salud',           label: 'Salud',           emoji: '💊', color: 'var(--riesgo-medio)' },
-  { key: 'tramites',        label: 'Seguros y trámites', emoji: '🛂', color: '#64748B' },
-  { key: 'varios',          label: 'Varios',          emoji: '📦', color: 'var(--text-muted)' },
+  { key: 'alojamiento',     label: 'Alojamiento',     emoji: '🏨', color: '#6E8FD6' },
+  { key: 'vuelos',          label: 'Vuelos',          emoji: '✈️', color: '#9C82D6' },
+  { key: 'transporte',      label: 'Transporte',      emoji: '🚕', color: '#6FA7C9' },
+  { key: 'gastronomia',     label: 'Comida y bebida', emoji: '🍽️', color: '#D9A55B' },
+  { key: 'supermercado',    label: 'Supermercado',    emoji: '🛒', color: '#5FA883' },
+  { key: 'salidas',         label: 'Bares y salidas', emoji: '🍻', color: '#CF7FA0' },
+  { key: 'actividades',     label: 'Actividades',     emoji: '🎟️', color: '#4FA3A0' },
+  { key: 'entretenimiento', label: 'Entretenimiento', emoji: '🎳', color: '#B58BC9' },
+  { key: 'compras',         label: 'Compras',         emoji: '🛍️', color: '#D46F7E' },
+  { key: 'ropa',            label: 'Ropa',            emoji: '👕', color: '#D88A6A' },
+  { key: 'libros',          label: 'Libros',          emoji: '📚', color: '#7D9BB8' },
+  { key: 'regalos',         label: 'Regalos',         emoji: '🎁', color: '#C97489' },
+  { key: 'salud',           label: 'Salud',           emoji: '💊', color: '#C2A14A' },
+  { key: 'tramites',        label: 'Seguros y trámites', emoji: '🛂', color: '#8D96A3' },
+  { key: 'varios',          label: 'Varios',          emoji: '📦', color: '#9A9AA3' },
 ]
 
 /* Claves viejas que se guardaron con otro nombre. */

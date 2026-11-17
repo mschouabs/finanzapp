@@ -12,6 +12,7 @@ import { AgregarMovimientoModal } from '@/components/AgregarMovimientoModal'
 import type { Seccion } from '@/lib/secciones'
 import { EVENTO_DATOS, EVENTO_NUEVO } from '@/lib/eventos'
 import { LucaLateral } from '@/components/luca/LucaLateral'
+import { Icono } from '@/components/ui/Icono'
 
 /* Navegación agrupada por función, no por orden alfabético: así la
    sidebar responde "¿qué tipo de cosa es esto?" de un vistazo.
@@ -176,7 +177,7 @@ export default function Sidebar({ userName }: { userName?: string }) {
               className={item(activa)}
               style={activa ? estiloActiva : undefined}
             >
-              <span className="w-[18px] text-center text-sm leading-none">{s.emoji}</span>
+              <span className="grid w-[18px] place-items-center"><Icono nombre={s.emoji} size={17} /></span>
               <span className="truncate">{s.nombre}</span>
             </Link>
           )

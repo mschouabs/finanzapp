@@ -13,6 +13,7 @@ import { useAlCambiarDatos } from '@/lib/eventos'
 import { hoyISO } from '@/lib/fechas'
 import { cobradoDelMes, cobrosDeFreelance } from '@/lib/ingresos'
 import { editarGastoVariable } from '@/lib/movimientos'
+import { Icono } from '@/components/ui/Icono'
 
 /* ── Historial ────────────────────────────────────────────────────
    Todo lo que entró y salió, en un solo lugar: gastos variables (con
@@ -56,9 +57,9 @@ const FILTROS = [
   { key: 'gastos', label: 'Gastos' },
   { key: 'fijos', label: 'Fijos' },
   { key: 'variables', label: 'Variables' },
-  { key: 'tarjeta', label: '💳 Tarjeta' },
-  { key: 'viajes', label: '✈️ Viajes' },
-  { key: 'cuentas', label: '🔁 Entre cuentas' },
+  { key: 'tarjeta', label: 'Tarjeta' },
+  { key: 'viajes', label: 'Viajes' },
+  { key: 'cuentas', label: 'Entre cuentas' },
 ] as const
 type Filtro = typeof FILTROS[number]['key']
 
@@ -129,7 +130,7 @@ export default function HistorialPage() {
     const str = (v: unknown) => (typeof v === 'string' ? v : '')
     const fechaDe = (r: Fila) => str(r.fecha) || str(r.created_at).slice(0, 10)
     const tarjetas = new Map(((ts ?? []) as Fila[]).map(t => [str(t.id), str(t.nombre)]))
-    const viajes = new Map(((vs ?? []) as Fila[]).map(v => [str(v.id), `${str(v.emoji)} ${str(v.nombre)}`.trim()]))
+    const viajes = new Map(((vs ?? []) as Fila[]).map(v => [str(v.id), str(v.nombre).trim()]))
 
     const secsCont = ((secs ?? []) as Fila[]).filter(x => x.tipo === 'ingreso' || x.tipo === 'gasto')
     const infoSec = new Map(secsCont.map(x => [str(x.id), { nombre: str(x.nombre), tipo: str(x.tipo) }]))
@@ -439,7 +440,7 @@ export default function HistorialPage() {
       {/* Lista agrupada por mes */}
       {filtrados.length === 0 ? (
         <div className="fa-panel p-10 text-center">
-          <p className="text-3xl">🔍</p>
+          <Icono nombre="🔍" size={32} strokeWidth={1.25} className="mx-auto text-secondary" />
           <p className="mt-2 text-sm text-secondary">{movs.length === 0 ? 'No hay movimientos registrados' : 'Nada con estos filtros'}</p>
         </div>
       ) : (
@@ -466,7 +467,7 @@ export default function HistorialPage() {
                         <button onClick={() => abrir(m)} className={`flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-alternate ${open ? 'bg-alternate' : ''}`}>
                           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-base"
                             style={{ background: `color-mix(in srgb, ${cta ? 'var(--accent-secondary)' : ing ? 'var(--accent-positive)' : 'var(--accent-negative)'} 12%, transparent)` }}>
-                            {TIPO[m.tipo].emoji}
+                            <Icono nombre={TIPO[m.tipo].emoji} size={17} />
                           </span>
                           <span className="min-w-0 flex-1">
                             <span className="block truncate text-sm text-primary">{m.descripcion || '—'}</span>
@@ -474,7 +475,7 @@ export default function HistorialPage() {
                               <span className="text-muted">{m.fecha.slice(8, 10)}/{m.fecha.slice(5, 7)}</span>
                               <Chip>{TIPO[m.tipo].label}</Chip>
                               {m.categoria && m.categoria !== TIPO[m.tipo].label && <Chip>{m.categoria}</Chip>}
-                              {m.tarjeta && !cta && <Chip>💳 {m.tarjeta}{m.forma === 'credito' ? ' · crédito' : m.forma === 'debito' ? ' · débito' : ''}</Chip>}
+                              {m.tarjeta && !cta && <Chip>{m.tarjeta}{m.forma === 'credito' ? ' · crédito' : m.forma === 'debito' ? ' · débito' : ''}</Chip>}
                               {cta && m.tarjeta && <Chip>{m.tarjeta}</Chip>}
                               {m.cuota && <Chip>cuota {m.cuota}</Chip>}
                               {m.viaje && <Chip>{m.viaje}</Chip>}

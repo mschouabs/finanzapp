@@ -11,6 +11,7 @@ import {
   type Registro,
   type Seccion,
 } from '@/lib/secciones'
+import { Icono } from '@/components/ui/Icono'
 
 type Borrador = Record<string, string>
 
@@ -172,7 +173,7 @@ export default function SeccionPage() {
       <div className="fa-card flex flex-wrap items-center justify-between gap-4 p-5">
         <div>
           <h1 className="text-lg font-extrabold text-primary">
-            {seccion.emoji} {seccion.nombre}
+            <span className="inline-flex items-center gap-2"><Icono nombre={seccion.emoji} size={20} />{seccion.nombre}</span>
           </h1>
           <p className="mt-1 text-xs text-secondary">
             {registros.length} {registros.length === 1 ? 'registro' : 'registros'}
@@ -248,7 +249,7 @@ export default function SeccionPage() {
                 disabled={guardando}
                 className="rounded-md bg-confirm px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-confirm-hover disabled:opacity-50"
               >
-                {guardando ? 'Guardando…' : editando ? '✓ Guardar cambios' : '✓ Agregar'}
+                {guardando ? 'Guardando…' : editando ? 'Guardar cambios' : 'Agregar'}
               </button>
               <button
                 onClick={resetForm}

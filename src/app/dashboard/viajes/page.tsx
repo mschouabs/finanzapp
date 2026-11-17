@@ -14,6 +14,7 @@ import {
   colorPresupuesto, duracionDias, estadoViaje, fmtARS, fmtCorto, fmtRango, proyeccionViaje, type Viaje,
 } from '@/lib/viajes'
 import { hoyISO } from '@/lib/fechas'
+import { Icono } from '@/components/ui/Icono'
 
 type ViajeOrd = Viaje & { orden?: number | null }
 type Filtro = 'todos' | 'activos' | 'realizados'
@@ -113,7 +114,7 @@ export default function ViajesPage() {
       const dias = duracionDias(v)
       return {
         id: v.id,
-        nombre: `${v.emoji} ${v.nombre}`,
+        nombre: v.nombre,
         valor: vistaGrafico === 'total' ? gastado[v.id] : dias ? gastado[v.id] / dias : 0,
         color: colorViaje(v.id),
       }
@@ -248,7 +249,7 @@ export default function ViajesPage() {
 
       {visibles.length === 0 ? (
         <div className="fa-panel p-10 text-center">
-          <div className="text-4xl">🗺️</div>
+          <Icono nombre="🗺" size={36} strokeWidth={1.25} className="mx-auto text-secondary" />
           <p className="mt-3 text-sm font-semibold text-primary">
             {viajes.length === 0 ? 'Todavía no cargaste ningún viaje' : 'Sin viajes para este filtro'}
           </p>
@@ -311,7 +312,7 @@ function TarjetaViaje({ v, total, handle, arrastrando }: { v: Viaje; total: numb
       {/* franja superior con el color del viaje */}
       <div className="relative px-4 pb-3 pt-4 text-white"
         style={{ background: `linear-gradient(135deg, ${color} 0%, color-mix(in srgb, ${color} 55%, #000) 100%)` }}>
-        <span aria-hidden="true" className="pointer-events-none absolute -right-6 -top-10 text-[96px] leading-none opacity-15">{v.emoji}</span>
+        <span aria-hidden="true" className="pointer-events-none absolute -right-4 -top-6 opacity-15"><Icono nombre={v.emoji} size={96} strokeWidth={1} /></span>
         <div className="relative flex items-start gap-2">
           {handle && (
             <button type="button" {...handle} aria-label="Arrastrar para ordenar" className="-ml-1 grid h-8 w-8 place-items-center rounded text-white/70 hover:bg-white/10 hover:text-white">
@@ -319,7 +320,7 @@ function TarjetaViaje({ v, total, handle, arrastrando }: { v: Viaje; total: numb
             </button>
           )}
           <Link href={`/dashboard/viajes/${v.id}`} className="flex min-w-0 flex-1 items-center gap-2.5">
-            <span className="text-3xl drop-shadow">{v.emoji}</span>
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-control bg-white/15"><Icono nombre={v.emoji} size={20} /></span>
             <span className="min-w-0">
               <span className="block truncate text-base font-bold">{v.nombre}</span>
               {v.destino && (
@@ -403,8 +404,8 @@ function BannerViaje({ v, gastado }: { v: Viaje; gastado: number }) {
     <Link href={`/dashboard/viajes/${v.id}`}
       className="fa-lift fa-aparecer relative flex flex-wrap items-center gap-4 overflow-hidden rounded-2xl p-5 text-white"
       style={{ background: `linear-gradient(120deg, ${color} 0%, color-mix(in srgb, ${color} 45%, #000) 100%)`, boxShadow: '0 12px 30px rgba(0,0,0,.25)' }}>
-      <span aria-hidden="true" className="pointer-events-none absolute -right-4 -top-8 text-[140px] leading-none opacity-15">{v.emoji}</span>
-      <span className="text-4xl">{v.emoji}</span>
+      <span aria-hidden="true" className="pointer-events-none absolute -right-4 -top-6 opacity-15"><Icono nombre={v.emoji} size={130} strokeWidth={1} /></span>
+      <span className="grid h-12 w-12 shrink-0 place-items-center rounded-control bg-white/15"><Icono nombre={v.emoji} size={24} /></span>
       <div className="relative min-w-0 flex-1">
         <p className="text-xs font-medium text-white/80">
           {estado === 'en_curso' ? 'Estás de viaje' : 'Tu próximo viaje'}
@@ -502,7 +503,7 @@ function LineaDeTiempo({ viajes, anio, setAnio, gastado }: {
                   background: color, boxShadow: '0 4px 10px rgba(0,0,0,.25)',
                 }}
               >
-                <span className="truncate">{v.emoji} {v.nombre}</span>
+                <span className="inline-flex min-w-0 items-center gap-1.5"><Icono nombre={v.emoji} size={14} /><span className="truncate">{v.nombre}</span></span>
               </Link>
             )
           })}

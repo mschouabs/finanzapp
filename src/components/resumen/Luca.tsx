@@ -250,8 +250,8 @@ export function CapturaLuca({ onGuardar, autoFoco = false, flotante = false }: {
             <div className="flex flex-wrap gap-1.5 text-xs">
               <select value={g.categoria} onChange={e => setG({ ...g, categoria: e.target.value })} aria-label="Categoría"
                 className="rounded-full border px-2.5 py-1 text-xs text-primary" style={{ background: 'var(--bg-card)' }}>
-                {!CATEGORIAS.some(c => c.key === g.categoria) && <option value={g.categoria}>{getCat(g.categoria).emoji} {g.categoria}</option>}
-                {CATEGORIAS.map(c => <option key={c.key} value={c.key}>{c.emoji} {c.label}</option>)}
+                {!CATEGORIAS.some(c => c.key === g.categoria) && <option value={g.categoria}>{g.categoria}</option>}
+                {CATEGORIAS.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
               </select>
               <span className="rounded-full border px-2.5 py-1 text-secondary fa-hairline">{g.medio_pago ? `${g.medio_pago} · ${g.forma_pago === 'credito' ? `crédito${(g.cuotas ?? 1) > 1 ? ` · ${g.cuotas} cuotas` : ''}` : 'débito'}` : 'Efectivo / sin medio'}</span>
               <span className="rounded-full border px-2.5 py-1 text-secondary fa-hairline">{fmtFechaCorta(g.fecha)}</span>

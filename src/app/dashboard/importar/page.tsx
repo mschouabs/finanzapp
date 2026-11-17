@@ -13,6 +13,7 @@ import { LucaAvatar } from '@/components/luca/LucaAvatar'
 import { Confirmar, Toasts, useToasts } from '@/components/resumen/base'
 import { EVENTO_DATOS } from '@/lib/eventos'
 import { hoyISO } from '@/lib/fechas'
+import { Icono } from '@/components/ui/Icono'
 
 /* ── Importar ─────────────────────────────────────────────────────
    Paso a paso: subís el archivo, emparejás columnas, revisás (con
@@ -21,8 +22,8 @@ import { hoyISO } from '@/lib/fechas'
 
 type DestinoFijo = 'gastos_variables' | 'ingresos_freelance'
 const DESTINOS_FIJOS: { id: DestinoFijo; label: string; ayuda: string }[] = [
-  { id: 'gastos_variables', label: '🛒 Gastos variables', ayuda: 'Consumos del día a día' },
-  { id: 'ingresos_freelance', label: '💼 Ingresos freelance', ayuda: 'Cobros y facturación' },
+  { id: 'gastos_variables', label: 'Gastos variables', ayuda: 'Consumos del día a día' },
+  { id: 'ingresos_freelance', label: 'Ingresos freelance', ayuda: 'Cobros y facturación' },
 ]
 
 const CAMPOS = [
@@ -106,7 +107,7 @@ export default function ImportarPage() {
   const destinoEsGasto = esGastoVar ||
     (destino.startsWith('seccion:') && secciones.find(x => x.id === destino.slice(8))?.tipo === 'gasto')
   const nombreDestino = DESTINOS_FIJOS.find(d => d.id === destino)?.label
-    ?? (() => { const s = secciones.find(x => x.id === destino.slice(8)); return s ? `${s.emoji} ${s.nombre}` : destino })()
+    ?? (() => { const s = secciones.find(x => x.id === destino.slice(8)); return s ? s.nombre : destino })()
 
   const preview: FilaPreview[] = useMemo(() => (tabla ? construirPreview(tabla, mapeo, invertir) : []), [tabla, mapeo, invertir])
 
@@ -373,7 +374,7 @@ export default function ImportarPage() {
             <h2 className="text-sm font-bold text-primary">¿Dónde van?</h2>
             <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
               {[...DESTINOS_FIJOS.map(d => ({ id: d.id as string, label: d.label, ayuda: d.ayuda })),
-                ...secciones.map(s => ({ id: `seccion:${s.id}`, label: `${s.emoji} ${s.nombre}`, ayuda: 'Sección propia' }))].map(d => (
+                ...secciones.map(s => ({ id: `seccion:${s.id}`, label: s.nombre, ayuda: 'Sección propia' }))].map(d => (
                 <button key={d.id} onClick={() => setDestino(d.id)}
                   className={`fa-lift rounded-xl border p-3 text-left ${destino === d.id ? 'bg-alternate' : ''}`}
                   style={destino === d.id ? { borderColor: 'var(--accent-confirm)', boxShadow: '0 0 0 3px color-mix(in srgb, var(--accent-confirm) 18%, transparent)' } : undefined}>
@@ -406,7 +407,7 @@ export default function ImportarPage() {
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <Resumen label="A importar" valor={String(aImportar.length)} sub={`a ${nombreDestino}`} tono="var(--accent-confirm)" />
             <Resumen label="Total" valor={fmtK(totalImportar)} sub={fechas.length ? `${fechas[0]} → ${fechas[fechas.length - 1]}` : 'sin fechas: van con la de hoy'} tono="var(--accent-secondary)" />
-            <Resumen label="Posibles duplicados" valor={String(duplicadas)} sub={duplicadas ? 'ya los tenías: arrancan descartados' : 'ninguno 👌'} tono={duplicadas ? 'var(--riesgo-medio)' : 'var(--accent-positive)'} />
+            <Resumen label="Posibles duplicados" valor={String(duplicadas)} sub={duplicadas ? 'ya los tenías: arrancan descartados' : 'ninguno'} tono={duplicadas ? 'var(--riesgo-medio)' : 'var(--accent-positive)'} />
             <Resumen label="No se pueden leer" valor={String(invalidas)} sub={invalidas ? 'sin monto o en cero' : 'todas bien'} tono={invalidas ? 'var(--accent-negative)' : 'var(--accent-positive)'} />
           </div>
 
@@ -480,7 +481,7 @@ export default function ImportarPage() {
                           {f.descripcion}
                           <span className="ml-1.5 inline-flex flex-wrap gap-1 align-middle">
                             {f.duplicado && <span className="rounded px-1.5 py-0.5 text-[11px] font-semibold" style={{ background: 'var(--riesgo-medio-tint)', color: 'var(--riesgo-medio)' }}>ya cargado</span>}
-                            {f.medio && autoMedio && <span className="rounded bg-alternate px-1.5 py-0.5 text-[11px] text-secondary">💳 {f.medio}</span>}
+                            {f.medio && autoMedio && <span className="rounded bg-alternate px-1.5 py-0.5 text-[11px] text-secondary">{f.medio}</span>}
                             {!f.valida && <span className="text-[11px] text-muted">{f.motivo}</span>}
                           </span>
                         </td>
@@ -512,7 +513,7 @@ export default function ImportarPage() {
       {/* Paso 4: listo */}
       {paso === 4 && ultima && (
         <div className="fa-panel fa-aparecer flex flex-col items-center gap-3 p-10 text-center">
-          <span className="flex h-16 w-16 items-center justify-center rounded-full text-3xl" style={{ background: 'var(--riesgo-bajo-tint)' }}>✅</span>
+          <span className="flex h-16 w-16 items-center justify-center rounded-full text-3xl" style={{ background: 'var(--riesgo-bajo-tint)', color: 'var(--accent-positive)' }}><Icono nombre="✓" size={28} /></span>
           <p className="text-lg font-bold text-primary">Importaste {ultima.ids.length} {ultima.ids.length === 1 ? 'registro' : 'registros'}</p>
           <p className="text-sm text-secondary">{fmtK(ultima.total)} a {ultima.destino}</p>
           <div className="mt-2 flex flex-wrap justify-center gap-2">

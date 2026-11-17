@@ -43,7 +43,7 @@ export function responderSobreTarjetas(
 
   if (/\bcuotas\b/.test(t)) {
     const cs = comprasEnCuotas(lista.map(e => e.tarjeta), consumos)
-    if (!cs.length) return 'No tenés compras en cuotas pendientes. 🎉'
+    if (!cs.length) return 'No tenés compras en cuotas pendientes.'
     const total = cs.reduce((s, c) => s + c.restante, 0)
     const detalle = cs.slice(0, 5).map(c => `• ${c.nombre}: cuota ${c.proxima}/${c.cuotasTotal} de ${$(c.montoCuota)} (termina ${etiquetaMes(c.ultimoResumen)})`).join('\n')
     return `Tenés ${cs.length} ${cs.length === 1 ? 'compra' : 'compras'} en cuotas, te quedan ${$(total)} por pagar:\n${detalle}`
@@ -76,7 +76,7 @@ export function responderSobreTarjetas(
 
   /* deuda / "cuánto debo" / "resumen" */
   const lineas = lista.map(e => {
-    if (e.deuda <= 0) return `${e.tarjeta.nombre}: no debés nada. 🎉`
+    if (e.deuda <= 0) return `${e.tarjeta.nombre}: no debés nada.`
     const partes = [
       e.deudaCerrada > 0 ? `${$(e.deudaCerrada)} del resumen cerrado` : '',
       e.deudaAbierta > 0 ? `${$(e.deudaAbierta)} del resumen actual (vence ${fmtDiaMes(e.abierto.vencimiento)})` : '',

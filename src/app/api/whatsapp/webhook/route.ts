@@ -123,7 +123,7 @@ export async function POST(req: NextRequest) {
     return twiml('Uy, no pude guardarlo. Proba de nuevo en un rato.')
   }
 
-  return twiml(`✅ ${data.mensaje}${aviso ? `\n⚠️ ${aviso}` : ''}`)
+  return twiml(`${data.mensaje}${aviso ? `\nOjo: ${aviso}` : ''}`)
 }
 
 export async function GET() {

@@ -1,9 +1,11 @@
 'use client'
+import { X } from 'lucide-react'
 
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useDialogo } from '@/lib/dialogo'
 import type { Viaje } from '@/lib/viajes'
+import { Icono } from '@/components/ui/Icono'
 
 const EMOJIS = ['✈️', '🏖️', '🏔️', '🗺️', '🚗', '🚢', '🎒', '🏝️', '🗼', '🎿', '🛶', '🏕️']
 
@@ -94,7 +96,7 @@ export function ViajeModal({
             aria-label="Cerrar"
             className="rounded-md px-2 py-1 text-secondary hover:bg-alternate hover:text-primary"
           >
-            ✕
+            <X size={16} aria-hidden="true" />
           </button>
         </div>
 
@@ -116,8 +118,7 @@ export function ViajeModal({
                         }
                       : undefined
                   }
-                >
-                  {e}
+                ><Icono nombre={e} size={20} />
                 </button>
               ))}
             </div>

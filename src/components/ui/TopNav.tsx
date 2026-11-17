@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { ThemeSelector } from '@/components/ThemeSelector'
+import { Icono } from '@/components/ui/Icono'
 
 const navItems = [
   { href: '/dashboard', label: 'Resumen', emoji: '📊' },
@@ -34,7 +35,7 @@ export default function TopNav({ userName }: { userName?: string }) {
       <div className="px-5 py-4 flex items-center justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-xl font-extrabold text-primary leading-tight">
-            💰 FinanzApp
+            FinanzApp
           </h1>
           <p className="text-xs text-secondary mt-0.5">
             Control de gastos e inversiones
@@ -71,7 +72,7 @@ export default function TopNav({ userName }: { userName?: string }) {
               }`}
               style={isActive ? { borderColor: 'var(--accent-confirm)' } : undefined}
             >
-              <span>{item.emoji}</span>
+              <Icono nombre={item.emoji} size={16} />
               {item.label}
             </Link>
           )

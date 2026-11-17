@@ -181,13 +181,13 @@ export function AgregarMovimientoModal({
             onClick={() => setTab('gasto')}
             className={`flex-1 px-3 py-2.5 ${tab === 'gasto' ? 'bg-confirm text-white' : 'text-secondary hover:bg-alternate'}`}
           >
-            💸 Gasto
+            Gasto
           </button>
           <button
             onClick={() => setTab('ingreso')}
             className={`flex-1 px-3 py-2.5 ${tab === 'ingreso' ? 'bg-confirm text-white' : 'text-secondary hover:bg-alternate'}`}
           >
-            💰 Ingreso
+            Ingreso
           </button>
         </div>
 
@@ -211,7 +211,7 @@ export function AgregarMovimientoModal({
             </div>
 
             <select value={formGasto.categoria} onChange={e => setFormGasto(p => ({ ...p, categoria: e.target.value }))} className={inputCls}>
-              {CATEGORIAS.map(c => <option key={c.key} value={c.key}>{c.emoji} {c.label}</option>)}
+              {CATEGORIAS.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
             </select>
 
             <input type="date" value={formGasto.fecha}
@@ -257,7 +257,7 @@ export function AgregarMovimientoModal({
             {aviso ? (
               <>
                 <p className="rounded-lg border p-3 text-xs text-secondary" style={{ borderColor: 'var(--accent-warning, #F5C451)' }}>
-                  ⚠️ {aviso}
+                  {aviso}
                 </p>
                 <div className="mt-1 flex gap-2">
                   <button onClick={onClose} className="rounded-lg bg-confirm px-5 py-2.5 text-sm font-semibold text-white hover:bg-confirm-hover">
@@ -282,11 +282,11 @@ export function AgregarMovimientoModal({
             <div className="flex overflow-hidden rounded-lg border text-xs font-semibold">
               <button onClick={() => setSubIngreso('freelance')}
                 className={`flex-1 px-3 py-2 ${subIngreso === 'freelance' ? 'bg-confirm text-white' : 'text-secondary hover:bg-alternate'}`}>
-                🚀 Freelance / puntual
+                Freelance / puntual
               </button>
               <button onClick={() => setSubIngreso('fijo')}
                 className={`flex-1 px-3 py-2 ${subIngreso === 'fijo' ? 'bg-confirm text-white' : 'text-secondary hover:bg-alternate'}`}>
-                💼 Sueldo fijo
+                Sueldo fijo
               </button>
             </div>
 

@@ -239,9 +239,9 @@ export default function ConfiguracionPage() {
         </button>
         {seccion === 'privacidad' && (
           <div className="mt-4 pt-4 border-t space-y-3 text-sm text-secondary leading-relaxed">
-            <p>🔒 Tus datos financieros están encriptados y almacenados de forma segura.</p>
-            <p>📊 No compartimos tu información con terceros.</p>
-            <p>🗑️ Podés solicitar la eliminación de tu cuenta y todos tus datos en cualquier momento.</p>
+            <p>Tus datos financieros están encriptados y almacenados de forma segura.</p>
+            <p>No compartimos tu información con terceros.</p>
+            <p>Podés solicitar la eliminación de tu cuenta y todos tus datos en cualquier momento.</p>
             <button
               onClick={exportarDatos}
               className="mt-2 flex items-center gap-2 text-xs font-semibold text-confirm hover:underline"

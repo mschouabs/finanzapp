@@ -93,7 +93,7 @@ export async function prepararAccion(supabase: Cliente, s: Snapshot, a: AccionPr
     const lineas = [`De ${nombreCuenta(s, d.id)}: −${monto(sale, d.moneda)}`, `A ${nombreCuenta(s, h.id)}: +${monto(llega, h.moneda)}`]
     if (Number(d.monto) < sale) lineas.push(`Ojo: ${nombreCuenta(s, d.id)} tiene ${monto(Number(d.monto), d.moneda)}, quedaría en negativo.`)
     if (str(i.nota)) lineas.push(str(i.nota))
-    return { titulo: '🔁 Transferencia', lineas }
+    return { titulo: 'Transferencia', lineas }
   }
 
   if (a.tool === 'pagar_tarjeta') {
@@ -113,7 +113,7 @@ export async function prepararAccion(supabase: Cliente, s: Snapshot, a: AccionPr
     if (ars && cp) lineas.push(`${$(ars)} salen de ${nombreCuenta(s, cp.id)}`)
     if (usd && cu) lineas.push(`US$${usd} salen de ${nombreCuenta(s, cu.id)}`)
     if (ars && cp && Number(cp.monto) < ars) lineas.push(`Ojo: esa cuenta tiene ${$(Number(cp.monto))}, quedaría en negativo.`)
-    return { titulo: `💳 Pagar ${t.nombre}`, lineas }
+    return { titulo: `Pagar ${t.nombre}`, lineas }
   }
 
   if (a.tool === 'registrar_me_deben') {
@@ -121,7 +121,7 @@ export async function prepararAccion(supabase: Cliente, s: Snapshot, a: AccionPr
     if (!str(i.persona) || !(m > 0)) return { titulo: 'Me deben', lineas: [], error: 'Falta quién te debe o cuánto.' }
     const moneda = i.moneda === 'USD' ? 'USD' : 'ARS'
     return {
-      titulo: '🤝 Anotar que te deben',
+      titulo: 'Anotar que te deben',
       lineas: [`${str(i.persona)} te debe ${monto(m, moneda)}${str(i.concepto) ? ` por ${str(i.concepto)}` : ''}`, 'No cuenta como ingreso hasta que te pague.'],
     }
   }
@@ -135,7 +135,7 @@ export async function prepararAccion(supabase: Cliente, s: Snapshot, a: AccionPr
     if (c.moneda !== d.moneda) return { titulo: 'Cobro', lineas: [], error: `La deuda es en ${d.moneda} y esa cuenta es en ${c.moneda}.` }
     if (!(m > 0) || m > pendienteDe(d) + 0.005) return { titulo: 'Cobro', lineas: [], error: `${d.persona} te debe ${monto(pendienteDe(d), d.moneda)}; revisá el monto.` }
     return {
-      titulo: `💵 Cobro de ${d.persona}`,
+      titulo: `Cobro de ${d.persona}`,
       lineas: [`+${monto(m, d.moneda)} a ${nombreCuenta(s, c.id)}`, m >= pendienteDe(d) - 0.005 ? 'Con esto queda saldada.' : `Todavía te quedaría debiendo ${monto(pendienteDe(d) - m, d.moneda)}.`],
     }
   }
@@ -152,7 +152,7 @@ export async function prepararAccion(supabase: Cliente, s: Snapshot, a: AccionPr
     if (str(i.fecha) && str(i.fecha) !== String(g.fecha).slice(0, 10)) lineas.push(`Fecha: ${String(g.fecha).slice(0, 10)} → ${str(i.fecha)}`)
     if (!lineas.length) return { titulo: 'Corregir gasto', lineas: [], error: 'No hay nada para cambiar.' }
     if (nuevoM != null && g.billetera_linea_id) lineas.push('El saldo de la cuenta se ajusta por la diferencia.')
-    return { titulo: `✏️ Corregir "${g.nombre}"`, lineas }
+    return { titulo: `Corregir "${g.nombre}"`, lineas }
   }
 
   if (a.tool === 'borrar_gasto') {
@@ -160,7 +160,7 @@ export async function prepararAccion(supabase: Cliente, s: Snapshot, a: AccionPr
     if (!g) return { titulo: 'Borrar gasto', lineas: [], error: 'No encontré ese gasto.' }
     const completa = i.compra_completa === true && !!g.compra_id
     return {
-      titulo: `🗑️ Borrar "${g.nombre}"`, peligro: true,
+      titulo: `Borrar "${g.nombre}"`, peligro: true,
       lineas: [`${monto(Number(g.monto), g.moneda)} del ${String(g.fecha).slice(0, 10)}${completa ? ` · todas las cuotas (${g.cuotas_total})` : ''}`, g.billetera_linea_id && !completa ? 'La plata vuelve a la cuenta.' : 'Se elimina del registro.'],
     }
   }
@@ -173,14 +173,14 @@ export async function prepararAccion(supabase: Cliente, s: Snapshot, a: AccionPr
     const dif = real - Number(l.monto)
     if (Math.abs(dif) < 0.005) return { titulo: 'Corregir saldo', lineas: [], error: 'Ese ya es el saldo que figura.' }
     return {
-      titulo: `⚖️ Corregir saldo de ${nombreCuenta(s, l.id)}`,
+      titulo: `Corregir saldo de ${nombreCuenta(s, l.id)}`,
       lineas: [`${monto(Number(l.monto), l.moneda)} → ${monto(real, l.moneda)} (${dif > 0 ? '+' : '−'}${monto(Math.abs(dif), l.moneda)})`, 'Queda anotado en el libro como ajuste y se puede deshacer.'],
     }
   }
 
   if (a.tool === 'reportar_problema') {
     if (!str(i.resumen)) return { titulo: 'Reporte', lineas: [], error: 'Falta describir el problema.' }
-    return { titulo: '🛟 Enviar reporte', lineas: [str(i.resumen), str(i.detalle).slice(0, 240), 'Se guarda con un resumen de tu situación para que se pueda revisar.'] }
+    return { titulo: 'Enviar reporte', lineas: [str(i.resumen), str(i.detalle).slice(0, 240), 'Se guarda con un resumen de tu situación para que se pueda revisar.'] }
   }
 
   if (a.tool === 'deshacer_ultimo_movimiento') {

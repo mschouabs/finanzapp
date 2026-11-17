@@ -19,6 +19,7 @@ import {
   fmtARS, fmtCorto, fmtFecha, fmtMonedaOriginal, fmtRango, getCategoriaViaje, getMoneda,
   proyeccionViaje, sugerirCategoriaViaje, type Viaje, type ViajeGasto,
 } from '@/lib/viajes'
+import { Icono } from '@/components/ui/Icono'
 
 /* ── Detalle de un viaje ──────────────────────────────────────────
    Cuánto llevás gastado contra el presupuesto, a qué ritmo, en qué y
@@ -324,7 +325,7 @@ export default function ViajeDetallePage() {
             <ArrowLeft size={14} /> Viajes
           </Link>
           <div className="mt-1 flex flex-wrap items-center gap-2.5">
-            <span className="text-3xl" aria-hidden="true">{viaje.emoji}</span>
+            <span className="grid h-10 w-10 place-items-center rounded-control bg-alternate text-primary"><Icono nombre={viaje.emoji} size={20} /></span>
             <h1 className="text-xl font-extrabold tracking-tight text-primary lg:text-2xl">{viaje.nombre}</h1>
             <span className="rounded-full px-2 py-0.5 text-xs font-medium"
               style={{ color: viaje.archivado ? 'var(--text-muted)' : estado.color, background: `color-mix(in srgb, ${viaje.archivado ? 'var(--text-muted)' : estado.color} 14%, transparent)` }}>
@@ -488,7 +489,7 @@ export default function ViajeDetallePage() {
                       <button key={c.key} type="button" aria-pressed={on} onClick={() => setForm(f => ({ ...f, categoria: c.key }))}
                         className="fa-press h-10 rounded-lg border px-3 text-xs font-medium text-secondary fa-hairline"
                         style={on ? { borderColor: c.color, color: c.color, background: `color-mix(in srgb, ${c.color} 12%, transparent)` } : undefined}>
-                        {c.emoji} {c.label}
+                        <span className="inline-flex items-center gap-1.5"><Icono nombre={c.emoji} size={14} />{c.label}</span>
                       </button>
                     )
                   })}
@@ -525,7 +526,7 @@ export default function ViajeDetallePage() {
                       className="fa-press w-full rounded-lg px-2 py-1.5 text-left hover:bg-alternate"
                       style={{ background: on ? 'var(--bg-alternate)' : undefined, opacity: filtroCat && !on ? 0.5 : 1 }}>
                       <span className="flex items-center gap-2 text-sm">
-                        <span aria-hidden="true">{c.emoji}</span>
+                        <Icono nombre={c.emoji} size={15} />
                         <span className="flex-1 truncate text-primary">{c.label}</span>
                         <span className="text-xs text-muted">{Math.round((c.monto / (total || 1)) * 100)}%</span>
                         <span className="w-24 text-right font-semibold tabular-nums text-primary">{fmtARS(c.monto)}</span>
@@ -592,7 +593,7 @@ export default function ViajeDetallePage() {
                     return (
                       <li key={g.id} className="flex items-center gap-3 px-4 py-2.5 hover:bg-alternate">
                         <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-base" aria-hidden="true"
-                          style={{ background: `color-mix(in srgb, ${cat.color} 14%, transparent)` }}>{cat.emoji}</span>
+                          style={{ background: `color-mix(in srgb, ${cat.color} 14%, transparent)`, color: cat.color }}><Icono nombre={cat.emoji} size={17} /></span>
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-sm font-medium text-primary">{g.concepto}</p>
                           <p className="truncate text-[11px] text-muted">

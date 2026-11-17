@@ -75,7 +75,7 @@ export default function PortfolioPage() {
   const tnaPromedio = total > 0 ? base.reduce((s, l) => s + valor(l) * tna(l), 0) / total : 0
 
   const porRiesgo: Porcion[] = (Object.keys(RIESGO) as Riesgo[]).map(r => ({
-    key: r, label: `${RIESGO[r].emoji} ${RIESGO[r].label}`, color: RIESGO[r].tono,
+    key: r, label: RIESGO[r].label, color: RIESGO[r].tono,
     valor: base.filter(l => riesgoDe(l) === r).reduce((s, l) => s + valor(l), 0),
   })).filter(p => p.valor > 0)
 
@@ -446,7 +446,7 @@ function EditarActivo({ inicial, apps, cuentas, onGuardar, onBorrar, onCerrar }:
               <button key={r} type="button" onClick={() => setD({ ...d, riesgo: r })} title={RIESGO[r].label}
                 className="flex-1 py-2.5 text-sm"
                 style={d.riesgo === r ? { background: RIESGO[r].tint, color: RIESGO[r].tono, fontWeight: 700 } : { color: 'var(--text-secondary)' }}>
-                {RIESGO[r].emoji}
+                <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: RIESGO[r].tono }} />
               </button>
             ))}
           </div>

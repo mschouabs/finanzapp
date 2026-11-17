@@ -1,4 +1,5 @@
 'use client'
+import { X } from 'lucide-react'
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useDialogo } from '@/lib/dialogo'
@@ -12,6 +13,7 @@ import {
   type Plantilla,
   type SeccionTipo,
 } from '@/lib/secciones'
+import { Icono } from '@/components/ui/Icono'
 
 const EMOJIS = ['📁', '💼', '🏠', '💳', '📊', '🎯', '🚗', '🍽️', '✈️', '🏥', '🎓', '🛒']
 
@@ -130,7 +132,7 @@ export function SeccionModal({
         <div className="mb-5 flex items-start justify-between gap-4">
           <div>
             <h2 className="text-base font-extrabold text-primary">
-              {paso === 1 ? 'Nueva sección' : `${emoji} ${nombre || 'Nueva sección'}`}
+              {paso === 1 ? 'Nueva sección' : (nombre || 'Nueva sección')}
             </h2>
             <p className="mt-1 text-xs text-secondary">
               {paso === 1
@@ -143,7 +145,7 @@ export function SeccionModal({
             aria-label="Cerrar"
             className="rounded-md px-2 py-1 text-secondary hover:bg-alternate hover:text-primary"
           >
-            ✕
+            <X size={16} aria-hidden="true" />
           </button>
         </div>
 
@@ -157,7 +159,7 @@ export function SeccionModal({
                 className="rounded-md border bg-alternate p-4 text-left transition-colors hover:border-confirm"
               >
                 <div className="text-sm font-bold text-primary">
-                  {p.emoji} {p.nombre}
+                  <span className="inline-flex items-center gap-2"><Icono nombre={p.emoji} size={16} />{p.nombre}</span>
                 </div>
                 <div className="mt-1 text-xs text-secondary">{p.descripcion}</div>
                 <div className="mt-2 text-[11px] text-muted">
@@ -194,9 +196,8 @@ export function SeccionModal({
                       className={`h-8 w-8 rounded-md border text-sm transition-colors ${
                         emoji === e ? 'border-confirm bg-alternate' : 'hover:bg-alternate'
                       }`}
-                    >
-                      {e}
-                    </button>
+                    ><Icono nombre={e} size={20} />
+                </button>
                   ))}
                 </div>
               </div>
@@ -264,7 +265,7 @@ export function SeccionModal({
                             aria-label={`Borrar campo ${c.label || i + 1}`}
                             className="rounded px-2 py-1 text-xs text-negative hover:bg-card"
                           >
-                            ✕
+                            <X size={16} aria-hidden="true" />
                           </button>
                         )}
                       </div>
@@ -297,7 +298,7 @@ export function SeccionModal({
                 disabled={guardando}
                 className="rounded-md bg-confirm px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-confirm-hover disabled:opacity-50"
               >
-                {guardando ? 'Creando…' : '✓ Crear sección'}
+                {guardando ? 'Creando…' : 'Crear sección'}
               </button>
               <button
                 onClick={() => setPaso(1)}

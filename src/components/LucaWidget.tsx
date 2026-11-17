@@ -179,7 +179,7 @@ export function LucaWidget({ onSaved }: { onSaved?: () => void }) {
           <h2 className="text-sm font-extrabold text-primary leading-tight">Decile a Luca</h2>
           <p className="text-xs text-secondary mt-0.5">
             {saved
-              ? '¡Guardado! 🎉'
+              ? 'Guardado.'
               : error
               ? 'Mmm, no entendí bien...'
               : loading || saving
@@ -227,7 +227,7 @@ export function LucaWidget({ onSaved }: { onSaved?: () => void }) {
             disabled={loading || !input.trim() || !!parsed}
             className="px-5 py-3 text-xs font-semibold rounded-md text-white bg-confirm hover:bg-confirm-hover disabled:opacity-50 transition-colors"
           >
-            {loading ? 'Pensando…' : '✓ Enviar'}
+            {loading ? 'Pensando…' : 'Enviar'}
           </button>
           <button
             onClick={reset}
@@ -244,13 +244,13 @@ export function LucaWidget({ onSaved }: { onSaved?: () => void }) {
       )}
 
       {saved && (
-        <p className="mt-4 text-xs font-semibold text-positive">✓ ¡Guardado!</p>
+        <p className="mt-4 text-xs font-semibold text-positive">Guardado.</p>
       )}
 
       {/* Resultado interpretado */}
       {parsed && !saved && (
         <div className="mt-4 rounded-md border bg-alternate p-4">
-          <p className="text-sm text-primary mb-3">💸 Luca entiende:</p>
+          <p className="text-sm text-primary mb-3">Luca entiende:</p>
 
           <dl className="text-xs">
             {FIELDS.map(({ label, key, type }, i) => (
@@ -363,7 +363,7 @@ export function LucaWidget({ onSaved }: { onSaved?: () => void }) {
               disabled={saving}
               className="px-3 py-2 text-[11px] font-semibold rounded-md text-white bg-confirm hover:bg-confirm-hover disabled:opacity-50 transition-colors"
             >
-              {saving ? 'Guardando…' : '✓ Confirmar'}
+              {saving ? 'Guardando…' : 'Confirmar'}
             </button>
             <button
               onClick={() => setEditing(e => !e)}

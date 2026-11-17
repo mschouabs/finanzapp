@@ -149,7 +149,7 @@ export function AnilloLimite({ e, size = 108 }: { e: EstadoTarjeta; size?: numbe
             <span className={`fa-amount ${e.disponible < 0 ? 'text-negative' : 'text-primary'}`}>{fmtCorto(e.disponible)}</span>
           </li>
         )}
-        {alerta && <li className="text-[11px] font-semibold text-negative">⚠️ Usaste más del 80% del límite</li>}
+        {alerta && <li className="text-[11px] font-semibold text-negative">Usaste más del 80% del límite</li>}
       </ul>
     </div>
   )

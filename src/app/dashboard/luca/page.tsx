@@ -53,11 +53,11 @@ interface Mensaje {
 
 const STORAGE_KEY = 'luca_chat_historial'
 const TIPO_LABELS: Record<TipoRegistro, string> = {
-  gasto_variable: '💸 Gasto detectado',
-  gasto_fijo: '📋 Gasto fijo detectado',
-  ingreso_fijo: '💰 Ingreso fijo detectado',
-  ingreso_freelance: '🤝 Ingreso freelance detectado',
-  inversion: '📈 Inversión detectada',
+  gasto_variable: 'Gasto detectado',
+  gasto_fijo: 'Gasto fijo detectado',
+  ingreso_fijo: 'Ingreso fijo detectado',
+  ingreso_freelance: 'Ingreso freelance detectado',
+  inversion: 'Inversión detectada',
 }
 
 function getId() {
@@ -93,7 +93,7 @@ export default function LucaChatPage() {
         setMensajes([{
           id: getId(),
           rol: 'luca',
-          texto: '¡Hola! Soy Luca 👋 Contame tus gastos, ingresos o inversiones y las registro por vos. Aclaración importante: no doy recomendaciones financieras, solo registro tus movimientos.',
+          texto: '¡Hola! Soy Luca. Contame tus gastos, ingresos o inversiones y las registro por vos. Aclaración importante: no doy recomendaciones financieras, solo registro tus movimientos.',
           timestamp: Date.now(),
         }])
       }
@@ -543,41 +543,6 @@ export default function LucaChatPage() {
         </button>
       </div>
 
-      {/* Banner de permiso de micrófono */}
-      {permisoMic === 'prompt' && (
-        <div className="mx-4 mt-3 rounded-xl border px-4 py-3" style={{ borderColor: 'var(--accent-warning)', background: 'color-mix(in srgb, var(--accent-warning) 10%, transparent)' }}>
-          <p className="text-xs font-bold mb-1" style={{ color: 'var(--accent-warning)' }}>🎤 Activar micrófono para hablar con Luca</p>
-          <p className="text-[11px] text-secondary mb-3 leading-relaxed">Permitile a la app usar tu micrófono para poder dictarle tus gastos. Solo te lo pedimos una vez.</p>
-          <button
-            onClick={solicitarPermisoMic}
-            className="w-full rounded-lg py-2.5 text-xs font-semibold text-white transition-colors"
-            style={{ background: 'var(--accent-confirm)' }}
-          >
-            Activar micrófono
-          </button>
-        </div>
-      )}
-
-      {permisoMic === 'solicitando' && (
-        <div className="mx-4 mt-3 rounded-xl border px-4 py-3 text-center text-xs text-secondary" style={{ borderColor: 'var(--border-color)' }}>
-          Esperando permiso del sistema…
-        </div>
-      )}
-
-      {permisoMic === 'denegado' && (
-        <div className="mx-4 mt-3 rounded-xl border px-4 py-3" style={{ borderColor: 'var(--accent-negative)', background: 'color-mix(in srgb, var(--accent-negative) 8%, transparent)' }}>
-          <p className="text-xs font-bold mb-1" style={{ color: 'var(--accent-negative)' }}>🎤 Micrófono bloqueado</p>
-          <p className="text-[11px] text-secondary leading-relaxed">
-            {typeof navigator !== 'undefined' && /iPhone|iPad/i.test(navigator.userAgent)
-              ? <>Andá a <strong className="text-primary">Ajustes → Safari → Micrófono → Permitir</strong> y volvé a abrir la app.</>
-              : /Android/i.test(typeof navigator !== 'undefined' ? navigator.userAgent : '')
-              ? <>Tocá el 🔒 candado en la barra del navegador → <strong className="text-primary">Permisos → Micrófono → Permitir</strong>.</>
-              : <>Habilitá el micrófono en los <strong className="text-primary">permisos del sitio</strong> y recargá la página.</>
-            }
-          </p>
-        </div>
-      )}
-
       {/* Mensajes */}
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
         {mensajes.map(msg => (
@@ -595,7 +560,7 @@ export default function LucaChatPage() {
                       ? 'bg-confirm text-white rounded-tr-sm'
                       : 'bg-alternate text-primary rounded-tl-sm'
                   }`}>
-                    {msg.estadoAccion === 'hecha' ? `✓ ${msg.texto}` : msg.texto}
+                    {msg.texto}
                   </div>
                 )}
 
@@ -610,7 +575,7 @@ export default function LucaChatPage() {
                       <div className="mt-1 flex gap-2">
                         <button onClick={() => confirmarAccion(msg)} disabled={guardando === msg.id}
                           className={`flex-1 rounded-lg py-2 text-xs font-semibold text-white transition-colors disabled:opacity-50 ${msg.vista.peligro ? 'bg-negative' : 'bg-confirm hover:bg-confirm-hover'}`}>
-                          {guardando === msg.id ? 'Haciendo…' : errores[msg.id] ? '↻ Reintentar' : '✓ Confirmar'}
+                          {guardando === msg.id ? 'Haciendo…' : errores[msg.id] ? 'Reintentar' : 'Confirmar'}
                         </button>
                         <button onClick={() => cancelarAccion(msg)} disabled={guardando === msg.id}
                           className="rounded-lg border px-3 py-2 text-xs font-semibold text-secondary hover:bg-alternate disabled:opacity-50">
@@ -618,7 +583,7 @@ export default function LucaChatPage() {
                         </button>
                       </div>
                     )}
-                    {errores[msg.id] && <p className="text-[11px] font-semibold leading-relaxed text-negative">⚠️ {errores[msg.id]}</p>}
+                    {errores[msg.id] && <p className="text-[11px] font-semibold leading-relaxed text-negative">{errores[msg.id]}</p>}
                   </div>
                 )}
                 {msg.accion && msg.estadoAccion === 'cancelada' && (
@@ -645,7 +610,7 @@ export default function LucaChatPage() {
 
                     {msg.datos.medio_pago && (
                       <p className="text-secondary">
-                        💳 Pagado con <span className="font-semibold text-primary">{msg.datos.medio_pago}</span>
+                        Pagado con <span className="font-semibold text-primary">{msg.datos.medio_pago}</span>
                         {' · '}{msg.datos.cuotas && msg.datos.cuotas > 1
                           ? `en ${msg.datos.cuotas} cuotas de $${Math.round(Number(msg.datos.monto) / msg.datos.cuotas).toLocaleString('es-AR')}`
                           : msg.datos.forma_pago === 'credito' ? 'a crédito (va al resumen)' : 'débito (se descuenta del saldo)'}
@@ -661,19 +626,19 @@ export default function LucaChatPage() {
                         ? 'Guardando…'
                         : errores[msg.id]
                         ? '↻ Reintentar'
-                        : '✓ Guardar'}
+                        : 'Guardar'}
                     </button>
 
                     {errores[msg.id] && (
                       <p className="mt-1 text-[11px] text-negative font-semibold leading-relaxed">
-                        ⚠️ No se pudo guardar: {errores[msg.id]}
+                        No se pudo guardar: {errores[msg.id]}
                       </p>
                     )}
                   </div>
                 )}
 
                 {msg.guardado && (
-                  <p className="mt-1 text-[11px] text-confirm font-semibold">✓ Guardado correctamente</p>
+                  <p className="mt-1 text-[11px] text-confirm font-semibold">Guardado</p>
                 )}
               </div>
             </div>
@@ -700,43 +665,20 @@ export default function LucaChatPage() {
 
       {/* Input */}
       <div className="px-4 py-3 border-t space-y-2">
-        {grabando && (
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-red-50 border border-red-200 text-xs text-red-600 font-semibold">
-            <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-            Grabando… {segundos}s · Tocá el micrófono para detener
-          </div>
-        )}
-        {transcribiendo && (
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-alternate text-xs text-secondary">
-            <span className="w-2 h-2 bg-confirm rounded-full animate-pulse" />
-            Transcribiendo audio…
-          </div>
-        )}
         <div className="flex gap-2">
-          <button
-            onClick={toggleVoz}
-            disabled={loading || transcribiendo || !micDisponible}
-            title={!micDisponible ? 'Micrófono no disponible en este navegador' : grabando ? 'Detener grabación' : 'Grabar por voz'}
-            className={`px-3 py-2.5 rounded-xl text-sm font-semibold transition-colors disabled:opacity-40 ${
-              grabando
-                ? 'bg-red-500 text-white animate-pulse'
-                : 'bg-alternate text-secondary hover:bg-red-50 hover:text-red-500 border'
-            }`}
-          >
-            🎤
-          </button>
           <input
             ref={inputRef}
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && enviar()}
-            placeholder="Ej: gasté $5000 en el super, cobré $80000 de sueldo…"
-            disabled={loading || grabando || transcribiendo}
-            className="flex-1 px-3 py-2.5 text-xs rounded-xl border bg-field text-primary disabled:opacity-60 focus:outline-none focus:border-confirm"
+            placeholder="Escribí o dictá con el micrófono del teclado…"
+            enterKeyHint="send"
+            disabled={loading}
+            className="flex-1 px-3 py-2.5 text-sm rounded-xl border bg-field text-primary disabled:opacity-60 focus:outline-none focus:border-confirm"
           />
           <button
             onClick={() => enviar()}
-            disabled={loading || !input.trim() || grabando || transcribiendo}
+            disabled={loading || !input.trim()}
             className="px-4 py-2.5 rounded-xl bg-confirm text-white text-xs font-semibold disabled:opacity-40 hover:bg-confirm-hover transition-colors"
           >
             Enviar

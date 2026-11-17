@@ -151,7 +151,7 @@ export function Header() {
         id: `t-${x.id}`, grupo: 'Tarjetas', titulo: x.nombre, href: '/dashboard/tarjetas',
       })))
       out.push(...top(snap.metas.filter(m => coincide(m.nombre)), 3).map(m => ({
-        id: `m-${m.id}`, grupo: 'Metas', titulo: `${m.emoji ?? '🎯'} ${m.nombre}`,
+        id: `m-${m.id}`, grupo: 'Metas', titulo: m.nombre,
         detalle: m.objetivo > 0 ? `${Math.round((m.aportado / m.objetivo) * 100)}% juntado` : undefined, href: '/dashboard/metas',
       })))
       out.push(...top([

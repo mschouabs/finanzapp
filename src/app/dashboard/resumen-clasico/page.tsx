@@ -25,6 +25,7 @@ import { PagarResumen } from '@/components/tarjetas/Modales'
 import { GraficoMensual } from '@/components/resumen/GraficoMensual'
 import { cobradoDelMes } from '@/lib/ingresos'
 import { EVENTO_DATOS } from '@/lib/eventos'
+import { Icono } from '@/components/ui/Icono'
 
 /* ── helpers ─────────────────────────────────────── */
 const fmt = (n: number) => '$' + n.toLocaleString('es-AR', { minimumFractionDigits: 0 })
@@ -353,7 +354,7 @@ export default function ResumenClasicoPage() {
     <div className="flex flex-col gap-5">
       {/* saludo */}
       <header>
-        <h1 className="text-2xl font-extrabold text-primary">{saludar()} 👋</h1>
+        <h1 className="text-2xl font-extrabold text-primary">{saludar()}</h1>
         <p className="mt-1 text-sm text-secondary">Este es tu panorama financiero actual.</p>
       </header>
 
@@ -368,7 +369,7 @@ export default function ResumenClasicoPage() {
             <div key={a.tarjeta.id + a.resumen.clave}
               className="flex flex-wrap items-center gap-2 rounded-xl border p-3 text-sm"
               style={{ borderColor: a.dias < 0 ? 'var(--accent-negative)' : 'var(--accent-warning, #F5C451)' }}>
-              <span>{a.dias < 0 ? '⚠️' : '📅'}</span>
+              <Icono nombre={a.dias < 0 ? '⚠' : '📅'} size={15} />
               <span className="flex-1 text-primary">
                 {a.dias < 0
                   ? <>El resumen de <b>{a.tarjeta.nombre}</b> venció hace {-a.dias} días: {fmt(Math.round(a.monto))}</>
@@ -434,7 +435,7 @@ export default function ResumenClasicoPage() {
           <h2 className="fa-label">Tasa de ahorro</h2>
           <Anillo pct={tasaAhorro} />
           <p className="mt-3 text-center text-xs text-secondary">
-            {tasaAhorro >= 30 ? '¡Excelente! Seguí así 🚀'
+            {tasaAhorro >= 30 ? 'Excelente, seguí así.'
               : tasaAhorro > 0 ? 'Vas bien, hay margen para más'
               : 'Todavía no estás ahorrando este mes'}
           </p>
@@ -666,7 +667,7 @@ function TarjetaPatrimonio({ p }: { p: Patrimonio }) {
                 {sube ? '+' : '-'}{fmt(Math.abs(Math.round(diff)))}{pct !== null ? ` (${sube ? '+' : ''}${pct}%)` : ''}
               </span>
               <span className="text-secondary">
-                vs. fin de {mesAnt} — {sube ? 'tenés más que el mes pasado 🎉' : 'tenés menos que el mes pasado'}
+                vs. fin de {mesAnt} — {sube ? 'tenés más que el mes pasado' : 'tenés menos que el mes pasado'}
               </span>
             </p>
           ) : (
@@ -677,16 +678,16 @@ function TarjetaPatrimonio({ p }: { p: Patrimonio }) {
         </div>
         <div className="flex gap-2">
           <Link href="/dashboard/billeteras" className="rounded-lg px-2.5 py-1.5 -mx-2.5 -my-1.5 hover:bg-alternate">
-            <p className="fa-label">🏦 Disponible</p>
+            <p className="fa-label">Disponible</p>
             <p className="fa-num-md text-primary">{fmt(Math.round(p.liquido))}</p>
           </Link>
           <Link href="/dashboard/inversiones" className="rounded-lg px-2.5 py-1.5 -mx-2.5 -my-1.5 hover:bg-alternate">
-            <p className="fa-label">📈 Invertido</p>
+            <p className="fa-label">Invertido</p>
             <p className="fa-num-md text-primary">{fmt(Math.round(p.invertido))}</p>
           </Link>
           {p.deuda > 0 && (
             <Link href="/dashboard/tarjetas" className="rounded-lg px-2.5 py-1.5 -mx-2.5 -my-1.5 hover:bg-alternate">
-              <p className="fa-label">💳 Deuda tarjetas</p>
+              <p className="fa-label">Deuda tarjetas</p>
               <p className="fa-num-md text-negative">−{fmt(Math.round(p.deuda))}</p>
             </Link>
           )}
@@ -846,7 +847,7 @@ function mensajeLuca(sinDatos: boolean, tasa: number, gastos: number) {
   if (gastos === 0) {
     return (
       <>
-        Tranqui, todavía no te patinaste la guita 😎
+        Tranqui, todavía no te patinaste la guita.
         <br />
         <span className="text-secondary">Seguí registrando tus movimientos.</span>
       </>
@@ -855,7 +856,7 @@ function mensajeLuca(sinDatos: boolean, tasa: number, gastos: number) {
   if (tasa >= 30) {
     return (
       <>
-        Estás ahorrando el {tasa}% de lo que entra. 🎉
+        Estás ahorrando el {tasa}% de lo que entra.
         <br />
         <span className="text-secondary">Muy buen mes.</span>
       </>
