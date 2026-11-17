@@ -222,7 +222,7 @@ export default function TarjetasPage() {
       <div className="fa-panel flex h-full flex-col gap-4 p-4">
         <div className="flex items-center gap-1">
           <button type="button" {...handle} className="rounded p-1 text-muted hover:bg-alternate hover:text-primary"><GripVertical size={16} /></button>
-          <span className="flex-1 truncate text-xs font-semibold uppercase tracking-wide text-secondary">{t.nombre}</span>
+          <span className="flex-1 truncate text-xs font-medium text-secondary">{t.nombre}</span>
           <button onClick={() => setEditando(t)} aria-label={`Editar ${t.nombre}`} className="rounded p-1 text-muted hover:bg-alternate hover:text-primary"><Pencil size={14} /></button>
         </div>
 
@@ -327,7 +327,7 @@ export default function TarjetasPage() {
       {/* encabezado */}
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-muted">Tarjetas</p>
+          <p className="text-xs font-medium tracking-[0.05em] text-muted">Tarjetas</p>
           <h1 className="mt-0.5 text-xl font-extrabold tracking-tight text-primary lg:text-2xl">Lo que ya gastaste a crédito</h1>
         </div>
         <button onClick={() => setEditando('nueva')}
@@ -356,14 +356,14 @@ export default function TarjetasPage() {
             </div>
             <div className="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3 lg:col-span-8">
               <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.04em] text-secondary">Próximo vencimiento</p>
+                <p className="text-xs font-medium tracking-[0.04em] text-secondary">Próximo vencimiento</p>
                 <p className="mt-1 text-lg font-bold tabular-nums text-primary">
                   {proximo?.aPagar ? fmt(enPesos({ ars: proximo.aPagar.totales.pendArs, usd: proximo.aPagar.totales.pendUsd }, dolar)) : 'Nada'}
                 </p>
                 <p className="text-[11px] text-muted">{proximo?.aPagar ? `${proximo.tarjeta.nombre} · ${fmtDiaMes(proximo.aPagar.vencimiento)}` : 'estás al día'}</p>
               </div>
               <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.04em] text-secondary">Disponible para gastar</p>
+                <p className="text-xs font-medium tracking-[0.04em] text-secondary">Disponible para gastar</p>
                 <p className="mt-1 text-lg font-bold tabular-nums text-primary">{limiteTotal ? fmt(limiteTotal - deudaTotal) : '—'}</p>
                 {limiteTotal ? (
                   <div className="mt-1.5 h-1.5 overflow-hidden rounded-full" style={{ background: 'var(--border-subtle)' }}>
@@ -376,7 +376,7 @@ export default function TarjetasPage() {
                 <p className="mt-1 text-[11px] text-muted">{limiteTotal ? `usás ${Math.round((deudaTotal / limiteTotal) * 100)}% de ${fmtCorto(limiteTotal)}` : 'cargá los límites'}</p>
               </div>
               <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.04em] text-secondary">Compras en cuotas</p>
+                <p className="text-xs font-medium tracking-[0.04em] text-secondary">Compras en cuotas</p>
                 <p className="mt-1 text-lg font-bold tabular-nums text-primary">{cuotas.length}</p>
                 <p className="text-[11px] text-muted">{cuotas.length ? `quedan ${fmtCorto(cuotas.reduce((s, c) => s + (c.moneda === 'USD' ? c.restante * dolar : c.restante), 0))}` : 'ninguna activa'}</p>
               </div>

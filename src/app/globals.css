@@ -6,46 +6,49 @@
    Paleta tomada del mockup: fondo casi negro azulado, paneles un
    escalón más claros, y acentos saturados sólo donde importan.   */
 :root {
-  --bg-page: #080D13;
-  --bg-card: #111820;
-  --bg-input: #0D141B;
-  --bg-alternate: #161E27;
-  --border-color: #26313C;
-  --border-subtle: #1B242E;
+  --bg-page: #0E0E10;
+  --bg-card: #1A1A1D;
+  --bg-input: #141416;
+  --bg-alternate: #232327;
+  --border-color: #2E2E33;
+  --border-subtle: #242428;
 
-  --text-primary: #EEF2F6;
-  --text-secondary: #9AA6B3;
-  --text-muted: #7D8895;
+  --text-primary: #F5F5F7;
+  --text-secondary: #A1A1AA;
+  --text-muted: #8C8C94;
 
-  --accent-positive: #32D158;
-  --accent-negative: #FF5873;
-  --accent-confirm: #22C55E;
-  --accent-confirm-hover: #16A34A;
-  --accent-secondary: #63A9FF;
-  --accent-warning: #F5C451;
-  --accent-violet: #A855F7;
+  --accent-positive: #6FD3A6;
+  --accent-negative: #FF8585;
+  --accent-confirm: #F5F5F7;
+  --accent-confirm-hover: #FFFFFF;
+  --accent-secondary: #8FB3FF;
+  --accent-warning: #E8C27A;
+  --accent-violet: #B8A6FF;
 
   /* Luca adapta su color al tema */
-  --luca-glow: #32D158;
+  --luca-glow: #6FD3A6;
   --luca-shell: #FFFFFF;
-  --luca-screen: #0B1116;
+  --luca-screen: #0E0E10;
 
-  --riesgo-bajo: #32D158;
-  --riesgo-medio: #F5C451;
-  --riesgo-alto: #FF5873;
-  --riesgo-bajo-tint: rgba(50, 209, 88, 0.10);
-  --riesgo-medio-tint: rgba(245, 196, 81, 0.10);
-  --riesgo-alto-tint: rgba(255, 88, 115, 0.10);
+  --riesgo-bajo: #6FD3A6;
+  --riesgo-medio: #E8C27A;
+  --riesgo-alto: #FF8585;
+  --riesgo-bajo-tint: rgba(111, 211, 166, 0.12);
+  --riesgo-medio-tint: rgba(232, 194, 122, 0.12);
+  --riesgo-alto-tint: rgba(255, 133, 133, 0.12);
 
-  --shadow: none;
-  --shadow-hover: 0 4px 16px rgba(0, 0, 0, 0.4);
-  --radius: 12px;
+  --shadow: 0 1px 0 rgba(255, 255, 255, .04) inset, 0 12px 30px -18px rgba(0, 0, 0, .8);
+  --shadow-hover: 0 1px 0 rgba(255, 255, 255, .05) inset, 0 18px 36px -18px rgba(0, 0, 0, .85);
+  --radius: 22px;
 
-  --accent-luca: #32D158;
+  --accent-luca: #6FD3A6;
   --tendencia-sube: var(--accent-positive);
   --tendencia-baja: var(--accent-secondary);
   /* cuánto se tiñen los colores de categoría con el color de marca */
   --cat-peso: 0%;
+  --accent-soft: #2C2C31;
+  --texto-sobre-accion: #0E0E10;
+  --shadow-pop: 0 18px 44px -16px rgba(0, 0, 0, .7);
 }
 
 /* ══ TEMA ROSA ══════════════════════════════════════════════════
@@ -53,50 +56,53 @@
    es un ciruela oscuro: el rosa saturado no tiene contraste
    suficiente para leer párrafos sobre blanco.                    */
 [data-theme="rosa"] {
-  --bg-page: #FDF6F9;
+  --bg-page: #FAF5F2;
   --bg-card: #FFFFFF;
-  --bg-input: #FFFAFC;
-  --bg-alternate: #FBEDF3;
-  --border-color: #F2DAE4;
-  --border-subtle: #F8E9EF;
+  --bg-input: #FFFDFC;
+  --bg-alternate: #F5EAED;
+  --border-color: #EADCE1;
+  --border-subtle: #F2E8EB;
 
-  --text-primary: #2F1F28;
-  --text-secondary: #6B4A58;
-  --text-muted: #85657A;
+  --text-primary: #2B1A22;
+  --text-secondary: #6B5560;
+  --text-muted: #85707A;
 
   /* armonía: rosa frambuesa (marca) + teal (su complementario) para lo
      que suma, coral para lo que resta (que no se confunda con la marca),
      pervinca y orquídea para disponible e invertido, ámbar para avisos */
-  --accent-positive: #0F7A65;
-  --accent-negative: #C23A2E;
-  --accent-confirm: #D61F6E;
-  --accent-confirm-hover: #B8195F;
-  --accent-secondary: #4F6BE0;
-  --accent-warning: #9A5C0B;
-  --accent-violet: #9B4FD6;
+  --accent-positive: #2F7A5E;
+  --accent-negative: #B44A5E;
+  --accent-confirm: #B04A70;
+  --accent-confirm-hover: #983D60;
+  --accent-secondary: #5A6FC4;
+  --accent-warning: #94621A;
+  --accent-violet: #8A5BB8;
 
-  --luca-glow: #FF6FA9;
+  --luca-glow: #E7A6BC;
   --luca-shell: #FFFFFF;
-  --luca-screen: #2A1620;
+  --luca-screen: #2B1A22;
 
-  --riesgo-bajo: #138A73;
-  --riesgo-medio: #C27A16;
-  --riesgo-alto: #D9473A;
-  --riesgo-bajo-tint: rgba(19, 138, 115, 0.10);
-  --riesgo-medio-tint: rgba(194, 122, 22, 0.12);
-  --riesgo-alto-tint: rgba(217, 71, 58, 0.10);
+  --riesgo-bajo: #2F7A5E;
+  --riesgo-medio: #94621A;
+  --riesgo-alto: #B44A5E;
+  --riesgo-bajo-tint: rgba(47, 122, 94, 0.10);
+  --riesgo-medio-tint: rgba(148, 98, 26, 0.10);
+  --riesgo-alto-tint: rgba(180, 74, 94, 0.10);
 
   /* Luca y los colores de categoría se tiñen con la marca */
-  --accent-luca: #D61F6E;
+  --accent-luca: #B04A70;
   --cat-peso: 30%;
   /* la línea de patrimonio va con el color de marca */
-  --tendencia-sube: #E5307F;
-  --tendencia-baja: #E5307F;
-  --linea-patrimonio: #E5307F;
+  --tendencia-sube: #B04A70;
+  --tendencia-baja: #B04A70;
+  --linea-patrimonio: #B04A70;
 
-  --shadow: 0 2px 8px rgba(199, 122, 154, 0.10);
-  --shadow-hover: 0 6px 20px rgba(199, 122, 154, 0.16);
-  --radius: 14px;
+  --shadow: 0 1px 2px rgba(43, 26, 34, .04), 0 14px 30px -18px rgba(150, 90, 115, .28);
+  --shadow-hover: 0 1px 2px rgba(43, 26, 34, .05), 0 20px 38px -18px rgba(150, 90, 115, .34);
+  --radius: 22px;
+  --accent-soft: #EFC6D3;
+  --texto-sobre-accion: #FFFFFF;
+  --shadow-pop: 0 18px 44px -16px rgba(150, 90, 115, .38);
 }
 
 html {
@@ -238,9 +244,9 @@ a:focus-visible,
      emphasis (380ms) → entrada de paneles, números, gráficos
    Todo se apaga con prefers-reduced-motion (ver más abajo).      */
 :root {
-  --dur-fast: 140ms;
-  --dur-std: 240ms;
-  --dur-emph: 560ms;
+  --dur-fast: 150ms;
+  --dur-std: 200ms;
+  --dur-emph: 250ms;
   --ease-out: cubic-bezier(.32, .72, 0, 1);
   --ease-in-out: cubic-bezier(.65, 0, .35, 1);
   --glow-positive: color-mix(in srgb, var(--accent-positive) 14%, transparent);
@@ -477,16 +483,6 @@ a:focus-visible,
 
 /* ════════ Capa visual 2026 (inicio) ════════ */
 
-/* fondo con textura: una grilla de puntos muy sutil, para que no sea un negro plano */
-body {
-  background-image:
-    radial-gradient(color-mix(in srgb, var(--text-primary) 5%, transparent) 1px, transparent 1.2px),
-    radial-gradient(900px 500px at 85% -10%, color-mix(in srgb, var(--accent-secondary) 7%, transparent), transparent 70%),
-    radial-gradient(700px 420px at -10% 110%, color-mix(in srgb, var(--accent-positive) 5%, transparent), transparent 70%);
-  background-size: 22px 22px, 100% 100%, 100% 100%;
-  background-attachment: fixed;
-}
-
 /* cifras: $ chico y suave, números con aire */
 .fa-moneda {
   font-size: .56em;
@@ -572,49 +568,16 @@ body {
 
 /* menú lateral: activo con brillo */
 .fa-nav-activa {
-  background: linear-gradient(90deg, color-mix(in srgb, var(--accent-confirm) 18%, transparent), color-mix(in srgb, var(--accent-confirm) 4%, transparent)) !important;
-  box-shadow: inset 2px 0 0 var(--accent-confirm), 0 0 24px -10px var(--accent-confirm);
+  background: var(--bg-alternate) !important;
+  color: var(--text-primary) !important;
+  box-shadow: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .fa-latido, .fa-borde-vivo::before, .fa-cursor::after, .fa-tab-activa::before { animation: none; }
 }
 
-/* ── tema rosa: profundidad con sombras rosadas, no grises ── */
-[data-theme="rosa"] .fa-hero {
-  border-color: color-mix(in srgb, var(--accent-confirm) 18%, var(--border-subtle));
-  background:
-    radial-gradient(640px 260px at 0% 0%, color-mix(in srgb, var(--accent-confirm) 9%, transparent), transparent 70%),
-    radial-gradient(520px 260px at 100% 100%, color-mix(in srgb, var(--accent-secondary) 8%, transparent), transparent 70%),
-    var(--bg-card);
-  box-shadow: 0 1px 0 #fff inset, 0 20px 44px -26px rgba(199, 80, 130, .35);
-}
-[data-theme="rosa"] .fa-tile {
-  background: var(--bg-card);
-  box-shadow: 0 1px 2px rgba(199, 122, 154, .08), 0 14px 32px -24px rgba(199, 80, 130, .30);
-}
-[data-theme="rosa"] .fa-kpis > * { background: color-mix(in srgb, var(--bg-alternate) 55%, #fff); }
-[data-theme="rosa"] body {
-  background-image:
-    radial-gradient(color-mix(in srgb, var(--accent-confirm) 9%, transparent) 1px, transparent 1.2px),
-    radial-gradient(900px 500px at 85% -10%, color-mix(in srgb, var(--accent-confirm) 8%, transparent), transparent 70%),
-    radial-gradient(700px 420px at -10% 110%, color-mix(in srgb, var(--accent-secondary) 6%, transparent), transparent 70%);
-}
-
-
 /* ════════ Experiencia global (todas las pantallas) ════════ */
-
-/* paneles y tarjetas de toda la app: misma profundidad que el inicio */
-.fa-panel, .fa-card {
-  background: linear-gradient(180deg, color-mix(in srgb, var(--bg-card) 95%, #fff 5%) 0%, var(--bg-card) 110px);
-  border-color: var(--border-subtle);
-  border-radius: 18px;
-  box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 4%, transparent), 0 10px 30px -24px rgba(0, 0, 0, .6);
-}
-[data-theme="rosa"] .fa-panel, [data-theme="rosa"] .fa-card {
-  background: var(--bg-card);
-  box-shadow: 0 1px 2px rgba(199, 122, 154, .08), 0 14px 32px -24px rgba(199, 80, 130, .28);
-}
 
 /* modo privado: cada monto se reemplaza por *** (ancho fijo: no deja adivinar los dígitos) */
 .fa-privado .tabular-nums,
@@ -664,54 +627,9 @@ body {
 }
 
 
-/* ════════ Capa premium: doble borde, movimiento con masa, isla de navegación ════════
-   Todo vive en este bloque; para volver atrás basta con borrarlo.                       */
-:root {
-  --bisel-relleno: color-mix(in srgb, #fff 3.2%, transparent);
-  --bisel-linea: color-mix(in srgb, #fff 8%, transparent);
-  --bisel-brillo: color-mix(in srgb, #fff 7%, transparent);
-  --ambiente: 0 24px 48px -30px rgba(0, 0, 0, .55);
-}
-[data-theme="rosa"] {
-  --bisel-relleno: rgba(199, 122, 154, .07);
-  --bisel-linea: rgba(199, 122, 154, .20);
-  --bisel-brillo: rgba(255, 255, 255, .9);
-  --ambiente: 0 26px 50px -32px rgba(199, 80, 130, .35);
-}
-
-/* Doble bisel: la caja es el "núcleo"; el anillo exterior es la bandeja. */
-.fa-panel, .fa-card, .fa-hero {
-  box-shadow:
-    inset 0 1px 1px var(--bisel-brillo),
-    0 0 0 4px var(--bisel-relleno),
-    0 0 0 5px var(--bisel-linea),
-    var(--ambiente);
-}
-@media (max-width: 640px) {
-  .fa-panel, .fa-card, .fa-hero {
-    box-shadow: inset 0 1px 1px var(--bisel-brillo), 0 0 0 3px var(--bisel-relleno), 0 0 0 4px var(--bisel-linea), var(--ambiente);
-  }
-}
-
-/* Botones principales: pastilla, con presión física */
-button.bg-confirm, a.bg-confirm { border-radius: 9999px; }
-.fa-press { transition-timing-function: var(--ease-out); }
-.fa-press:active { transform: scale(.98); }
-
-/* Iconos de trazo fino */
-svg.lucide { stroke-width: 1.6; }
-
-/* Barra inferior flotante (isla de vidrio, siempre fija: el blur es seguro acá) */
-.fa-isla-nav {
-  box-shadow: inset 0 1px 1px var(--bisel-brillo), 0 18px 40px -16px rgba(0, 0, 0, .55);
-  backdrop-filter: saturate(170%) blur(22px);
-  -webkit-backdrop-filter: saturate(170%) blur(22px);
-}
-[data-theme="rosa"] .fa-isla-nav { box-shadow: inset 0 1px 1px #fff, 0 18px 40px -16px rgba(199, 80, 130, .35); }
-
 /* ── Contraste: el texto del botón principal sobre el verde del tema oscuro ── */
-[data-theme="dark"] .bg-confirm { color: #04210F !important; }
-[data-theme="dark"] .bg-confirm svg { color: inherit; }
+.bg-confirm { color: var(--texto-sobre-accion) !important; }
+.bg-confirm svg { color: inherit; }
 
 
 /* ── adapt: áreas táctiles de 44px en botones de ícono, sin cambiar su tamaño visual ── */
@@ -756,10 +674,10 @@ input:focus-visible, textarea:focus-visible, select:focus-visible {
 .fa-barra-tab:active .fa-barra-icono { transform: scale(.92); }
 .fa-barra-nuevo {
   background: var(--accent-confirm);
-  color: #fff;
+  color: var(--texto-sobre-accion);
   box-shadow: 0 0 0 5px var(--bg-card), 0 10px 22px -8px color-mix(in srgb, var(--accent-confirm) 70%, transparent);
 }
-[data-theme="dark"] .fa-barra-nuevo { color: #04210F; }
+
 [data-theme="rosa"] .fa-barra-tab.is-activa .fa-barra-icono { background: color-mix(in srgb, var(--accent-confirm) 12%, transparent); }
 @media (prefers-reduced-motion: reduce) {
   .fa-barra-icono, .fa-barra-tab { transition: none; }
@@ -779,7 +697,7 @@ html, body { overflow-x: clip; }
   animation: fa-sheet-up 420ms cubic-bezier(.32,.72,0,1);
 }
 [data-theme="rosa"] .fa-instalar { box-shadow: 0 18px 40px -16px rgba(199, 80, 130, .35); }
-[data-theme="dark"] .fa-instalar .bg-confirm { color: #04210F; }
+
 @media (prefers-reduced-motion: reduce) { .fa-instalar { animation: none; } }
 
 /* ════════ Página pública (landing) ════════ */
@@ -797,10 +715,10 @@ html, body { overflow-x: clip; }
 }
 .fl-btn {
   display: inline-flex; align-items: center; justify-content: center;
-  background: var(--accent-confirm); color: #fff;
+  background: var(--accent-confirm); color: var(--texto-sobre-accion);
   transition: transform 300ms cubic-bezier(.32,.72,0,1), background-color 200ms;
 }
-[data-theme="dark"] .fl-btn { color: #04210F; }
+
 .fl-btn:hover { background: var(--accent-confirm-hover); }
 .fl-btn:active { transform: scale(.98); }
 .fl-btn-ico { background: color-mix(in srgb, currentColor 14%, transparent); transition: transform 400ms cubic-bezier(.32,.72,0,1); }
@@ -824,8 +742,8 @@ html, body { overflow-x: clip; }
   transition: transform 500ms cubic-bezier(.32,.72,0,1);
 }
 .fl-pastilla { background: color-mix(in srgb, var(--accent-positive) 10%, var(--bg-card)); box-shadow: inset 0 0 0 1px var(--border-color); }
-.fl-burbuja-yo { background: var(--accent-confirm); color: #fff; border-bottom-right-radius: .4rem; }
-[data-theme="dark"] .fl-burbuja-yo { color: #04210F; }
+.fl-burbuja-yo { background: var(--accent-confirm); color: var(--texto-sobre-accion); border-bottom-right-radius: .4rem; }
+
 .fl-burbuja-luca { background: var(--bg-alternate); color: var(--text-secondary); border-bottom-left-radius: .4rem; }
 .fl-cierre {
   background:
@@ -842,3 +760,64 @@ html, body { overflow-x: clip; }
   .fl-cinta { animation: none; }
   .fl-btn, .fl-btn-ico, .fl-btn-sec, .fl-celda { transition: none; }
 }
+
+/* ════════ Sistema "Objeto" (etapa 1) ════════════════════════════
+   Fuente única de verdad del diseño. Widgets tipo iOS: superficie
+   plana del color de la tarjeta, radio 22, sombra difusa, sin bordes.
+   Controles con radio 12. Escalas:
+     espacio   4 · 8 · 12 · 16 · 20 · 24 · 32 · 40 · 48
+     texto     12 · 13 · 15 · 17 · 20 · 24 · 32 · 40
+     movimiento 150 / 200 / 250 ms, ease-out                       */
+:root {
+  --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px; --sp-5: 20px;
+  --sp-6: 24px; --sp-8: 32px; --sp-10: 40px; --sp-12: 48px;
+  --fs-xs: 12px; --fs-sm: 13px; --fs-base: 15px; --fs-md: 17px;
+  --fs-lg: 20px; --fs-xl: 24px; --fs-2xl: 32px; --fs-display: 40px;
+  --radius-widget: 22px;
+  --radius-control: 12px;
+  --radius-chip: 999px;
+  --shadow-widget: var(--shadow);
+  --bisel-brillo: rgba(255, 255, 255, .04);
+}
+[data-theme="rosa"] { --bisel-brillo: rgba(255, 255, 255, .9); }
+
+body { background-image: none; font-feature-settings: 'cv11' 1, 'ss01' 1; }
+.tabular-nums, .fa-cifra, .fa-amount { font-variant-numeric: tabular-nums; }
+
+/* widgets: una sola superficie para toda la app */
+.fa-card, .fa-panel, .fa-tile, .fa-hero {
+  background: var(--bg-card);
+  border-color: transparent;
+  border-radius: var(--radius-widget);
+  box-shadow: var(--shadow-widget);
+}
+.fa-hero::before, .fa-hero::after { display: none; }
+@media (max-width: 640px) {
+  .fa-card, .fa-panel, .fa-tile, .fa-hero { border-radius: 20px; }
+}
+/* datos secundarios dentro de un widget: relleno sutil, sin caja dentro de caja */
+.fa-kpis > * { background: var(--bg-alternate); border-color: transparent; border-radius: var(--radius-control); }
+
+/* etiquetas en oración, sin mayúsculas espaciadas */
+.fa-label, .fa-kicker {
+  font-size: var(--fs-xs); font-weight: 500; letter-spacing: 0; text-transform: none;
+  color: var(--text-secondary);
+}
+.fa-kicker::before { display: none; }
+
+/* controles */
+button.bg-confirm, a.bg-confirm { border-radius: var(--radius-control); }
+.fa-press:active { transform: scale(.98); }
+svg.lucide { stroke-width: 1.5; }
+
+/* barra inferior y elementos flotantes: la única sombra marcada */
+.fa-isla-nav {
+  box-shadow: var(--shadow-pop);
+  backdrop-filter: saturate(170%) blur(22px);
+  -webkit-backdrop-filter: saturate(170%) blur(22px);
+}
+.fa-barra-icono { border-radius: var(--radius-control); }
+.fa-barra-nuevo { border-radius: 16px; box-shadow: 0 0 0 5px var(--bg-card); }
+
+/* sin bordes animados ni degradés decorativos */
+.fa-borde-vivo::before { display: none; }

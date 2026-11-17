@@ -180,7 +180,7 @@ export function ViajeModal({
               onChange={e => setPresupuesto(e.target.value)}
               placeholder="1500000"
             />
-            <p className="mt-1 text-[10px] text-muted">
+            <p className="mt-1 text-[11px] text-muted">
               Opcional. Los gastos en otras monedas se convierten a pesos para compararlos.
             </p>
           </div>

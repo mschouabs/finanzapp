@@ -123,7 +123,7 @@ export function LibroCuentas({ lineas, oculto = false }: { lineas: LineaSaldo[];
                     <p className={`text-sm font-semibold tabular-nums ${m.delta > 0 && m.tipo !== 'apertura' ? 'text-positive' : 'text-primary'}`}>
                       {oculto ? '••••' : fmtMonto(Number(m.delta), m.moneda, true)}
                     </p>
-                    <p className="text-[10px] tabular-nums text-muted">quedó {oculto ? '••••' : fmtMonto(Number(m.saldo_resultante), m.moneda)}</p>
+                    <p className="text-[11px] tabular-nums text-muted">quedó {oculto ? '••••' : fmtMonto(Number(m.saldo_resultante), m.moneda)}</p>
                   </div>
                 </li>
               )

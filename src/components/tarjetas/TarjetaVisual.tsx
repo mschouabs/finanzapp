@@ -47,13 +47,13 @@ export function TarjetaVisual({ e, onAbrir }: { e: EstadoTarjeta; onAbrir: () =>
           <span aria-hidden="true" style={{ position: 'absolute', right: -40, top: -60, width: 180, height: 180, borderRadius: '50%', background: 'rgba(255,255,255,.08)' }} />
           <div className="flex items-start justify-between">
             <div>
-              <p className="text-[10px] font-semibold uppercase tracking-widest opacity-75">{t.marca ?? 'Tarjeta'}</p>
+              <p className="text-xs font-medium opacity-75">{t.marca ?? 'Tarjeta'}</p>
               <p className="mt-0.5 text-lg font-bold leading-tight">{t.nombre}</p>
             </div>
             <span aria-hidden="true" style={{ width: 34, height: 26, borderRadius: 6, background: 'linear-gradient(135deg,#f5d77a,#c9a441)', opacity: .9 }} />
           </div>
           <div style={{ position: 'absolute', left: 18, right: 18, bottom: 16 }}>
-            <p className="text-[10px] uppercase tracking-wide opacity-75">Resumen actual</p>
+            <p className="text-xs opacity-75">Resumen actual</p>
             <p className="fa-amount text-2xl">{fmt(e.abierto.totales.ars)}{e.abierto.totales.usd > 0 && <span className="text-sm"> + US$ {e.abierto.totales.usd.toLocaleString('es-AR')}</span>}</p>
             <div className="mt-1 flex items-center justify-between text-[11px] opacity-85">
               <span>{diasCierre >= 0 ? `Cierra en ${diasCierre} ${diasCierre === 1 ? 'día' : 'días'}` : 'Cerrado'} · vence {fmtDiaMes(e.abierto.vencimiento)}</span>
@@ -131,7 +131,7 @@ export function AnilloLimite({ e, size = 108 }: { e: EstadoTarjeta; size?: numbe
           <span className={`fa-amount text-lg ${alerta ? 'text-negative' : 'text-primary'}`}>
             {e.limite ? `${Math.round(e.usoPct)}%` : '—'}
           </span>
-          <span className="text-[10px] text-muted">del límite</span>
+          <span className="text-[11px] text-muted">del límite</span>
         </div>
       </div>
       <ul className="min-w-0 flex-1 space-y-1 text-xs">

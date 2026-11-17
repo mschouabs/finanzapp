@@ -50,7 +50,7 @@ const fechaCorta = (iso: string) => new Date(iso + 'T12:00:00').toLocaleDateStri
 const formVacioFreelance = () => ({ cliente: '', descripcion: '', monto_total: '', monto_cobrado: '', fecha: hoyISO() })
 
 const inputCls = 'h-11 w-full rounded-lg border bg-field px-3 text-sm text-primary'
-const labelCls = 'mb-1 block text-[11px] font-semibold uppercase tracking-[0.04em] text-muted'
+const labelCls = 'mb-1 block text-xs font-medium text-secondary'
 const btnIcono = 'fa-press grid h-9 w-9 place-items-center rounded-lg text-muted hover:bg-alternate hover:text-primary'
 
 const avisarCambio = () => window.dispatchEvent(new Event(EVENTO_DATOS))
@@ -339,7 +339,7 @@ export default function TrabajosPage() {
     <div className="fa-page-in flex flex-col gap-8">
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-muted">Trabajos</p>
+          <p className="text-xs font-medium tracking-[0.05em] text-muted">Trabajos</p>
           <h1 className="mt-0.5 text-xl font-extrabold tracking-tight text-primary lg:text-2xl">Lo que ganás</h1>
         </div>
       </header>

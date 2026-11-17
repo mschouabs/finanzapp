@@ -160,7 +160,7 @@ export function SeccionModal({
                   {p.emoji} {p.nombre}
                 </div>
                 <div className="mt-1 text-xs text-secondary">{p.descripcion}</div>
-                <div className="mt-2 text-[10px] text-muted">
+                <div className="mt-2 text-[11px] text-muted">
                   {p.campos.map(c => c.label).join(' · ')}
                 </div>
               </button>
@@ -216,7 +216,7 @@ export function SeccionModal({
                     }`}
                   >
                     <div className="text-xs font-bold text-primary">{t.label}</div>
-                    <div className="mt-0.5 text-[10px] text-muted">{t.ayuda}</div>
+                    <div className="mt-0.5 text-[11px] text-muted">{t.ayuda}</div>
                   </button>
                 ))}
               </div>
@@ -227,7 +227,7 @@ export function SeccionModal({
                 <label className="text-xs font-semibold text-secondary">Campos</label>
                 <button
                   onClick={agregarCampo}
-                  className="rounded-md border px-2.5 py-1 text-[10px] font-semibold text-secondary hover:bg-alternate"
+                  className="rounded-md border px-2.5 py-1 text-[11px] font-semibold text-secondary hover:bg-alternate"
                 >
                   + Agregar campo
                 </button>
@@ -257,7 +257,7 @@ export function SeccionModal({
                           ))}
                         </select>
                         {fijo ? (
-                          <span className="px-1 text-[10px] text-muted">obligatorio</span>
+                          <span className="px-1 text-[11px] text-muted">obligatorio</span>
                         ) : (
                           <button
                             onClick={() => borrarCampo(i)}
@@ -279,7 +279,7 @@ export function SeccionModal({
                       )}
 
                       {!fijo && c.label.trim() && (
-                        <div className="mt-1.5 text-[10px] text-muted">
+                        <div className="mt-1.5 text-[11px] text-muted">
                           se guarda como <code>{labelAKey(c.label)}</code>
                         </div>
                       )}

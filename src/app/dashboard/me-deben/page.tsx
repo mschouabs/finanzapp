@@ -163,7 +163,7 @@ export default function MeDebenPage() {
                     </div>
                     <div className="flex-1 text-left sm:flex-none sm:shrink-0 sm:text-right">
                       <p className="fa-num-sm text-primary">{fmt(pend, d.moneda)}</p>
-                      {d.cobrado > 0 && <p className="text-[10px] text-muted">de {fmt(d.monto, d.moneda)}</p>}
+                      {d.cobrado > 0 && <p className="text-[11px] text-muted">de {fmt(d.monto, d.moneda)}</p>}
                     </div>
                     <button onClick={() => setCobrando(d)} className="fa-press h-9 shrink-0 rounded-lg bg-confirm px-3 text-xs font-semibold text-white hover:bg-confirm-hover">
                       Cobrar

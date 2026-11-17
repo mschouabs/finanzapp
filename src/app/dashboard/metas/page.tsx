@@ -309,7 +309,7 @@ export default function MetasPage() {
           </button>
           <span className="text-2xl">{m.emoji || '🎯'}</span>
           <h3 className="min-w-0 flex-1 truncate text-sm font-bold text-primary">{m.nombre}</h3>
-          {lograda && <span className="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-positive" style={{ background: 'var(--glow-positive)' }}>Lograda</span>}
+          {lograda && <span className="rounded-full px-2 py-0.5 text-xs font-medium text-positive" style={{ background: 'var(--glow-positive)' }}>Lograda</span>}
           <button onClick={() => setEditando(m)} aria-label={`Editar ${m.nombre}`} className="flex h-8 w-8 items-center justify-center rounded-lg text-muted hover:bg-alternate hover:text-primary">
             <Pencil size={14} />
           </button>
@@ -324,7 +324,7 @@ export default function MetasPage() {
             <p className="fa-caption">de {fmtMoneda(objetivo, m.moneda)}</p>
             {!lograda && <p className="fa-caption mt-1">Faltan {fmtMoneda(faltante, m.moneda)}</p>}
             {m.billetera_app && (
-              <p className="mt-1.5 inline-flex items-center gap-1 rounded-full bg-alternate px-2 py-0.5 text-[10px] font-semibold text-secondary">
+              <p className="mt-1.5 inline-flex items-center gap-1 rounded-full bg-alternate px-2 py-0.5 text-[11px] font-semibold text-secondary">
                 <Link2 size={10} /> {nombreApp(m.billetera_app)}
               </p>
             )}
@@ -368,7 +368,7 @@ export default function MetasPage() {
               </button>
             )}
             {aportando !== m.id && (
-              <p className="mt-1.5 text-center text-[10px] text-muted">Lo que aportás queda apartado acá; no mueve plata de tus cuentas.</p>
+              <p className="mt-1.5 text-center text-[11px] text-muted">Lo que aportás queda apartado acá; no mueve plata de tus cuentas.</p>
             )}
           </div>
         )}
@@ -380,7 +380,7 @@ export default function MetasPage() {
     <div className="fa-page-in mx-auto flex max-w-[1480px] flex-col gap-7 pb-6">
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-muted">Metas</p>
+          <p className="text-xs font-medium tracking-[0.05em] text-muted">Metas</p>
           <h1 className="mt-0.5 text-xl font-extrabold tracking-tight text-primary lg:text-2xl">Hacia dónde vas</h1>
         </div>
         {!tablaFalta && (

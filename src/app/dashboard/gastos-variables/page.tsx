@@ -398,7 +398,7 @@ export default function MovimientosPage() {
   const encabezado = (
     <header className="flex flex-wrap items-end gap-x-6 gap-y-3">
       <div className="min-w-0 flex-1">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-muted">Movimientos</p>
+        <p className="text-xs font-medium tracking-[0.05em] text-muted">Movimientos</p>
         <div className="mt-0.5 flex items-center gap-1">
           {rango.esMes && (
             <button onClick={() => moverMes(-1)} aria-label="Mes anterior"
@@ -454,7 +454,7 @@ export default function MovimientosPage() {
           { l: mesesEnRango > 1 ? `Fijos · ${mesesEnRango} meses` : 'Fijos', v: totales.fijosPeriodo, t: 'var(--text-muted)' },
         ].map(x => (
           <div key={x.l} className="min-w-0">
-            <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.04em] text-secondary">
+            <p className="flex items-center gap-1.5 text-xs font-medium tracking-[0.04em] text-secondary">
               <span className="h-1.5 w-1.5 rounded-full" style={{ background: x.t }} />{x.l}
             </p>
             <NumeroAnimado valor={x.v} className="mt-1 block whitespace-nowrap text-lg font-bold tabular-nums text-primary" />

@@ -618,11 +618,11 @@ export default function LucaChatPage() {
                         </button>
                       </div>
                     )}
-                    {errores[msg.id] && <p className="text-[10px] font-semibold leading-relaxed text-negative">⚠️ {errores[msg.id]}</p>}
+                    {errores[msg.id] && <p className="text-[11px] font-semibold leading-relaxed text-negative">⚠️ {errores[msg.id]}</p>}
                   </div>
                 )}
                 {msg.accion && msg.estadoAccion === 'cancelada' && (
-                  <p className="mt-1 text-[10px] text-muted">Cancelado, no se hizo nada.</p>
+                  <p className="mt-1 text-[11px] text-muted">Cancelado, no se hizo nada.</p>
                 )}
 
                 {/* Tarjeta de registro detectado */}
@@ -665,7 +665,7 @@ export default function LucaChatPage() {
                     </button>
 
                     {errores[msg.id] && (
-                      <p className="mt-1 text-[10px] text-negative font-semibold leading-relaxed">
+                      <p className="mt-1 text-[11px] text-negative font-semibold leading-relaxed">
                         ⚠️ No se pudo guardar: {errores[msg.id]}
                       </p>
                     )}
@@ -673,7 +673,7 @@ export default function LucaChatPage() {
                 )}
 
                 {msg.guardado && (
-                  <p className="mt-1 text-[10px] text-confirm font-semibold">✓ Guardado correctamente</p>
+                  <p className="mt-1 text-[11px] text-confirm font-semibold">✓ Guardado correctamente</p>
                 )}
               </div>
             </div>

@@ -142,7 +142,7 @@ export function Dona({ datos, size = 170, grosor = 22, centro, activo, onElegir 
       <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center px-6 text-center">
         {enFoco ? (
           <>
-            <span className="max-w-full truncate text-[10px] font-semibold uppercase tracking-wide text-secondary">{enFoco.label}</span>
+            <span className="max-w-full truncate text-xs font-medium text-secondary">{enFoco.label}</span>
             <span className="fa-amount text-lg text-primary">{total > 0 ? Math.round((enFoco.valor / total) * 100) : 0}%</span>
           </>
         ) : centro}

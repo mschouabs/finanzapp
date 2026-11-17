@@ -77,7 +77,7 @@ export function LucaInsights({ insights, cargando = false }: { insights: Insight
 
       {principal && t ? (
         <div key={principal.id} className="fa-page-in mb-4 mt-4">
-          <p className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.05em]" style={{ color: t.color }}>
+          <p className="inline-flex items-center gap-1.5 text-xs font-medium tracking-[0.05em]" style={{ color: t.color }}>
             <t.Icono size={13} /> {t.label}
           </p>
           <p className="mt-1.5 text-[15px] font-semibold leading-snug text-primary" aria-label={principal.titulo}>
@@ -235,7 +235,7 @@ export function CapturaLuca({ onGuardar, autoFoco = false, flotante = false }: {
       {g && (paso === 'confirmar' || paso === 'guardando') && (
         <div className={`fa-pop mt-2 rounded-2xl border p-4 shadow-card-hover ${flotante ? 'absolute inset-x-0 top-full z-40' : ''}`} style={{ background: 'var(--bg-alternate)', borderColor: 'var(--border-color)' }}
           role="dialog" aria-label="Confirmar gasto detectado">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-secondary">Luca entendió</p>
+          <p className="text-xs font-medium tracking-[0.05em] text-secondary">Luca entendió</p>
           <div className="mt-2 flex flex-wrap items-end justify-between gap-3">
             <div className="min-w-0">
               <p className="truncate text-sm text-primary">{g.nombre}</p>

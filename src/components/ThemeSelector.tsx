@@ -1,49 +1,31 @@
 'use client'
 import { useTheme } from './ThemeProvider'
 
-const SIZE = 28
+/* Selector de tema: control segmentado (Negro / Rosa), con una muestra de color en cada opción. */
+const TEMAS = [
+  { id: 'dark', nombre: 'Negro', muestra: '#0E0E10' },
+  { id: 'rosa', nombre: 'Rosa', muestra: '#EFC6D3' },
+] as const
 
 export function ThemeSelector() {
   const { theme, toggleTheme } = useTheme()
-
-  const base: React.CSSProperties = {
-    width: SIZE,
-    height: SIZE,
-    borderRadius: '50%',
-    cursor: 'pointer',
-    padding: 0,
-    flexShrink: 0,
-    transition: 'border-color 200ms, transform 200ms',
-  }
-
   return (
-    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-      <button
-        onClick={() => theme !== 'dark' && toggleTheme()}
-        title="Tema Oscuro"
-        aria-label="Cambiar a tema oscuro"
-        aria-pressed={theme === 'dark'}
-        style={{
-          ...base,
-          background: '#0D1117',
-          border: theme === 'dark' ? '2px solid #3FB950' : '2px solid #30363D',
-          transform: theme === 'dark' ? 'scale(1)' : 'scale(0.9)',
-          cursor: theme === 'dark' ? 'default' : 'pointer',
-        }}
-      />
-      <button
-        onClick={() => theme !== 'rosa' && toggleTheme()}
-        title="Tema Rosa"
-        aria-label="Cambiar a tema rosa"
-        aria-pressed={theme === 'rosa'}
-        style={{
-          ...base,
-          background: '#D4849C',
-          border: theme === 'rosa' ? '2px solid #C85A6D' : '2px solid transparent',
-          transform: theme === 'rosa' ? 'scale(1)' : 'scale(0.9)',
-          cursor: theme === 'rosa' ? 'default' : 'pointer',
-        }}
-      />
+    <div role="radiogroup" aria-label="Tema" className="inline-grid grid-cols-2 rounded-control bg-alternate p-[3px]">
+      {TEMAS.map(t => {
+        const activo = theme === t.id
+        return (
+          <button
+            key={t.id}
+            role="radio"
+            aria-checked={activo}
+            onClick={() => !activo && toggleTheme()}
+            className={`flex h-8 items-center gap-1.5 rounded-[9px] px-3 text-xs font-medium transition-colors duration-150 ${activo ? 'bg-card text-primary shadow-card' : 'text-secondary hover:text-primary'}`}
+          >
+            <span className="h-3 w-3 rounded-full" style={{ background: t.muestra, boxShadow: 'inset 0 0 0 1px rgba(127,127,127,.35)' }} />
+            {t.nombre}
+          </button>
+        )
+      })}
     </div>
   )
 }

@@ -192,7 +192,7 @@ export function Header() {
         className="fa-press hidden w-80 items-center gap-2 rounded-lg border bg-field px-3 py-2 text-xs text-muted hover:text-secondary lg:flex">
         <Search size={14} />
         <span className="flex-1 text-left">Buscar en tus datos…</span>
-        <kbd className="rounded border px-1.5 py-0.5 text-[10px] text-muted">Ctrl K</kbd>
+        <kbd className="rounded border px-1.5 py-0.5 text-[11px] text-muted">Ctrl K</kbd>
       </button>
       <button onClick={() => setAbierto(true)} aria-label="Buscar"
         className="fa-press grid h-10 w-10 place-items-center rounded-lg text-secondary hover:bg-alternate hover:text-primary lg:hidden">
@@ -208,7 +208,7 @@ export function Header() {
           className="fa-press relative grid h-10 w-10 place-items-center rounded-lg text-secondary hover:bg-alternate hover:text-primary">
           <Bell size={19} />
           {sinVer > 0 && (
-            <span className="absolute right-1 top-1 grid h-4 min-w-4 place-items-center rounded-full px-1 text-[10px] font-bold text-white"
+            <span className="absolute right-1 top-1 grid h-4 min-w-4 place-items-center rounded-full px-1 text-[11px] font-bold text-white"
               style={{ background: 'var(--accent-negative)' }}>{sinVer}</span>
           )}
         </button>
@@ -274,7 +274,7 @@ export function Header() {
                 const on = i === activo
                 return (
                   <li key={r.id} role="presentation">
-                    {nuevoGrupo && <p className="px-3 pb-1 pt-2.5 text-[11px] font-semibold uppercase tracking-[0.04em] text-muted">{r.grupo}</p>}
+                    {nuevoGrupo && <p className="px-3 pb-1 pt-2.5 text-xs font-medium tracking-[0.04em] text-muted">{r.grupo}</p>}
                     <button id={`res-${r.id}`} data-i={i} role="option" aria-selected={on}
                       onMouseMove={() => setActivo(i)} onClick={() => elegir(r)}
                       className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left"

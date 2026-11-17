@@ -350,7 +350,7 @@ export default function HistorialPage() {
     <div className="fa-page-in flex flex-col gap-8">
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-muted">Historial</p>
+          <p className="text-xs font-medium tracking-[0.05em] text-muted">Historial</p>
           <h1 className="mt-0.5 text-xl font-extrabold tracking-tight text-primary lg:text-2xl">Todo lo que entró y salió</h1>
         </div>
         <button onClick={exportarCSV} disabled={!filtrados.length}
@@ -470,7 +470,7 @@ export default function HistorialPage() {
                           </span>
                           <span className="min-w-0 flex-1">
                             <span className="block truncate text-sm text-primary">{m.descripcion || '—'}</span>
-                            <span className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[10px]">
+                            <span className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[11px]">
                               <span className="text-muted">{m.fecha.slice(8, 10)}/{m.fecha.slice(5, 7)}</span>
                               <Chip>{TIPO[m.tipo].label}</Chip>
                               {m.categoria && m.categoria !== TIPO[m.tipo].label && <Chip>{m.categoria}</Chip>}

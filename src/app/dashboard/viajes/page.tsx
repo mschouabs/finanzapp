@@ -155,7 +155,7 @@ export default function ViajesPage() {
     <div className="fa-page-in flex flex-col gap-8">
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-muted">Viajes</p>
+          <p className="text-xs font-medium tracking-[0.05em] text-muted">Viajes</p>
           <h1 className="mt-0.5 text-xl font-extrabold tracking-tight text-primary lg:text-2xl">Tus viajes</h1>
         </div>
         <button onClick={() => setModal(true)}
@@ -329,7 +329,7 @@ function TarjetaViaje({ v, total, handle, arrastrando }: { v: Viaje; total: numb
               )}
             </span>
           </Link>
-          <span className="flex shrink-0 items-center gap-1.5 rounded-full bg-black/25 px-2 py-0.5 text-[10px] font-bold tracking-wide backdrop-blur">
+          <span className="flex shrink-0 items-center gap-1.5 rounded-full bg-black/25 px-2 py-0.5 text-[11px] font-bold tracking-wide backdrop-blur">
             {badge.late && <span className="fa-latido h-1.5 w-1.5 rounded-full" style={{ background: '#fff', color: '#fff' }} />}
             {badge.label}
           </span>
@@ -381,7 +381,7 @@ function TarjetaViaje({ v, total, handle, arrastrando }: { v: Viaje; total: numb
               <div className="mt-2 h-1.5 overflow-hidden rounded-full" style={{ background: 'var(--border-color)' }}>
                 <div className="h-full rounded-full" style={{ width: `${Math.min(pct, 100)}%`, background: colorPresupuesto(pct), transition: 'width .6s' }} />
               </div>
-              <p className="mt-1.5 text-[10px] font-medium" style={{ color: colorPresupuesto(pct) }}>
+              <p className="mt-1.5 text-[11px] font-medium" style={{ color: colorPresupuesto(pct) }}>
                 {pct > 100 ? `Te pasaste ${fmtCorto(total - v.presupuesto)}` : `Queda ${fmtCorto(v.presupuesto - total)} de ${fmtCorto(v.presupuesto)}`}
               </p>
             </>
@@ -406,7 +406,7 @@ function BannerViaje({ v, gastado }: { v: Viaje; gastado: number }) {
       <span aria-hidden="true" className="pointer-events-none absolute -right-4 -top-8 text-[140px] leading-none opacity-15">{v.emoji}</span>
       <span className="text-4xl">{v.emoji}</span>
       <div className="relative min-w-0 flex-1">
-        <p className="text-[11px] font-bold uppercase tracking-widest text-white/80">
+        <p className="text-xs font-medium text-white/80">
           {estado === 'en_curso' ? 'Estás de viaje' : 'Tu próximo viaje'}
         </p>
         <p className="text-lg font-extrabold leading-tight sm:truncate sm:text-xl">{v.nombre}{v.destino ? ` · ${v.destino}` : ''}</p>
@@ -475,7 +475,7 @@ function LineaDeTiempo({ viajes, anio, setAnio, gastado }: {
 
       <div className="relative mt-5">
         {/* meses */}
-        <div className="grid grid-cols-12 text-center text-[10px] font-semibold text-muted">
+        <div className="grid grid-cols-12 text-center text-[11px] font-semibold text-muted">
           {MESES.map((m, i) => <span key={i}>{m}</span>)}
         </div>
         <div className="relative mt-1 rounded-lg" style={{ height: nCarriles * 30 + 12, background: 'var(--bg-alternate)' }}>

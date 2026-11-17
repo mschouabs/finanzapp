@@ -27,7 +27,7 @@ export function LucaLateral() {
         <LucaAvatar estado={top?.estado ?? 'idle'} size={40} />
         <div className="min-w-0">
           <p className="text-sm font-bold text-primary">Luca</p>
-          <p className="text-[10px] text-secondary">{top ? 'Lo más importante hoy' : 'Revisando tus números…'}</p>
+          <p className="text-[11px] text-secondary">{top ? 'Lo más importante hoy' : 'Revisando tus números…'}</p>
         </div>
       </div>
       {top && (

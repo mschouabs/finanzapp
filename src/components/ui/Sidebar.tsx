@@ -133,7 +133,7 @@ export default function Sidebar({ userName }: { userName?: string }) {
         {NAV_GRUPOS.map((grupo, gi) => (
           <div key={grupo.titulo ?? `g${gi}`} className={gi > 0 ? 'mt-3' : undefined}>
             {grupo.titulo && (
-              <div className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted">
+              <div className="px-3 pb-1 text-xs font-medium text-muted">
                 {grupo.titulo}
               </div>
             )}
@@ -160,7 +160,7 @@ export default function Sidebar({ userName }: { userName?: string }) {
         ))}
 
         {secciones.length > 0 && (
-          <div className="mt-3 px-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted">
+          <div className="mt-3 px-3 pb-1 text-xs font-medium text-muted">
             Mis secciones
           </div>
         )}

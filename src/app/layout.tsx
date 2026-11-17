@@ -9,7 +9,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   viewportFit: 'cover',
   interactiveWidget: 'resizes-content',
-  themeColor: '#080D13',
+  themeColor: '#0E0E10',
 };
 
 export const metadata: Metadata = {
@@ -36,7 +36,7 @@ const themeInitScript = `
     var t = localStorage.getItem('userTheme');
     document.documentElement.setAttribute('data-theme', t === 'rosa' ? 'rosa' : 'dark');
     var m = document.querySelector('meta[name="theme-color"]');
-    if (m) m.setAttribute('content', t === 'rosa' ? '#FDF6F9' : '#080D13');
+    if (m) m.setAttribute('content', t === 'rosa' ? '#FAF5F2' : '#0E0E10');
   } catch (e) {
     document.documentElement.setAttribute('data-theme', 'dark');
   }

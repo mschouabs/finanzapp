@@ -29,7 +29,7 @@ export default function OAuthButtons() {
           <div className="w-full border-t border-line" />
         </div>
         <div className="relative flex justify-center text-xs">
-          <span className="bg-card px-3 text-muted uppercase tracking-wide">
+          <span className="bg-card px-3 text-muted">
             o continuá con
           </span>
         </div>

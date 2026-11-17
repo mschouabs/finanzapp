@@ -279,7 +279,7 @@ export default function ImportarPage() {
   return (
     <div className="fa-page-in flex flex-col gap-6">
       <header>
-        <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-muted">Importar</p>
+        <p className="text-xs font-medium tracking-[0.05em] text-muted">Importar</p>
         <h1 className="mt-0.5 text-xl font-extrabold tracking-tight text-primary lg:text-2xl">Traé tus movimientos</h1>
         <p className="mt-1 text-sm text-secondary">Subí el CSV del banco o la billetera. Se procesa en tu navegador: el archivo no se sube a ningún servidor.</p>
       </header>
@@ -454,7 +454,7 @@ export default function ImportarPage() {
             </div>
             <div className="max-h-[460px] overflow-auto border-t border-line">
               <table className="w-full text-left text-xs">
-                <thead className="sticky top-0 z-[1] bg-alternate text-[10px] uppercase tracking-wide text-secondary">
+                <thead className="sticky top-0 z-[1] bg-alternate text-xs text-secondary">
                   <tr>
                     <th className="px-3 py-2.5" />
                     <th className="px-3 py-2.5">Fecha</th>
@@ -479,9 +479,9 @@ export default function ImportarPage() {
                         <td className="px-3 py-2.5 text-primary">
                           {f.descripcion}
                           <span className="ml-1.5 inline-flex flex-wrap gap-1 align-middle">
-                            {f.duplicado && <span className="rounded px-1.5 py-0.5 text-[10px] font-semibold" style={{ background: 'var(--riesgo-medio-tint)', color: 'var(--riesgo-medio)' }}>ya cargado</span>}
-                            {f.medio && autoMedio && <span className="rounded bg-alternate px-1.5 py-0.5 text-[10px] text-secondary">💳 {f.medio}</span>}
-                            {!f.valida && <span className="text-[10px] text-muted">{f.motivo}</span>}
+                            {f.duplicado && <span className="rounded px-1.5 py-0.5 text-[11px] font-semibold" style={{ background: 'var(--riesgo-medio-tint)', color: 'var(--riesgo-medio)' }}>ya cargado</span>}
+                            {f.medio && autoMedio && <span className="rounded bg-alternate px-1.5 py-0.5 text-[11px] text-secondary">💳 {f.medio}</span>}
+                            {!f.valida && <span className="text-[11px] text-muted">{f.motivo}</span>}
                           </span>
                         </td>
                         <td className="px-3 py-2.5 capitalize text-secondary">

@@ -48,10 +48,10 @@ export function AccionRapida({ onAccion, pagoHint }: { onAccion: (a: AccionTipo)
   return (
     <div ref={raiz} className="relative">
       <button onClick={() => setAbierto(v => !v)} aria-haspopup="menu" aria-expanded={abierto}
-        className="fa-press flex h-11 items-center gap-2 rounded-xl bg-confirm px-4 text-sm font-semibold text-white shadow-[0_6px_18px_-6px_var(--accent-confirm)] hover:bg-confirm-hover">
+        className="fa-press flex h-11 items-center gap-2 rounded-xl bg-confirm px-4 text-sm font-semibold text-white hover:bg-confirm-hover">
         <Plus size={18} strokeWidth={2.5} style={{ transform: abierto ? 'rotate(45deg)' : undefined, transition: 'transform var(--dur-std) var(--ease-out)' }} />
         Registrar
-        <kbd className="ml-1 hidden rounded border border-white/30 px-1 text-[10px] font-medium text-white/80 xl:inline">N</kbd>
+        <kbd className="ml-1 hidden rounded border border-white/30 px-1 text-[11px] font-medium text-white/80 xl:inline">N</kbd>
       </button>
 
       {abierto && (

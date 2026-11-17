@@ -399,7 +399,7 @@ export default function BilleterasPage() {
                 <Pencil size={13} />
               </button>
               {riesgo && (
-                <span className="ml-auto shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-semibold"
+                <span className="ml-auto shrink-0 rounded-md px-1.5 py-0.5 text-[11px] font-semibold"
                   style={{ color: riesgo.color, background: `color-mix(in srgb, ${riesgo.color} 16%, transparent)` }}>
                   {riesgo.label}
                 </span>
@@ -516,13 +516,13 @@ export default function BilleterasPage() {
       <div className="lg:col-span-4">
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.04em] text-secondary"><span className="h-2 w-2 rounded-full" style={{ background: 'var(--accent-secondary)' }} />Disponible</p>
+            <p className="flex items-center gap-1.5 text-xs font-medium tracking-[0.04em] text-secondary"><span className="h-2 w-2 rounded-full" style={{ background: 'var(--accent-secondary)' }} />Disponible</p>
             {oculto ? <p className="mt-1 text-lg font-bold text-primary">{OCULTO}</p> : <NumeroAnimado valor={tot.liquido} className="mt-1 block text-lg font-bold tabular-nums text-primary" />}
             <p className="text-[11px] text-muted">{pctLiq}% · {liquidas.length} cuentas</p>
             {rindeDisponibleMes > 0 && !oculto && <p className="mt-0.5 flex items-center gap-1 text-[11px] font-medium text-positive"><PiggyBank size={11} /> +{fmtK(rindeDisponibleMes)}/mes de interés</p>}
           </div>
           <div>
-            <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.04em] text-secondary"><span className="h-2 w-2 rounded-full" style={{ background: 'var(--accent-violet)' }} />Invertido</p>
+            <p className="flex items-center gap-1.5 text-xs font-medium tracking-[0.04em] text-secondary"><span className="h-2 w-2 rounded-full" style={{ background: 'var(--accent-violet)' }} />Invertido</p>
             {oculto ? <p className="mt-1 text-lg font-bold text-primary">{OCULTO}</p> : <NumeroAnimado valor={tot.invertido} className="mt-1 block text-lg font-bold tabular-nums text-primary" />}
             <p className="text-[11px] text-muted">{pctInv}% · {invertidas.length} {invertidas.length === 1 ? 'lugar' : 'lugares'}</p>
           </div>
@@ -557,7 +557,7 @@ export default function BilleterasPage() {
       <Encabezado id="t-donde" titulo="Dónde está tu plata" sub="Tocá una app para resaltar su tarjeta" />
       <div className="mt-4 flex flex-col items-center gap-4 sm:flex-row sm:items-start">
         <Dona datos={porApp} size={160} activo={focoApp} onElegir={k => setFocoApp(f => (f === k ? null : k))}
-          centro={<><span className="text-[10px] font-semibold uppercase tracking-wide text-secondary">Total</span><span className="fa-amount text-base text-primary">{oculto ? OCULTO : fmtK(tot.total)}</span></>} />
+          centro={<><span className="text-xs font-medium text-secondary">Total</span><span className="fa-amount text-base text-primary">{oculto ? OCULTO : fmtK(tot.total)}</span></>} />
         <Leyenda datos={porApp} fmt={n => (oculto ? OCULTO : fmtK(n))} activo={focoApp} onElegir={k => setFocoApp(f => (f === k ? null : k))} max={7} />
       </div>
     </section>
@@ -586,7 +586,7 @@ export default function BilleterasPage() {
       {/* Encabezado */}
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-muted">Billeteras</p>
+          <p className="text-xs font-medium tracking-[0.05em] text-muted">Billeteras</p>
           <h1 className="mt-0.5 text-xl font-extrabold tracking-tight text-primary lg:text-2xl">Dónde está tu plata</h1>
         </div>
         <div className="flex w-full gap-2 sm:w-auto">

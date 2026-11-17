@@ -566,11 +566,11 @@ export default function ResumenClasicoPage() {
                     <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-alternate" aria-hidden="true">
                       <div className="h-full rounded-full" style={{ width: `${(c.anterior / tope) * 100}%`, background: 'var(--text-muted)' }} />
                     </div>
-                    <p className="mt-0.5 text-[10px] text-muted">Mes pasado: {fmt(c.anterior)}</p>
+                    <p className="mt-0.5 text-[11px] text-muted">Mes pasado: {fmt(c.anterior)}</p>
                   </li>
                 ))
               })()}
-              <li className="flex items-center gap-3 text-[10px] text-muted" aria-hidden="true">
+              <li className="flex items-center gap-3 text-[11px] text-muted" aria-hidden="true">
                 <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full" style={{ background: 'var(--accent-secondary)' }} />Este mes</span>
                 <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full" style={{ background: 'var(--text-muted)' }} />Mes pasado</span>
               </li>
@@ -584,7 +584,7 @@ export default function ResumenClasicoPage() {
                   datos={d.gastosPorCategoria.map((c, i) => ({ key: c.name, label: c.name, valor: c.value, color: COLORS[i % COLORS.length] }))}
                   centro={
                     <div className="flex flex-col items-center justify-center">
-                      <span className="text-[10px] uppercase tracking-wide text-muted">Total</span>
+                      <span className="text-xs text-muted">Total</span>
                       <span className="fa-amount text-base text-primary">{fmt(totalCategorias)}</span>
                     </div>
                   }

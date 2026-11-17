@@ -180,7 +180,7 @@ export default function SeccionPage() {
           </p>
         </div>
         <div className="text-right">
-          <div className="text-[10px] font-semibold uppercase tracking-wide text-secondary">
+          <div className="text-xs font-medium text-secondary">
             Total
           </div>
           <div className={`fa-amount text-2xl ${signo}`}>{fmtMonto(total)}</div>
@@ -332,7 +332,7 @@ export default function SeccionPage() {
           >
             Borrar sección
           </button>
-          <span className="text-[10px] text-muted">
+          <span className="text-[11px] text-muted">
             Se borran también sus {registros.length} registros. No se puede deshacer.
           </span>
         </div>

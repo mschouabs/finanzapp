@@ -169,7 +169,7 @@ export function DetalleTarjeta({ e, tarjetas, dolar, onCerrar, onPagar, onDeshac
                       height: Math.max(x.total > 0 ? 3 : 0, (x.total / max) * 110), animationDelay: `${i * 30}ms`,
                       background: on ? colorTarjeta(t.marca) : x.futuro ? 'var(--border-color)' : 'color-mix(in srgb, var(--text-muted) 60%, transparent)',
                     }} />
-                  <span className={`text-[10px] capitalize ${on ? 'font-semibold text-primary' : 'text-muted'}`}>{x.mes.slice(0, 3)}</span>
+                  <span className={`text-[11px] capitalize ${on ? 'font-semibold text-primary' : 'text-muted'}`}>{x.mes.slice(0, 3)}</span>
                 </button>
               )
             })}

@@ -160,7 +160,7 @@ export default function PortfolioPage() {
       {/* Encabezado */}
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-muted">Portfolio</p>
+          <p className="text-xs font-medium tracking-[0.05em] text-muted">Portfolio</p>
           <h1 className="mt-0.5 text-xl font-extrabold tracking-tight text-primary lg:text-2xl">Tus inversiones</h1>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -207,7 +207,7 @@ export default function PortfolioPage() {
                 { l: 'TNA promedio', v: `${tnaPromedio.toFixed(1).replace('.', ',')}%`, s: 'ponderada por monto' },
               ].map(x => (
                 <div key={x.l}>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.04em] text-secondary">{x.l}</p>
+                  <p className="text-xs font-medium tracking-[0.04em] text-secondary">{x.l}</p>
                   <p className="mt-1 text-lg font-bold tabular-nums text-primary">{x.v}</p>
                   <p className="text-[11px] text-muted">{x.s}</p>
                 </div>
@@ -239,7 +239,7 @@ export default function PortfolioPage() {
               <Encabezado titulo="Riesgo" sub="Tocá para filtrar los activos" />
               <div className="mt-4 flex flex-col items-center gap-3">
                 <Dona datos={porRiesgo} size={150} activo={focoRiesgo} onElegir={k => setFocoRiesgo(f => (f === k ? null : k))}
-                  centro={<><span className="text-[10px] font-semibold uppercase tracking-wide text-secondary">Total</span><span className="fa-amount text-base text-primary">{fmtK(total)}</span></>} />
+                  centro={<><span className="text-xs font-medium text-secondary">Total</span><span className="fa-amount text-base text-primary">{fmtK(total)}</span></>} />
                 <Leyenda datos={porRiesgo} fmt={fmtK} activo={focoRiesgo} onElegir={k => setFocoRiesgo(f => (f === k ? null : k))} />
               </div>
             </Revelar>
@@ -248,7 +248,7 @@ export default function PortfolioPage() {
               <Encabezado titulo="Tipo de activo" sub="FCI, plazo fijo, cripto, CEDEARs…" />
               <div className="mt-4 flex flex-col items-center gap-3">
                 <Dona datos={porTipo} size={150} activo={focoTipo} onElegir={k => setFocoTipo(f => (f === k ? null : k))}
-                  centro={<><span className="text-[10px] font-semibold uppercase tracking-wide text-secondary">Tipos</span><span className="fa-amount text-base text-primary">{porTipo.length}</span></>} />
+                  centro={<><span className="text-xs font-medium text-secondary">Tipos</span><span className="fa-amount text-base text-primary">{porTipo.length}</span></>} />
                 <Leyenda datos={porTipo} fmt={fmtK} activo={focoTipo} onElegir={k => setFocoTipo(f => (f === k ? null : k))} max={6} />
               </div>
             </Revelar>
@@ -342,7 +342,7 @@ export default function PortfolioPage() {
 function Chip({ label, valor }: { label: string; valor: string }) {
   return (
     <div className="rounded-xl border border-line bg-card px-3 py-1.5 text-right">
-      <p className="text-[10px] text-muted">{label}</p>
+      <p className="text-[11px] text-muted">{label}</p>
       <p className="fa-amount text-sm text-primary">{valor}</p>
     </div>
   )

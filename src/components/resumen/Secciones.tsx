@@ -95,7 +95,7 @@ export function FlujoPeriodo({ flujo, esActual, ritmo, puedeAtras, puedeAdelante
           sub={flujo.balance >= 0 ? 'balance positivo' : 'gastaste más de lo que entró'}
           tono={flujo.balance >= 0 ? 'var(--accent-positive)' : 'var(--accent-negative)'} />
         <div className="min-w-0">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.04em] text-secondary">Ahorro</p>
+          <p className="text-xs font-medium tracking-[0.04em] text-secondary">Ahorro</p>
           <p className="mt-1 text-[clamp(1.05rem,4.6vw,1.3rem)] font-bold leading-tight tabular-nums text-primary">
             {tasa === null ? '—' : `${Math.round(tasa)}%`}
           </p>
@@ -130,7 +130,7 @@ function Bloque({ label, valor, sub, signo, fuerte, href, tono }: {
 }) {
   const cuerpo = (
     <>
-      <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.04em] text-secondary">
+      <p className="flex items-center gap-1.5 text-xs font-medium tracking-[0.04em] text-secondary">
         <span className="h-1.5 w-1.5 rounded-full" style={{ background: tono }} />{label}
       </p>
       <NumeroAnimado valor={signo === '−' ? -valor : valor} formato={signo || fuerte ? fmtSigno : fmt} moneda
@@ -260,7 +260,7 @@ export function ListaCompromisos({ comp, foco, onFoco, onPagar }: {
         <div className="mt-3 space-y-4" onMouseLeave={() => onFoco(null)}>
           {grupos.map(g => (
             <div key={g.titulo}>
-              <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.04em] text-muted">{g.titulo}</p>
+              <p className="mb-1 text-xs font-medium tracking-[0.04em] text-muted">{g.titulo}</p>
               <ul className="fa-timeline">
                 {g.items.map(it => {
                   const on = foco === it.id
@@ -269,14 +269,14 @@ export function ListaCompromisos({ comp, foco, onFoco, onPagar }: {
                       onMouseEnter={() => onFoco(it.id)}
                       className="-mx-2 flex items-center gap-3 rounded-lg px-2 py-2 transition-colors"
                       style={{ background: on ? 'var(--bg-alternate)' : undefined }}>
-                      <span className="relative z-[1] flex h-9 w-9 shrink-0 flex-col items-center justify-center rounded-xl border text-[10px] font-semibold leading-none"
+                      <span className="relative z-[1] flex h-9 w-9 shrink-0 flex-col items-center justify-center rounded-xl border text-[11px] font-semibold leading-none"
                         style={{
                           background: it.vencido ? 'color-mix(in srgb, var(--accent-negative) 16%, var(--bg-card))' : 'var(--bg-card)',
                           borderColor: it.vencido ? 'var(--accent-negative)' : on ? 'var(--accent-warning)' : 'var(--border-subtle)',
                           color: it.vencido ? 'var(--accent-negative)' : 'var(--text-secondary)',
                           boxShadow: it.vencido ? '0 0 14px -4px var(--accent-negative)' : undefined,
                         }}>
-                        {it.fecha ? (<><span className="text-[13px] font-bold text-primary">{it.fecha.getDate()}</span><span className="mt-0.5 uppercase">{it.fecha.toLocaleDateString('es-AR', { month: 'short' }).replace('.', '')}</span></>)
+                        {it.fecha ? (<><span className="text-[13px] font-bold text-primary">{it.fecha.getDate()}</span><span className="mt-0.5">{it.fecha.toLocaleDateString('es-AR', { month: 'short' }).replace('.', '')}</span></>)
                           : <Pin size={14} />}
                       </span>
                       <span className="min-w-0 flex-1">
@@ -349,7 +349,7 @@ export function ListaActividad({ items, filtro, onLimpiar, nuevos }: {
             return (
               <li key={a.id} className={nuevos.has(a.id) ? 'fa-flash rounded-lg' : ''}>
                 {nuevoDia && (
-                  <p className="fa-dia-sticky -mx-2 mt-2 rounded-lg px-2 py-1.5 text-[11px] font-semibold uppercase tracking-[0.05em] text-muted">
+                  <p className="fa-dia-sticky -mx-2 mt-2 rounded-lg px-2 py-1.5 text-xs font-medium tracking-[0.05em] text-muted">
                     {etiquetaDia(a.fecha, hoy)}
                   </p>
                 )}

@@ -312,7 +312,7 @@ export default function ViajeDetallePage() {
   }
 
   const input = 'h-11 w-full rounded-lg border bg-field px-3 text-sm text-primary placeholder:text-muted'
-  const label = 'mb-1 block text-[11px] font-semibold uppercase tracking-[0.04em] text-muted'
+  const label = 'mb-1 block text-xs font-medium text-secondary'
   const btnIcono = 'fa-press grid h-10 w-10 place-items-center rounded-lg text-secondary hover:bg-alternate hover:text-primary'
   const maxCat = Math.max(...porCategoria.map(c => c.monto), 1)
 
@@ -326,7 +326,7 @@ export default function ViajeDetallePage() {
           <div className="mt-1 flex flex-wrap items-center gap-2.5">
             <span className="text-3xl" aria-hidden="true">{viaje.emoji}</span>
             <h1 className="text-xl font-extrabold tracking-tight text-primary lg:text-2xl">{viaje.nombre}</h1>
-            <span className="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide"
+            <span className="rounded-full px-2 py-0.5 text-xs font-medium"
               style={{ color: viaje.archivado ? 'var(--text-muted)' : estado.color, background: `color-mix(in srgb, ${viaje.archivado ? 'var(--text-muted)' : estado.color} 14%, transparent)` }}>
               {viaje.archivado ? 'Realizado' : estado.label}
             </span>
@@ -601,7 +601,7 @@ export default function ViajeDetallePage() {
                         </div>
                         <div className="shrink-0 text-right">
                           <p className="text-sm font-semibold tabular-nums text-primary">{fmtARS(Number(g.monto_ars))}</p>
-                          {g.moneda !== 'ARS' && <p className="text-[10px] text-muted">{getMoneda(g.moneda).bandera} {fmtMonedaOriginal(Number(g.monto), g.moneda)}</p>}
+                          {g.moneda !== 'ARS' && <p className="text-[11px] text-muted">{getMoneda(g.moneda).bandera} {fmtMonedaOriginal(Number(g.monto), g.moneda)}</p>}
                         </div>
                         <div className="flex shrink-0">
                           <button onClick={() => abrirEdicion(g)} aria-label={`Editar ${g.concepto}`} className="fa-press grid h-9 w-9 place-items-center rounded-lg text-muted hover:bg-card hover:text-primary"><Pencil size={14} /></button>

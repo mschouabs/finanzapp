@@ -21,14 +21,14 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     const initial = saved === 'rosa' ? 'rosa' : 'dark'
     setTheme(initial)
     document.documentElement.setAttribute('data-theme', initial)
-    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', initial === 'rosa' ? '#FDF6F9' : '#080D13')
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', initial === 'rosa' ? '#FAF5F2' : '#0E0E10')
   }, [])
 
   const toggleTheme = () => {
     const next: Theme = theme === 'dark' ? 'rosa' : 'dark'
     setTheme(next)
     document.documentElement.setAttribute('data-theme', next)
-    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', next === 'rosa' ? '#FDF6F9' : '#080D13')
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', next === 'rosa' ? '#FAF5F2' : '#0E0E10')
     localStorage.setItem('userTheme', next)
   }
 
