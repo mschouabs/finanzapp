@@ -12,7 +12,7 @@ import {
   type Consumo, type EstadoTarjeta, type ResumenInfo, type TarjetaInfo,
 } from '@/lib/resumenes'
 import { GrillaOrdenable, type HandleProps } from '@/components/GrillaOrdenable'
-import { SkeletonPagina } from '@/components/ui/Piezas'
+import { SkeletonPagina, ErrorCarga } from '@/components/ui/Piezas'
 import { LucaMensaje } from '@/components/luca/LucaMensaje'
 import { AnilloLimite, TarjetaVisual, colorTarjeta, fmt, fmtCorto } from '@/components/tarjetas/TarjetaVisual'
 import { EditarTarjeta, PagarResumen, type DatosTarjeta } from '@/components/tarjetas/Modales'
@@ -46,6 +46,7 @@ export default function TarjetasPage() {
   >(null)
   const avisarCambio = () => window.dispatchEvent(new Event(EVENTO_DATOS))
 
+  const [fallo, setFallo] = useState(false)
   const cargar = useCallback(async () => {
     const supabase = createClient()
     const [{ data: ts, error: e1 }, { data: cs, error: e2 }, { data: ls }] = await Promise.all([
@@ -54,7 +55,7 @@ export default function TarjetasPage() {
       supabase.from('gastos_variables').select(COLUMNAS_CONSUMO).eq('forma_pago', 'credito'),
       supabase.from('inversiones').select('*'),
     ])
-    if (e1 || e2) setError('No se pudieron cargar las tarjetas. Probá recargar.')
+    setFallo(!!(e1 || e2))
     setTarjetas((ts ?? []) as TarjetaInfo[])
     setConsumos((cs ?? []) as Consumo[])
     setLineas(((ls ?? []) as LineaSaldo[]).filter(esLiquida))
@@ -208,6 +209,7 @@ export default function TarjetasPage() {
 
   /* ── render ────────────────────────────── */
 
+  if (fallo) return <ErrorCarga onReintentar={() => { setFallo(false); setLoading(true); cargar() }} />
   if (loading) {
     return <SkeletonPagina kpis={4} />
   }
@@ -307,12 +309,12 @@ export default function TarjetasPage() {
             <div className="flex gap-2">
               <button onClick={() => registrarConsumo(t)} className="flex-1 rounded-lg py-2 text-sm font-semibold text-white"
                 style={{ background: colorTarjeta(t.marca) }}>Guardar</button>
-              <button onClick={() => setConsumoForm(null)} className="rounded-lg border px-3 py-2 text-sm text-secondary hover:bg-alternate">Cancelar</button>
+              <button onClick={() => setConsumoForm(null)} className="rounded-control px-3 py-2 text-sm text-secondary bg-alternate hover:text-primary">Cancelar</button>
             </div>
           </div>
         ) : (
           <button onClick={() => { setConsumoForm(t.id); setForm(formVacio) }}
-            className="mt-auto w-full rounded-xl border border-dashed py-2.5 text-sm text-secondary hover:bg-alternate hover:text-primary">
+            className="mt-auto w-full rounded-control bg-alternate py-2.5 text-sm text-secondary hover:text-primary">
             + Registrar consumo
           </button>
         )}

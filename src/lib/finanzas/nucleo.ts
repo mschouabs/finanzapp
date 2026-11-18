@@ -33,6 +33,7 @@ import {
   COLUMNAS_CONSUMO, estadoTarjeta, resumenDe,
   type Consumo, type EstadoTarjeta, type TarjetaInfo,
 } from '@/lib/resumenes'
+import { contextoHormiga, esHormiga } from './hormiga'
 import { diasEntre, fechasDeResumen, sumarMeses } from '@/lib/ciclos'
 import { cobrosDeFreelance } from '@/lib/ingresos'
 import { aMeDeben, pendienteDe, type MeDeben } from '@/lib/medeben'
@@ -613,6 +614,7 @@ export function actividad(s: Snapshot, n = 8, categoria?: string | null): Activi
   const hoyISO = isoLocal(s.hoy)
   const lineaApp = new Map(s.lineas.map(l => [l.id, l.etiqueta || l.app]))
   const lista: (Actividad & { orden: string })[] = []
+  const ctxH = contextoHormiga(s.gastos, s.dolar, s.hoy)
 
   for (const g of s.gastos) {
     if (g.fecha > hoyISO) continue
@@ -623,7 +625,7 @@ export function actividad(s: Snapshot, n = 8, categoria?: string | null): Activi
       cuenta: cuenta ? `${cuenta}${g.forma_pago === 'credito' ? ' · crédito' : ''}` : null,
       fecha: g.fecha, monto: enPesosGasto(g, s.dolar), moneda: g.moneda, montoOriginal: g.monto,
       cuota: g.cuotas_total && g.cuotas_total > 1 ? `${g.cuota_numero ?? 1}/${g.cuotas_total}` : null,
-      hormiga: g.es_gasto_hormiga, href: '/dashboard/gastos-variables', orden: `${g.fecha}|${g.created_at}`,
+      hormiga: esHormiga(g, ctxH, s.dolar), href: '/dashboard/gastos-variables', orden: `${g.fecha}|${g.created_at}`,
     })
   }
   for (const f of s.freelance) {

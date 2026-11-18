@@ -367,7 +367,7 @@ export function LucaWidget({ onSaved }: { onSaved?: () => void }) {
             </button>
             <button
               onClick={() => setEditing(e => !e)}
-              className="px-3 py-2 text-[11px] font-semibold rounded-md border text-secondary hover:bg-card transition-colors"
+              className="px-3 py-2 text-[11px] font-semibold rounded-control bg-alternate text-secondary hover:text-primary transition-colors"
             >
               {editing ? 'Listo' : 'Editar'}
             </button>

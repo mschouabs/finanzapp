@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { CalendarClock, Check, Plus, Trash2, Users } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { traerCotizaciones, type LineaSaldo } from '@/lib/patrimonio'
-import { SkeletonPagina, fmtPesos } from '@/components/ui/Piezas'
+import { SkeletonPagina, fmtPesos, ErrorCarga } from '@/components/ui/Piezas'
 import { Modal } from '@/components/tarjetas/Modales'
 import { LucaAvatar } from '@/components/luca/LucaAvatar'
 import { Confirmar, Encabezado, NumeroAnimado, Toasts, useToasts } from '@/components/resumen/base'
@@ -35,13 +35,15 @@ export default function MeDebenPage() {
   const [borrando, setBorrando] = useState<MeDeben | null>(null)
   const toasts = useToasts()
 
+  const [fallo, setFallo] = useState(false)
   const cargar = useCallback(async () => {
     const supabase = createClient()
-    const [r, { data: ls }, cot] = await Promise.all([
+    const [r, { data: ls, error: e1 }, cot] = await Promise.all([
       cargarMeDeben(supabase),
       supabase.from('inversiones').select('*'),
       traerCotizaciones(),
     ])
+    setFallo(!!e1)
     setDeudas(r.deudas); setDisponible(r.disponible)
     setLineas((ls ?? []) as LineaSaldo[])
     if (cot.dolar) setDolar(cot.dolar)
@@ -97,6 +99,7 @@ export default function MeDebenPage() {
     avisar()
   }
 
+  if (fallo) return <ErrorCarga onReintentar={() => { setFallo(false); setLoading(true); cargar() }} />
   if (loading) return <SkeletonPagina kpis={2} />
 
   if (!disponible) {

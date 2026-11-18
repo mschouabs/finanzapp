@@ -38,7 +38,7 @@ export default function OAuthButtons() {
       <button
         type="button"
         onClick={handleGoogle}
-        className="w-full flex items-center justify-center gap-3 bg-card hover:bg-alternate text-primary border border-line rounded-xl py-2.5 px-4 text-sm font-medium transition-colors"
+        className="w-full flex items-center justify-center gap-3 bg-card text-primary rounded-control py-2.5 px-4 text-sm font-medium transition-colors hover:text-primary"
       >
         <GoogleIcon />
         <span>Continuar con Google</span>

@@ -6,7 +6,7 @@ import {
   ArrowDownRight, ArrowLeftRight, ArrowRight, ArrowUpRight, Check, ChevronRight, Coins, Eye, EyeOff,
   GripVertical, LineChart, Pencil, Percent, PiggyBank, Plus, Trash2, Wallet, X,
 } from 'lucide-react'
-import { BarraApilada, Dona, Leyenda, PALETA, SkeletonPagina, fmtK, type Porcion } from '@/components/ui/Piezas'
+import { BarraApilada, Dona, Leyenda, PALETA, SkeletonPagina, fmtK, type Porcion, ErrorCarga } from '@/components/ui/Piezas'
 import { Encabezado, NumeroAnimado, Revelar, Toasts, useMedia, useToasts } from '@/components/resumen/base'
 import { GraficoMensual } from '@/components/resumen/GraficoMensual'
 import { EVENTO_DATOS } from '@/lib/eventos'
@@ -125,6 +125,7 @@ export default function BilleterasPage() {
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState({ app: '', nombre: '', tipo: 'efectivo', moneda: 'ARS', monto: '' })
 
+  const [fallo, setFallo] = useState(false)
   const cargar = useCallback(async () => {
     const supabase = createClient()
     const [{ data: ls, error: e1 }, { data: prev }, { data: hist }] = await Promise.all([
@@ -132,7 +133,7 @@ export default function BilleterasPage() {
       supabase.from('patrimonio_mensual').select('total_ars').eq('mes', mesAnteriorClave()).maybeSingle(),
       supabase.from('patrimonio_mensual').select('mes, total_ars').order('mes', { ascending: true }).limit(24),
     ])
-    if (e1) setError('No se pudieron cargar los saldos.')
+    setFallo(!!e1)
     setLineas((ls ?? []) as LineaSaldo[])
     setAnterior(prev ? Number(prev.total_ars) : null)
     setHistoria(((hist ?? []) as { mes: string; total_ars: number }[]).map(h => ({ mes: h.mes, total: Number(h.total_ars) })))
@@ -357,6 +358,7 @@ export default function BilleterasPage() {
 
   const apps = Array.from(new Set(lineas.map(l => l.app))).sort()
 
+  if (fallo) return <ErrorCarga onReintentar={() => { setFallo(false); setLoading(true); cargar() }} />
   if (loading) {
     return <SkeletonPagina kpis={3} />
   }
@@ -591,7 +593,7 @@ export default function BilleterasPage() {
         </div>
         <div className="flex w-full gap-2 sm:w-auto">
           <button onClick={() => setTransfiriendo(true)} disabled={lineas.length < 2}
-            className="fa-press flex h-11 flex-1 items-center justify-center gap-1.5 rounded-xl border px-4 text-sm font-semibold text-primary hover:bg-alternate disabled:opacity-40 sm:flex-none fa-hairline">
+            className="fa-press flex h-11 flex-1 items-center justify-center gap-1.5 rounded-control px-4 text-sm font-semibold text-primary disabled:opacity-40 sm:flex-none bg-alternate hover:text-primary">
             <ArrowLeftRight size={16} /> Transferir
           </button>
           <button onClick={() => (showForm ? setShowForm(false) : abrirAgregar())}
@@ -735,7 +737,7 @@ export default function BilleterasPage() {
                   Fue un ingreso
                 </button>
                 <button onClick={() => setPreguntaSaldo(null)}
-                  className="flex-1 rounded-lg border px-4 py-2.5 text-sm font-medium text-secondary hover:bg-alternate">
+                  className="flex-1 rounded-control px-4 py-2.5 text-sm font-medium text-secondary bg-alternate hover:text-primary">
                   Solo era una corrección
                 </button>
               </div>
@@ -832,7 +834,7 @@ function Transferir({ lineas, cot, onTransferir, onCerrar }: {
         <div className="flex justify-center">
           <button type="button" aria-label="Invertir"
             onClick={() => { const d = desde; setDesde(hacia); setHacia(d) }}
-            className="rounded-full border p-2 text-secondary hover:bg-alternate hover:text-primary">
+            className="rounded-full p-2 text-secondary hover:text-primary bg-alternate">
             <ArrowLeftRight size={16} className="rotate-90" />
           </button>
         </div>

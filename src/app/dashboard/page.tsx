@@ -16,6 +16,7 @@
    disponible → mes → Luca → actividad → compromisos; el análisis se
    abre a demanda.                                                     */
 
+import { ErrorCarga } from '@/components/ui/Piezas'
 import Link from 'next/link'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
@@ -203,14 +204,7 @@ export default function ResumenPage() {
 
   /* ── estados de carga / error ─────────────────────────────────── */
   if (estado === 'error') {
-    return (
-      <div className="fa-page-in mx-auto mt-10 max-w-md rounded-2xl p-8 text-center bg-alternate">
-        <LucaAvatar estado="sad" size={56} className="mx-auto" />
-        <p className="mt-4 font-semibold text-primary">No pude traer tus datos</p>
-        <p className="mt-1 text-sm text-secondary">Puede ser la conexión. Tus datos están a salvo.</p>
-        <button onClick={() => cargar()} className="fa-press mt-5 rounded-lg bg-confirm px-4 py-2 text-sm font-semibold text-white hover:bg-confirm-hover">Reintentar</button>
-      </div>
-    )
+    return <ErrorCarga onReintentar={() => cargar()} />
   }
   if (estado === 'cargando' || !snap || !d || !flujo) return <SkeletonNuevoResumen desktop={desktop} />
 

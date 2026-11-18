@@ -1,5 +1,6 @@
 'use client'
 
+import { ErrorCarga, SkeletonPagina } from '@/components/ui/Piezas'
 import { useCallback, useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
@@ -43,7 +44,8 @@ export default function SeccionPage() {
         .select('*')
         .eq('id', id)
         .single()
-      if (e1 || !sec) throw e1 ?? new Error('no existe')
+      if (e1 && e1.code !== 'PGRST116') throw e1
+      if (!sec) { setSeccion(null); setLoading(false); return }
 
       const { data: regs, error: e2 } = await supabase
         .from('seccion_registros')
@@ -149,9 +151,8 @@ export default function SeccionPage() {
     }
   }
 
-  if (loading) {
-    return <p className="p-12 text-center text-sm text-muted">Cargando…</p>
-  }
+  if (loading) return <SkeletonPagina kpis={2} />
+  if (error && !seccion) return <ErrorCarga onReintentar={cargar} />
 
   if (!seccion) {
     return (

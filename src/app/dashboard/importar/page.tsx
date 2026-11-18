@@ -501,7 +501,7 @@ export default function ImportarPage() {
           </div>
 
           <div className="flex justify-between gap-2">
-            <button onClick={() => setPaso(2)} className="flex items-center gap-1.5 rounded-xl border px-4 py-2.5 text-sm text-secondary hover:bg-alternate"><ArrowLeft size={15} /> Atrás</button>
+            <button onClick={() => setPaso(2)} className="flex items-center gap-1.5 rounded-control px-4 py-2.5 text-sm text-secondary bg-alternate hover:text-primary"><ArrowLeft size={15} /> Atrás</button>
             <button onClick={importar} disabled={importando || !aImportar.length}
               className="flex items-center gap-1.5 rounded-xl bg-confirm px-5 py-2.5 text-sm font-semibold text-white hover:bg-confirm-hover disabled:opacity-50">
               {importando ? 'Importando…' : <>Importar {aImportar.length} <Check size={15} /></>}
@@ -546,7 +546,7 @@ export default function ImportarPage() {
                   </span>
                 </span>
                 <button onClick={() => deshacer(h)} disabled={deshaciendo === h.id}
-                  className="flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold text-negative hover:bg-card disabled:opacity-50">
+                  className="flex items-center gap-1.5 rounded-control px-3 py-1.5 text-xs font-semibold text-negative hover:bg-card disabled:opacity-50 bg-alternate">
                   <RotateCcw size={13} /> {deshaciendo === h.id ? 'Deshaciendo…' : 'Deshacer'}
                 </button>
               </li>

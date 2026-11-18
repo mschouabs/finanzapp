@@ -5,8 +5,9 @@ import Link from 'next/link'
 import { Coins, LineChart as IconoLinea, Pencil, Plus, RefreshCw, Trash2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { ajustarSaldo } from '@/lib/libro'
+import { useRefrescoVisible } from '@/lib/refresco'
 import { aPesos, esLiquida, traerCotizaciones, type Cotizaciones, type LineaSaldo } from '@/lib/patrimonio'
-import { Dona, Leyenda, PALETA, SkeletonPagina, fmtK, fmtPesos, type Porcion } from '@/components/ui/Piezas'
+import { Dona, Leyenda, PALETA, SkeletonPagina, fmtK, fmtPesos, type Porcion, ErrorCarga } from '@/components/ui/Piezas'
 import { Encabezado, NumeroAnimado, Pestanas, Revelar, Toasts, useToasts } from '@/components/resumen/base'
 import { GraficoMensual } from '@/components/resumen/GraficoMensual'
 import { LucaAvatar } from '@/components/luca/LucaAvatar'
@@ -50,9 +51,11 @@ export default function PortfolioPage() {
   const [editando, setEditando] = useState<LineaSaldo | 'nuevo' | null>(null)
   const toasts = useToasts()
 
+  const [fallo, setFallo] = useState(false)
   const cargar = useCallback(async () => {
     const supabase = createClient()
-    const { data } = await supabase.from('inversiones').select('*')
+    const { data, error } = await supabase.from('inversiones').select('*')
+    setFallo(!!error)
     setLineas((data ?? []) as LineaSaldo[])
     setLoading(false)
   }, [])
@@ -62,6 +65,8 @@ export default function PortfolioPage() {
   }, [])
 
   useEffect(() => { cargar(); actualizarCot() }, [cargar, actualizarCot])
+  /* cotizaciones en vivo: cada minuto mientras la pantalla está a la vista */
+  useRefrescoVisible(actualizarCot, 60_000)
 
   const base = useMemo(
     () => lineas.filter(l => Number(l.monto) !== 0 && (alcance === 'todo' || !esLiquida(l))),
@@ -149,6 +154,7 @@ export default function PortfolioPage() {
     return null
   }
 
+  if (fallo) return <ErrorCarga onReintentar={() => { setFallo(false); setLoading(true); cargar() }} />
   if (loading) {
     return <SkeletonPagina kpis={4} />
   }
@@ -278,7 +284,7 @@ export default function PortfolioPage() {
               titulo="Tus activos"
               sub={focoRiesgo || focoTipo ? 'Filtrado desde los gráficos' : 'Tocá un activo para editarlo'}
               derecha={(focoRiesgo || focoTipo) ? (
-                <button onClick={() => { setFocoRiesgo(null); setFocoTipo(null) }} className="fa-press rounded-full border px-2.5 py-1 text-xs text-secondary hover:bg-alternate fa-hairline">
+                <button onClick={() => { setFocoRiesgo(null); setFocoTipo(null) }} className="fa-press rounded-full px-2.5 py-1 text-xs text-secondary bg-alternate hover:text-primary">
                   Quitar filtros ×
                 </button>
               ) : undefined}

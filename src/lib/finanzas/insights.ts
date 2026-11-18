@@ -12,6 +12,7 @@ import {
   nombreMes, type Compromisos, type Flujo, type Momento, type Patrimonio, type ProgresoMeta, type Ritmo,
   type Categoria, type Snapshot, claveMes, isoLocal, mesDeISO,
 } from './nucleo'
+import { contextoHormiga, esHormiga } from './hormiga'
 
 export type TipoInsight = 'atencion' | 'oportunidad' | 'progreso' | 'dato'
 
@@ -117,16 +118,17 @@ export function generarInsights({ s, p, flujo, ritmo, comp, cats, metas, momento
     })
   }
 
-  /* 5. gastos hormiga del mes (marcados como tales al cargarlos) */
+  /* 5. gastos hormiga del mes (detección automática + los marcados a mano) */
   const mes = claveMes(s.hoy)
-  const hormiga = s.gastos.filter(g => g.es_gasto_hormiga && mesDeISO(g.fecha) === mes && g.fecha <= isoLocal(s.hoy))
+  const ctxH = contextoHormiga(s.gastos, s.dolar, s.hoy)
+  const hormiga = s.gastos.filter(g => esHormiga(g, ctxH, s.dolar) && mesDeISO(g.fecha) === mes && g.fecha <= isoLocal(s.hoy))
   if (hormiga.length >= 5) {
     const total = hormiga.reduce((a, g) => a + (g.moneda === 'USD' ? g.monto * s.dolar : g.monto), 0)
     out.push({
       id: 'hormiga',
       tipo: 'oportunidad',
       titulo: `${hormiga.length} gastos hormiga este mes suman ${$(total)}`,
-      detalle: `Son los gastos chicos que marcaste como "hormiga". Juntos equivalen al ${pct((total / Math.max(flujo.gastos.total, 1)) * 100)} de lo que gastaste en el mes.`,
+      detalle: `Gastos chicos y prescindibles (café, kiosco, delivery, viajes cortos, lo que repetís seguido). Juntos equivalen al ${pct((total / Math.max(flujo.gastos.total, 1)) * 100)} de lo que gastaste en el mes.`,
       accion: { label: 'Ver movimientos', href: '/dashboard/gastos-variables' },
       prioridad: 50,
       estado: 'idle',

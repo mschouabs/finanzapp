@@ -433,7 +433,6 @@ export function parsear(texto: string, hoy = new Date()): Resultado {
           categoria: detectarCategoria(texto),
           fecha,
           moneda,
-          es_gasto_hormiga: total < 5000,
           ...(medio ? { medio_pago: medio, forma_pago: forma } : {}),
           ...(cuotas ? { cuotas: cuotas.cuotas } : {}),
         },

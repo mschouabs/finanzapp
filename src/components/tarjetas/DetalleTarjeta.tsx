@@ -6,6 +6,7 @@
    y todos los consumos con buscador. Cada consumo se puede mover a
    otra tarjeta o borrar. El resumen se paga o se deshace el pago.   */
 
+import { Estado, type Tono } from '@/components/ui/Estado'
 import { useMemo, useState } from 'react'
 import { ChevronLeft, ChevronRight, Search, Trash2, Undo2, X } from 'lucide-react'
 import { Dona } from '@/components/ui/Piezas'
@@ -21,13 +22,13 @@ const CAT_COLOR: Record<string, string> = {
 }
 const colorCat = (c: string) => CAT_COLOR[c] ?? '#6E7681'
 
-const ESTADO: Record<string, { label: string; color: string }> = {
-  abierto: { label: 'Abierto', color: 'var(--accent-secondary)' },
-  a_pagar: { label: 'A pagar', color: 'var(--accent-warning, #F5C451)' },
-  vencido: { label: 'Vencido', color: 'var(--accent-negative)' },
-  pagado: { label: 'Pagado', color: 'var(--accent-positive)' },
-  futuro: { label: 'Futuro', color: 'var(--text-muted)' },
-  vacio: { label: 'Sin consumos', color: 'var(--text-muted)' },
+const ESTADO: Record<string, { label: string; tono: Tono }> = {
+  abierto: { label: 'Abierto', tono: 'info' },
+  a_pagar: { label: 'A pagar', tono: 'advertencia' },
+  vencido: { label: 'Vencido', tono: 'negativo' },
+  pagado: { label: 'Pagado', tono: 'positivo' },
+  futuro: { label: 'Futuro', tono: 'neutro' },
+  vacio: { label: 'Sin consumos', tono: 'neutro' },
 }
 
 export function DetalleTarjeta({ e, tarjetas, dolar, onCerrar, onPagar, onDeshacer, onMover, onBorrar }: {
@@ -85,17 +86,14 @@ export function DetalleTarjeta({ e, tarjetas, dolar, onCerrar, onPagar, onDeshac
       {/* selector de resumen */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <button onClick={() => setClave(k => sumarMeses(k, -1))} aria-label="Resumen anterior" className="rounded-lg border p-2 text-secondary hover:bg-alternate"><ChevronLeft size={16} /></button>
+          <button onClick={() => setClave(k => sumarMeses(k, -1))} aria-label="Resumen anterior" className="rounded-control bg-alternate p-2 text-secondary hover:text-primary"><ChevronLeft size={16} /></button>
           <div className="min-w-[150px] text-center">
             <p className="text-sm font-bold capitalize text-primary">Resumen {etiquetaMes(clave)}</p>
             <p className="text-[11px] text-muted">{fmtDiaMes(r.desde)} al {fmtDiaMes(r.cierre)} · vence {fmtDiaMes(r.vencimiento)}</p>
           </div>
-          <button onClick={() => setClave(k => sumarMeses(k, 1))} aria-label="Resumen siguiente" className="rounded-lg border p-2 text-secondary hover:bg-alternate"><ChevronRight size={16} /></button>
+          <button onClick={() => setClave(k => sumarMeses(k, 1))} aria-label="Resumen siguiente" className="rounded-control bg-alternate p-2 text-secondary hover:text-primary"><ChevronRight size={16} /></button>
         </div>
-        <span className="rounded-full px-2.5 py-1 text-[11px] font-semibold"
-          style={{ color: est.color, background: `color-mix(in srgb, ${est.color} 15%, transparent)` }}>
-          {est.label}
-        </span>
+        <Estado tono={est.tono}>{est.label}</Estado>
       </div>
 
       {/* totales + acciones */}
@@ -109,7 +107,7 @@ export function DetalleTarjeta({ e, tarjetas, dolar, onCerrar, onPagar, onDeshac
         </div>
         <div className="flex gap-2">
           {hayPagoDeshacible && (
-            <button onClick={() => onDeshacer(r)} className="flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm text-secondary hover:bg-card">
+            <button onClick={() => onDeshacer(r)} className="flex items-center gap-1.5 rounded-control bg-alternate px-3 py-2 text-sm text-secondary hover:text-primary">
               <Undo2 size={15} /> Deshacer pago
             </button>
           )}
@@ -182,14 +180,14 @@ export function DetalleTarjeta({ e, tarjetas, dolar, onCerrar, onPagar, onDeshac
         <div className="flex flex-wrap items-center gap-2">
           <h3 className="flex-1 text-sm font-bold text-primary">Consumos ({visibles.length})</h3>
           {cat && (
-            <button onClick={() => setCat(null)} className="flex items-center gap-1 rounded-full border px-2 py-1 text-[11px] capitalize text-secondary hover:bg-alternate">
+            <button onClick={() => setCat(null)} className="flex items-center gap-1 rounded-full bg-alternate px-2 py-1 text-[11px] capitalize text-secondary hover:text-primary">
               <X size={11} /> {cat}
             </button>
           )}
           <label className="relative">
             <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted" />
             <input value={busqueda} onChange={ev => setBusqueda(ev.target.value)} placeholder="Buscar…"
-              className="w-40 rounded-lg border bg-field py-1.5 pl-8 pr-2 text-sm text-primary" aria-label="Buscar consumo" />
+              className="w-40 rounded-control bg-field py-1.5 pl-8 pr-2 text-sm text-primary" aria-label="Buscar consumo" />
           </label>
         </div>
 

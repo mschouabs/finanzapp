@@ -5,7 +5,7 @@ import { CalendarClock, GripVertical, Link2, Pencil, PiggyBank, Plus, Target, Tr
 import { createClient } from '@/lib/supabase'
 import { aPesos, traerCotizaciones, type Cotizaciones, type LineaSaldo } from '@/lib/patrimonio'
 import { GrillaOrdenable, type HandleProps } from '@/components/GrillaOrdenable'
-import { AnilloProgreso, SkeletonPagina, fmtK, fmtPesos } from '@/components/ui/Piezas'
+import { AnilloProgreso, SkeletonPagina, fmtK, fmtPesos, ErrorCarga } from '@/components/ui/Piezas'
 import { Modal } from '@/components/tarjetas/Modales'
 import { LucaAvatar } from '@/components/luca/LucaAvatar'
 import { NumeroAnimado, Toasts, useToasts } from '@/components/resumen/base'
@@ -62,6 +62,7 @@ export default function MetasPage() {
   const [logro, setLogro] = useState<string | null>(null)
   const toasts = useToasts()
 
+  const [fallo, setFallo] = useState(false)
   const cargar = useCallback(async () => {
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
@@ -71,7 +72,7 @@ export default function MetasPage() {
     const desde = `${mes}-01`
     const hasta = `${mes}-${String(new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0).getDate()).padStart(2, '0')}`
 
-    const [c, { data: iff }, { data: inf }, { data: gf }, { data: gv }, { data: vg }, { data: inv }, metasRes] = await Promise.all([
+    const [c, { data: iff }, { data: inf }, { data: gf }, { data: gv }, { data: vg }, { data: inv, error: eInv }, metasRes] = await Promise.all([
       traerCotizaciones(),
       supabase.from('ingresos_fijos').select('*'),
       supabase.from('ingresos_freelance').select('*'),
@@ -98,6 +99,7 @@ export default function MetasPage() {
       ((vg ?? []) as Fila[]).reduce((s, r) => s + num(r.monto_ars), 0)
     )
     setLineas((inv ?? []) as LineaSaldo[])
+    setFallo(!!eInv)
 
     if (metasRes.error) {
       setTablaFalta(true)
@@ -241,6 +243,7 @@ export default function MetasPage() {
     await Promise.all(ids.map((id, i) => supabase.from('metas').update({ orden: i }).eq('id', id)))
   }, [])
 
+  if (fallo) return <ErrorCarga onReintentar={() => { setFallo(false); setLoading(true); cargar() }} />
   if (loading) {
     return <SkeletonPagina kpis={2} />
   }
@@ -364,7 +367,7 @@ export default function MetasPage() {
               </div>
             ) : (
               <button onClick={() => { setAportando(m.id); setMontoAporte('') }}
-                className="flex w-full items-center justify-center gap-1.5 rounded-lg border py-2 text-xs font-semibold text-primary hover:bg-alternate">
+                className="flex w-full items-center justify-center gap-1.5 rounded-control py-2 text-xs font-semibold text-primary bg-alternate hover:text-primary">
                 <Plus size={14} /> Aportar
               </button>
             )}
@@ -497,7 +500,7 @@ export default function MetasPage() {
           </div>
         ) : metas.length === 0 ? (
           <button onClick={() => setEditando('nueva')}
-            className="fa-lift flex flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-line p-10 text-center hover:bg-alternate">
+            className="fa-lift flex flex-col items-center justify-center gap-2 rounded-widget bg-alternate p-10 text-center hover:text-primary">
             <Icono nombre="🎯" size={36} strokeWidth={1.25} className="mx-auto text-secondary" />
             <span className="text-sm font-semibold text-primary">Creá tu primera meta</span>
             <span className="max-w-sm text-xs text-secondary">Un viaje, un auto, el fondo de emergencia… Poné cuánto necesitás y para cuándo, y te digo a qué ritmo vas.</span>

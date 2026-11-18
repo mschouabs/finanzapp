@@ -11,8 +11,11 @@
    Todo conectado: click en un día o en una categoría filtra la lista.
    Los gastos de viaje también aparecen (antes no estaban acá).       */
 
+import { ErrorCarga } from '@/components/ui/Piezas'
+import { CLASE_ESTADO, estiloEstado } from '@/components/ui/Estado'
 import Link from 'next/link'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { contextoHormiga, esHormiga } from '@/lib/finanzas/hormiga'
 import { Deslizable } from '@/components/ui/Deslizable'
 import { BarChart3, ChevronDown, ChevronLeft, ChevronRight, Download, MessageCircle, Pencil, Plus, Search, Trash2, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
@@ -29,6 +32,8 @@ import {
   Confirmar, Encabezado, NumeroAnimado, Pestanas, Revelar, Toasts, fmt, fmtFechaCorta, useMedia, useToasts,
 } from '@/components/resumen/base'
 import { Categorias } from '@/components/resumen/Secciones'
+import { Modal } from '@/components/tarjetas/Modales'
+import { guardarPresupuestos, leerPresupuestosCuenta, leerPresupuestosLocal, type Presupuestos } from '@/lib/presupuestos'
 import { CapturaLuca, type GastoDetectado } from '@/components/resumen/Luca'
 import { GraficoBarras, type PuntoBarra } from '@/components/resumen/GraficoBarras'
 import type { Categoria } from '@/lib/finanzas/nucleo'
@@ -95,11 +100,17 @@ export default function MovimientosPage() {
   const [fijos, setFijos] = useState<GastoFijo[]>([])
   const [cuentas, setCuentas] = useState<Record<string, string>>({})
   const [dolar, setDolar] = useState<number | null>(null)
-  const [estado, setEstado] = useState<'cargando' | 'listo'>('cargando')
+  const [estado, setEstado] = useState<'cargando' | 'listo' | 'error'>('cargando')
 
   const [filtroCat, setFiltroCat] = useState<string | null>(null)
   const [diaSel, setDiaSel] = useState<string | null>(null)
   const [soloHormiga, setSoloHormiga] = useState(false)
+  const [presupuestos, setPresupuestos] = useState<Presupuestos>({})
+  const [editandoPres, setEditandoPres] = useState(false)
+  useEffect(() => {
+    setPresupuestos(leerPresupuestosLocal())
+    leerPresupuestosCuenta(createClient()).then(p => { if (p) setPresupuestos(p) })
+  }, [])
   const [busqueda, setBusqueda] = useState('')
   const [vista, setVista] = useState<'barras' | 'acumulado'>('barras')
   const [agregar, setAgregar] = useState(false)
@@ -131,6 +142,11 @@ export default function MovimientosPage() {
       supabase.from('tarjetas_cuentas').select('id, nombre'),
       supabase.from('inversiones').select('id, app, etiqueta'),
     ])
+    if (rG.error) {
+      if (silencioso) toasts.mostrar({ texto: 'No pude actualizar los movimientos.', tono: 'error' })
+      else setEstado('error')
+      return
+    }
     const lista = (rG.data ?? []) as GastoVariable[]
     const antes = idsPrevios.current
     idsPrevios.current = new Set(lista.map(g => g.id))
@@ -166,13 +182,22 @@ export default function MovimientosPage() {
     return Math.max(1, (y2 - y1) * 12 + (m2 - m1) + 1)
   })()
 
+  /* hormiga: detección automática relativa a tus propios gastos (ver lib/finanzas/hormiga) */
+  const hormigaIds = useMemo(() => {
+    const dl = dolar ?? 0
+    const fin = rango.hasta < hoyISO() ? new Date(`${rango.hasta}T12:00:00`) : new Date()
+    const ctx = contextoHormiga([...gastos, ...gastosAnt], dl, fin)
+    return new Set(gastos.concat(gastosAnt).filter(g => esHormiga(g, ctx, dl)).map(g => g.id))
+  }, [gastos, gastosAnt, dolar, rango.hasta])
+  const esHorm = useCallback((g: GastoVariable) => hormigaIds.has(g.id), [hormigaIds])
+
   const esCuota = (g: GastoVariable) => (g.cuotas_total ?? 1) > 1 && (g.cuota_numero ?? 1) > 1
   const totales = useMemo(() => {
     let diaADia = 0, cuotas = 0, hormiga = 0, nHormiga = 0
     for (const g of gastos) {
       const v = ars(g)
       if (esCuota(g)) cuotas += v; else diaADia += v
-      if (g.es_gasto_hormiga) { hormiga += v; nHormiga++ }
+      if (esHorm(g)) { hormiga += v; nHormiga++ }
     }
     const viaje = viajes.reduce((a, v) => a + (Number(v.monto_ars) || 0), 0)
     const fijosMes = fijos.reduce((a, f) => a + Number(f.monto), 0)
@@ -189,7 +214,7 @@ export default function MovimientosPage() {
       antMismoTramo,
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gastos, gastosAnt, viajes, viajesAnt, fijos, ars, corte, mesesEnRango, rango.esMes])
+  }, [gastos, gastosAnt, viajes, viajesAnt, fijos, ars, corte, mesesEnRango, rango.esMes, esHorm])
 
   const cats: Categoria[] = useMemo(() => {
     const m = new Map<string, Categoria>()
@@ -210,7 +235,7 @@ export default function MovimientosPage() {
     const fecha = f.tipo === 'gasto' ? f.g.fecha : f.v.fecha
     const nombre = f.tipo === 'gasto' ? f.g.nombre : f.v.concepto
     if (filtroCat && cat !== filtroCat) return false
-    if (soloHormiga && !(f.tipo === 'gasto' && f.g.es_gasto_hormiga)) return false
+    if (soloHormiga && !(f.tipo === 'gasto' && esHorm(f.g))) return false
     if (diaSel && (rango.esMes ? fecha !== diaSel : fecha.slice(0, 7) !== diaSel)) return false
     if (busqueda.trim() && !nombre.toLowerCase().includes(busqueda.trim().toLowerCase())) return false
     return true
@@ -240,14 +265,14 @@ export default function MovimientosPage() {
       const arr: PuntoBarra[] = Array.from({ length: dias }, (_, i) => ({
         clave: `${rango.desde.slice(0, 8)}${pad(i + 1)}`, etiqueta: String(i + 1), valor: 0, anterior: 0,
       }))
-      for (const g of gastos) if (filtra(g.categoria, g.es_gasto_hormiga)) { const d = Number(g.fecha.slice(8, 10)); if (arr[d - 1]) arr[d - 1].valor += ars(g) }
+      for (const g of gastos) if (filtra(g.categoria, esHorm(g))) { const d = Number(g.fecha.slice(8, 10)); if (arr[d - 1]) arr[d - 1].valor += ars(g) }
       for (const v of viajes) if (filtra('viajes', false)) { const d = Number(v.fecha.slice(8, 10)); if (arr[d - 1]) arr[d - 1].valor += Number(v.monto_ars) || 0 }
-      for (const g of gastosAnt) if (filtra(g.categoria, g.es_gasto_hormiga)) { const d = Number(g.fecha.slice(8, 10)); if (arr[d - 1]) arr[d - 1].anterior = (arr[d - 1].anterior ?? 0) + ars(g) }
+      for (const g of gastosAnt) if (filtra(g.categoria, esHorm(g))) { const d = Number(g.fecha.slice(8, 10)); if (arr[d - 1]) arr[d - 1].anterior = (arr[d - 1].anterior ?? 0) + ars(g) }
       for (const v of viajesAnt) if (filtra('viajes', false)) { const d = Number(v.fecha.slice(8, 10)); if (arr[d - 1]) arr[d - 1].anterior = (arr[d - 1].anterior ?? 0) + (Number(v.monto_ars) || 0) }
       return esActual ? arr.slice(0, new Date().getDate()) : arr
     }
     const m = new Map<string, number>()
-    for (const g of gastos) if (filtra(g.categoria, g.es_gasto_hormiga)) m.set(g.fecha.slice(0, 7), (m.get(g.fecha.slice(0, 7)) ?? 0) + ars(g))
+    for (const g of gastos) if (filtra(g.categoria, esHorm(g))) m.set(g.fecha.slice(0, 7), (m.get(g.fecha.slice(0, 7)) ?? 0) + ars(g))
     for (const v of viajes) if (filtra('viajes', false)) m.set(v.fecha.slice(0, 7), (m.get(v.fecha.slice(0, 7)) ?? 0) + (Number(v.monto_ars) || 0))
     return Array.from(m.entries()).sort(([a], [b]) => a.localeCompare(b))
       .map(([k, valor]) => ({ clave: k, etiqueta: `${MESES_C[Number(k.slice(5, 7)) - 1]}`, valor }))
@@ -393,6 +418,7 @@ export default function MovimientosPage() {
   const hayFiltros = !!(filtroCat || diaSel || soloHormiga || busqueda.trim())
   const limpiar = () => { setFiltroCat(null); setDiaSel(null); setSoloHormiga(false); setBusqueda('') }
 
+  if (estado === 'error') return <ErrorCarga onReintentar={() => cargar()} />
   if (estado === 'cargando' && gastos.length === 0) return <SkeletonMovimientos />
 
   /* ── bloques ───────────────────────────────────────────────── */
@@ -423,7 +449,7 @@ export default function MovimientosPage() {
         </div>
       ) : (
         <div className="flex w-full gap-2">
-          <button onClick={() => setHoja(true)} className="fa-press flex flex-1 items-center gap-3 rounded-2xl border px-3 py-2.5 text-left text-sm text-muted fa-hairline" style={{ background: 'var(--bg-input)' }}>
+          <button onClick={() => setHoja(true)} className="fa-press flex flex-1 items-center gap-3 rounded-2xl px-3 py-2.5 text-left text-sm text-muted bg-alternate" style={{ background: 'var(--bg-input)' }}>
             <LucaAvatar estado="idle" size={24} /><span className="flex-1">Contale a Luca…</span><MessageCircle size={16} />
           </button>
           <button onClick={() => setAgregar(true)} aria-label="Agregar gasto" className="fa-press flex h-12 w-12 items-center justify-center rounded-2xl bg-confirm text-white"><Plus size={20} strokeWidth={2.5} /></button>
@@ -500,6 +526,12 @@ export default function MovimientosPage() {
 
   const categorias = (
     <Categorias cats={cats} mes={rango.desde.slice(0, 7)} esActual={esActual} seleccion={filtroCat} onSeleccion={setFiltroCat} max={8}
+      presupuestos={rango.esMes ? presupuestos : undefined} avance={esActual ? corte / ultimoDia(rango.year, rango.month) : 1}
+      derecha={rango.esMes ? (
+        <button onClick={() => setEditandoPres(true)} className="fa-press rounded-control bg-alternate px-2.5 py-1.5 text-xs font-semibold text-secondary hover:text-primary">
+          {Object.keys(presupuestos).length ? 'Presupuestos' : 'Poner presupuesto'}
+        </button>
+      ) : undefined}
       titulo="Por categoría" sub={rango.esMes ? (esActual ? 'La marca gris es el mes pasado a esta altura' : 'La marca gris es el mes anterior') : `${rango.titulo} · click para filtrar`} />
   )
 
@@ -547,14 +579,15 @@ export default function MovimientosPage() {
         <div className="relative w-full sm:w-52">
           <Search size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted" />
           <input value={busqueda} onChange={e => setBusqueda(e.target.value)} placeholder="Buscar…" aria-label="Buscar movimientos"
-            className="w-full rounded-lg border bg-field py-2 pl-8 pr-2 text-sm text-primary" />
+            className="w-full rounded-control bg-field py-2 pl-8 pr-2 text-sm text-primary" />
         </div>
         <button onClick={() => setSoloHormiga(v => !v)} aria-pressed={soloHormiga}
-          className="fa-press rounded-lg border px-2.5 py-2 text-xs font-semibold fa-hairline"
-          style={soloHormiga ? { background: 'var(--riesgo-medio-tint)', borderColor: 'var(--riesgo-medio)', color: 'var(--riesgo-medio)' } : { color: 'var(--text-secondary)' }}>
+          className="fa-press rounded-control px-2.5 py-2 text-xs font-semibold"
+          title="Chicos, prescindibles y repetidos: café, kiosco, delivery, viajes cortos…"
+          style={soloHormiga ? { background: 'var(--riesgo-medio-tint)', color: 'var(--riesgo-medio)' } : { background: 'var(--bg-alternate)', color: 'var(--text-secondary)' }}>
           Hormiga
         </button>
-        <button onClick={exportarCSV} className="fa-press flex items-center gap-1.5 rounded-control px-2.5 py-2 text-xs font-semibold text-secondary hover:bg-alternate bg-alternate" title="Exportar lo que estás viendo">
+        <button onClick={exportarCSV} className="fa-press flex items-center gap-1.5 rounded-control px-2.5 py-2 text-xs font-semibold text-secondary bg-alternate hover:text-primary" title="Exportar lo que estás viendo">
           <Download size={14} /> CSV
         </button>
         {hayFiltros && (
@@ -643,7 +676,7 @@ export default function MovimientosPage() {
                           {cat.label}
                           {medio && <> · {medio}{g.forma_pago === 'credito' ? ' · crédito' : ''}</>}
                           {(g.cuotas_total ?? 1) > 1 && <> · cuota {g.cuota_numero}/{g.cuotas_total}</>}
-                          {g.es_gasto_hormiga && <> · hormiga</>}
+                          {esHorm(g) && <> · hormiga</>}
                         </span>
                       </span>
                       <span className="text-right">
@@ -680,8 +713,8 @@ export default function MovimientosPage() {
             <span className="block text-[11px] tabular-nums text-muted">{fmt(Number(f.monto))} por mes</span>
           </span>
           <button onClick={() => alternarPagado(f)} role="switch" aria-checked={f.debitado} aria-label={`${f.nombre}: ${f.debitado ? 'pagado' : 'pendiente'}`}
-            className="fa-press rounded-full border px-2.5 py-1 text-[11px] font-semibold"
-            style={f.debitado ? { borderColor: 'var(--accent-positive)', color: 'var(--accent-positive)', background: 'var(--glow-positive)' } : { borderColor: 'var(--border-color)', color: 'var(--text-secondary)' }}>
+            className={`fa-press ${CLASE_ESTADO}`}
+            style={estiloEstado(f.debitado ? 'positivo' : 'advertencia')}>
             {f.debitado ? 'Pagado' : 'Pendiente'}
           </button>
           <button onClick={() => quitarFijo(f)} aria-label={`Quitar ${f.nombre}`} className="fa-press flex h-8 w-8 items-center justify-center rounded-lg text-muted hover:bg-alternate hover:text-negative"><X size={14} /></button>
@@ -697,7 +730,7 @@ export default function MovimientosPage() {
     <section aria-labelledby="t-fijos" className="min-w-0">
       <Encabezado id="t-fijos" titulo="Gastos fijos" sub={`${fmt(totales.fijosMes)} por mes · ${fijos.filter(f => !f.debitado).length} pendientes`}
         derecha={<button onClick={() => setFormFijo(f => (f ? null : { nombre: '', monto: '', categoria: 'servicios', tipo: 'fijo' }))}
-          className="fa-press flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-xs font-semibold text-primary hover:bg-alternate fa-hairline"><Plus size={13} /> Agregar</button>} />
+          className="fa-press flex items-center gap-1 rounded-control px-2.5 py-1.5 text-xs font-semibold text-primary bg-alternate hover:text-primary"><Plus size={13} /> Agregar</button>} />
       <div className="fa-colapsable" data-abierto={!!formFijo}>
         <div>
           {formFijo && (
@@ -774,6 +807,11 @@ export default function MovimientosPage() {
           </div>
         </div>
       )}
+      {editandoPres && (
+        <EditorPresupuestos inicial={presupuestos} gastado={Object.fromEntries(cats.map(c => [c.clave, c.monto]))}
+          onCerrar={() => setEditandoPres(false)}
+          onGuardar={async p => { setPresupuestos(await guardarPresupuestos(createClient(), p)); setEditandoPres(false); toasts.mostrar({ texto: 'Presupuestos guardados.' }, 3000) }} />
+      )}
       {agregar && <AgregarMovimientoModal defaultTab="gasto" onClose={() => setAgregar(false)} onSaved={() => { cargar(true); toasts.mostrar({ texto: 'Movimiento guardado.' }, 3000) }} />}
       {confirmarCompra && (
         <Confirmar titulo={`¿Borrar la compra "${confirmarCompra.nombre}"?`} peligro accion="Borrar compra"
@@ -803,5 +841,51 @@ function SkeletonMovimientos() {
       <div className="grid gap-7 lg:grid-cols-12"><B c="h-72 rounded-2xl lg:col-span-8" /><B c="h-72 rounded-2xl lg:col-span-4" /></div>
       <div className="space-y-3">{[0, 1, 2, 3, 4].map(i => <B key={i} c="h-12" />)}</div>
     </div>
+  )
+}
+
+/* ── Editor de presupuestos por categoría ───────────────────────── */
+
+function EditorPresupuestos({ inicial, gastado, onCerrar, onGuardar }: {
+  inicial: Presupuestos
+  gastado: Record<string, number>
+  onCerrar: () => void
+  onGuardar: (p: Presupuestos) => void
+}) {
+  const [val, setVal] = useState<Record<string, string>>(() => Object.fromEntries(Object.entries(inicial).map(([k, v]) => [k, String(v)])))
+  const base = CATEGORIAS.map(c => c.key)
+  const claves = [...base, ...Array.from(new Set([...Object.keys(gastado), ...Object.keys(inicial)])).filter(k => !base.includes(k))]
+  const total = claves.reduce((a, k) => a + (Number(val[k]) || 0), 0)
+  return (
+    <Modal titulo="Presupuesto por categoría" onCerrar={onCerrar}>
+      <p className="text-xs text-secondary">Un tope por mes para cada categoría. Dejá vacío lo que no quieras controlar.</p>
+      <ul className="mt-4 space-y-2">
+        {claves.map(k => {
+          const cat = k === 'viajes' ? { label: 'Viajes', emoji: '✈️' } : getCat(k)
+          const nombre = cat.label === k ? k.charAt(0).toUpperCase() + k.slice(1) : cat.label
+          return (
+            <li key={k} className="flex items-center gap-3">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-control bg-alternate text-secondary"><Icono nombre={cat.emoji} size={15} /></span>
+              <label htmlFor={`pres-${k}`} className="min-w-0 flex-1 text-sm text-primary">
+                {nombre}
+                {gastado[k] ? <span className="block text-[11px] tabular-nums text-muted">Este mes: {fmt(gastado[k])}</span> : null}
+              </label>
+              <input id={`pres-${k}`} inputMode="numeric" placeholder="Sin tope" value={val[k] ? Number(val[k]).toLocaleString('es-AR') : ''}
+                onChange={e => setVal(p => ({ ...p, [k]: e.target.value.replace(/[^0-9]/g, '') }))}
+                className="w-32 rounded-control bg-field px-3 py-2 text-right text-sm tabular-nums text-primary" />
+            </li>
+          )
+        })}
+      </ul>
+      <div className="mt-4 flex items-center justify-between text-sm">
+        <span className="text-secondary">Total por mes</span>
+        <span className="font-semibold tabular-nums text-primary">{fmt(total)}</span>
+      </div>
+      <div className="mt-5 flex gap-2">
+        <button onClick={onCerrar} className="fa-press flex-1 rounded-control bg-alternate py-2.5 text-sm font-semibold text-secondary">Cancelar</button>
+        <button onClick={() => onGuardar(Object.fromEntries(Object.entries(val).map(([k, v]) => [k, Number(v)])))}
+          className="fa-press flex-1 rounded-control bg-confirm py-2.5 text-sm font-semibold text-white hover:bg-confirm-hover">Guardar</button>
+      </div>
+    </Modal>
   )
 }

@@ -5,7 +5,7 @@
    separadas por hairlines y espacio.                                  */
 
 import Link from 'next/link'
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import {
   AlertTriangle, ArrowDownLeft, ArrowUpRight, CalendarClock, ChevronLeft, ChevronRight, CreditCard, Pin, X,
 } from 'lucide-react'
@@ -16,6 +16,8 @@ import {
   type Actividad, type Categoria, type Compromiso, type Compromisos, type Flujo, type Ritmo,
 } from '@/lib/finanzas/nucleo'
 import { Icono } from '@/components/ui/Icono'
+import { COLOR_TONO } from '@/components/ui/Estado'
+import { estadoPresupuesto, type Presupuestos } from '@/lib/presupuestos'
 
 /** Color de una categoría (fijos y viajes no están en la lista de categorías). */
 const colorCat = (clave: string, color?: string) => {
@@ -146,7 +148,7 @@ function Bloque({ label, valor, sub, signo, fuerte, href, tono }: {
 
 /* ── categorías ───────────────────────────────────────────────── */
 
-export function Categorias({ cats, mes, esActual, seleccion, onSeleccion, max = 7, sub, titulo = 'En qué se fue' }: {
+export function Categorias({ cats, mes, esActual, seleccion, onSeleccion, max = 7, sub, titulo = 'En qué se fue', presupuestos, avance = 1, derecha }: {
   cats: Categoria[]
   mes: string
   esActual: boolean
@@ -156,6 +158,11 @@ export function Categorias({ cats, mes, esActual, seleccion, onSeleccion, max = 
   /** reemplaza el subtítulo (ej: para rangos de varios meses) */
   sub?: string
   titulo?: string
+  /** topes mensuales por categoría (solo tiene sentido en vistas de un mes) */
+  presupuestos?: Presupuestos
+  /** fracción del mes transcurrida, para saber si vas rápido */
+  avance?: number
+  derecha?: ReactNode
 }) {
   const [foco, setFoco] = useState<string | null>(null)
   const total = cats.reduce((a, c) => a + c.monto, 0)
@@ -165,7 +172,7 @@ export function Categorias({ cats, mes, esActual, seleccion, onSeleccion, max = 
 
   return (
     <section aria-labelledby="t-cat" className="min-w-0">
-      <Encabezado id="t-cat" titulo={titulo}
+      <Encabezado id="t-cat" titulo={titulo} derecha={derecha}
         sub={sub ?? `${esActual ? 'Este mes' : nombreMes(mes)} · la marca gris es ${esActual ? 'el mes pasado a esta altura' : 'el mes anterior'}`} />
       {cats.length === 0 ? (
         <p className="mt-6 rounded-xl px-4 py-8 text-center text-xs text-secondary bg-alternate">
@@ -178,6 +185,8 @@ export function Categorias({ cats, mes, esActual, seleccion, onSeleccion, max = 
             const on = seleccion === c.clave
             const delta = c.anterior > 0 ? ((c.monto - c.anterior) / c.anterior) * 100 : null
             const apagada = (foco && foco !== c.clave) || (seleccion && !on)
+            const tope = presupuestos?.[c.clave]
+            const pres = tope ? estadoPresupuesto(c.monto, tope, avance, fmt) : null
             return (
               <li key={c.clave}>
                 <button type="button" aria-pressed={on}
@@ -211,6 +220,12 @@ export function Categorias({ cats, mes, esActual, seleccion, onSeleccion, max = 
                         style={{ left: `calc(${(c.anterior / tope) * 100}% - 1px)`, background: 'var(--text-secondary)' }} />
                     )}
                   </span>
+                  {pres && (
+                    <span className="mt-1 ml-9 flex items-center justify-between gap-2 text-[11px] tabular-nums">
+                      <span className="text-muted">de {fmt(pres.tope)}</span>
+                      <span className="font-semibold" style={{ color: COLOR_TONO[pres.tono] }}>{pres.texto}</span>
+                    </span>
+                  )}
                 </button>
               </li>
             )
@@ -292,7 +307,7 @@ export function ListaCompromisos({ comp, foco, onFoco, onPagar }: {
                       <span className="text-sm font-semibold tabular-nums text-primary">{fmt(it.monto)}</span>
                       {it.tipo === 'tarjeta' ? (
                         <button onClick={() => onPagar(it)}
-                          className="fa-press rounded-lg border px-2.5 py-1 text-xs font-semibold text-primary hover:border-[var(--accent-confirm)] hover:text-positive fa-hairline">
+                          className="fa-press rounded-control bg-alternate px-2.5 py-1 text-xs font-semibold text-primary hover:text-positive">
                           Pagar
                         </button>
                       ) : (

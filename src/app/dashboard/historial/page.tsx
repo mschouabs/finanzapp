@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { ChevronDown, Download, Search, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { traerCotizaciones } from '@/lib/patrimonio'
-import { SkeletonPagina, fmtK, fmtPesos } from '@/components/ui/Piezas'
+import { SkeletonPagina, fmtK, fmtPesos, ErrorCarga } from '@/components/ui/Piezas'
 import { LucaAvatar } from '@/components/luca/LucaAvatar'
 import { Encabezado, NumeroAnimado, Pestanas, Toasts, fmt, useToasts } from '@/components/resumen/base'
 import { GraficoMensual } from '@/components/resumen/GraficoMensual'
@@ -109,9 +109,10 @@ export default function HistorialPage() {
 
   const toasts = useToasts()
 
+  const [fallo, setFallo] = useState(false)
   const cargar = useCallback(async () => {
     const supabase = createClient()
-    const [cot, { data: gv }, { data: gf }, { data: iff }, { data: inf }, { data: secs }, { data: vg }, { data: vs }, { data: ts }, { data: lib }, { data: cts }] = await Promise.all([
+    const [cot, { data: gv, error: e1 }, { data: gf }, { data: iff }, { data: inf }, { data: secs }, { data: vg }, { data: vs }, { data: ts }, { data: lib }, { data: cts }] = await Promise.all([
       traerCotizaciones(),
       supabase.from('gastos_variables').select('*'),
       supabase.from('gastos_fijos').select('*'),
@@ -124,6 +125,8 @@ export default function HistorialPage() {
       supabase.from('movimientos').select('id, cuenta_id, fecha, tipo, delta, moneda, descripcion, grupo').in('tipo', ['transferencia', 'pago_tarjeta', 'ajuste']).order('fecha', { ascending: false }).limit(400),
       supabase.from('inversiones').select('id, nombre, app, etiqueta'),
     ])
+    if (e1) { setFallo(true); setLoading(false); return }
+    setFallo(false)
     const dolar = cot.dolar ?? 1560
     type Fila = Record<string, unknown>
     const num = (v: unknown) => Number(v) || 0
@@ -334,6 +337,7 @@ export default function HistorialPage() {
 
   const hayFiltros = filtro !== 'todos' || rango !== '3m' || q
 
+  if (fallo) return <ErrorCarga onReintentar={() => { setFallo(false); setLoading(true); cargar() }} />
   if (loading) return <SkeletonPagina kpis={2} />
 
   /* Luca: el mejor y el peor mes de lo que estás viendo (solo meses cerrados) */
@@ -531,7 +535,7 @@ export default function HistorialPage() {
 
           {filtrados.length > mostrar && (
             <button onClick={() => setMostrar(n => n + PAGINA)}
-              className="fa-lift mx-auto rounded-xl border px-5 py-2.5 text-sm font-semibold text-primary hover:bg-alternate">
+              className="fa-lift mx-auto rounded-control px-5 py-2.5 text-sm font-semibold text-primary bg-alternate hover:text-primary">
               Cargar más ({filtrados.length - mostrar} restantes)
             </button>
           )}

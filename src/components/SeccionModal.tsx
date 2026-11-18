@@ -302,7 +302,7 @@ export function SeccionModal({
               </button>
               <button
                 onClick={() => setPaso(1)}
-                className="rounded-md border px-4 py-2 text-xs font-semibold text-secondary hover:bg-alternate"
+                className="rounded-control px-4 py-2 text-xs font-semibold text-secondary bg-alternate hover:text-primary"
               >
                 ← Cambiar plantilla
               </button>

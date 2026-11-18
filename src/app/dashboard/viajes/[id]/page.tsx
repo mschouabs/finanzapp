@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
 import { Archive, ArrowLeft, Pencil, Plus, Trash2, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
-import { SkeletonPagina } from '@/components/ui/Piezas'
+import { SkeletonPagina, ErrorCarga } from '@/components/ui/Piezas'
 import { ViajeModal } from '@/components/ViajeModal'
 import { LucaAvatar } from '@/components/luca/LucaAvatar'
 import { Confirmar, Encabezado, NumeroAnimado, Toasts, useToasts } from '@/components/resumen/base'
@@ -64,6 +64,7 @@ export default function ViajeDetallePage() {
   /** Cotización sugerida del dólar, solo como valor inicial editable. */
   const [dolarBlue, setDolarBlue] = useState<number | null>(null)
 
+  const [fallo, setFallo] = useState(false)
   const cargar = useCallback(async () => {
     try {
       const supabase = createClient()
@@ -73,6 +74,7 @@ export default function ViajeDetallePage() {
           .order('fecha', { ascending: false }).order('created_at', { ascending: false }),
         supabase.from('inversiones').select('*'),
       ])
+      setFallo(!!e1 && e1.code !== 'PGRST116')
       if (e1) throw e1
       if (e2) throw e2
       setViaje(v as Viaje)
@@ -270,6 +272,7 @@ export default function ViajeDetallePage() {
   }
 
   /* ── render ── */
+  if (fallo) return <ErrorCarga onReintentar={() => { setFallo(false); setLoading(true); cargar() }} />
   if (loading) return <SkeletonPagina kpis={2} />
 
   if (!viaje) {
@@ -381,7 +384,7 @@ export default function ViajeDetallePage() {
               </p>
             </>
           ) : (
-            <button onClick={() => setEditarViaje(true)} className="fa-press rounded-xl border border-dashed px-4 py-3 text-left text-sm text-secondary hover:bg-alternate fa-hairline">
+            <button onClick={() => setEditarViaje(true)} className="fa-press rounded-control bg-alternate px-4 py-3 text-left text-sm text-secondary hover:text-primary">
               Ponele un presupuesto y te aviso si vas a pasarte.
             </button>
           )}
@@ -568,7 +571,7 @@ export default function ViajeDetallePage() {
         <Encabezado id="t-gastos" titulo="Gastos"
           sub={`${visibles.length} de ${gastos.length}${descontados ? ` · ${descontados} descontados de tus cuentas` : ''}`}
           derecha={(filtroCat || filtroDia) ? (
-            <button onClick={() => { setFiltroCat(null); setFiltroDia(null) }} className="fa-press flex h-9 items-center gap-1 rounded-full border px-3 text-xs text-secondary hover:bg-alternate fa-hairline">
+            <button onClick={() => { setFiltroCat(null); setFiltroDia(null) }} className="fa-press flex h-9 items-center gap-1 rounded-full px-3 text-xs text-secondary bg-alternate hover:text-primary">
               <X size={12} /> Quitar filtros
             </button>
           ) : undefined} />

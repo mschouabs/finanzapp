@@ -1,9 +1,10 @@
 'use client'
 
+import { Estado } from '@/components/ui/Estado'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Check, Pencil, Plus, Trash2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
-import { SkeletonPagina } from '@/components/ui/Piezas'
+import { SkeletonPagina, ErrorCarga } from '@/components/ui/Piezas'
 import { LucaAvatar } from '@/components/luca/LucaAvatar'
 import { Encabezado, NumeroAnimado, Pestanas, Toasts, fmt, fmtCorto, useToasts } from '@/components/resumen/base'
 import { EVENTO_DATOS, useAlCambiarDatos } from '@/lib/eventos'
@@ -70,15 +71,17 @@ export default function TrabajosPage() {
   const [mesFoco, setMesFoco] = useState<string | null>(null)
   const toasts = useToasts()
 
+  const [fallo, setFallo] = useState(false)
   const cargar = useCallback(async () => {
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
-    const [{ data: f }, { data: fl }, { data: lin }] = await Promise.all([
+    const [{ data: f, error: e1 }, { data: fl, error: e2 }, { data: lin }] = await Promise.all([
       supabase.from('ingresos_fijos').select('*').eq('user_id', user.id).eq('activo', true).order('nombre'),
       supabase.from('ingresos_freelance').select('*').eq('user_id', user.id).order('fecha', { ascending: false }),
       supabase.from('inversiones').select('*'),
     ])
+    setFallo(!!(e1 || e2))
     setFijos((f ?? []) as IngresoFijo[])
     /* sin dato de cobrado = cobrado completo (mismo criterio que el Resumen) */
     setFreelance(((fl ?? []) as IngresoFreelance[]).map(r => ({
@@ -294,6 +297,7 @@ export default function TrabajosPage() {
     }, 8000)
   }
 
+  if (fallo) return <ErrorCarga onReintentar={() => { setFallo(false); setLoading(true); cargar() }} />
   if (loading) return <SkeletonPagina kpis={2} />
 
   const visibles = freelance.filter(f => {
@@ -446,13 +450,10 @@ export default function TrabajosPage() {
                     <div className="mt-3 flex items-center justify-between gap-3">
                       <NumeroAnimado valor={monto} className="text-xl font-bold tabular-nums text-primary" />
                       {cobrado ? (
-                        <span className="flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold text-positive"
-                          style={{ background: 'color-mix(in srgb, var(--accent-positive) 14%, transparent)' }}>
-                          <Check size={12} strokeWidth={3} /> Cobrado
-                        </span>
+                        <Estado tono="positivo"><Check size={12} strokeWidth={3} /> Cobrado</Estado>
                       ) : !abierto && (
                         <button onClick={() => abrirCobro('fijo', f.id, f.monto)}
-                          className="fa-press h-9 rounded-lg border px-3 text-xs font-semibold text-primary hover:bg-alternate fa-hairline">
+                          className="fa-press h-9 rounded-control px-3 text-xs font-semibold text-primary bg-alternate hover:text-primary">
                           Marcar cobrado
                         </button>
                       )}
@@ -584,13 +585,13 @@ export default function TrabajosPage() {
                   </div>
                   <div className="mt-3 flex items-center justify-between gap-2">
                     {completo ? (
-                      <span className="flex items-center gap-1 text-xs font-semibold text-positive"><Check size={13} strokeWidth={3} /> Cobrado completo</span>
+                      <Estado tono="positivo"><Check size={12} strokeWidth={3} /> Cobrado completo</Estado>
                     ) : (
                       <span className="text-xs font-semibold" style={{ color: 'var(--accent-warning)' }}>Te deben {fmt(pendiente)}</span>
                     )}
                     {!completo && !abierto && (
                       <button onClick={() => abrirCobro('freelance', f.id, pendiente)}
-                        className="fa-press h-9 rounded-lg border px-3 text-xs font-semibold text-primary hover:bg-alternate fa-hairline">
+                        className="fa-press h-9 rounded-control px-3 text-xs font-semibold text-primary bg-alternate hover:text-primary">
                         Registrar cobro
                       </button>
                     )}

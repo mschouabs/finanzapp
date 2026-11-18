@@ -196,7 +196,7 @@ export function Header() {
 
       {/* buscador: barra en desktop, ícono en mobile */}
       <button onClick={() => setAbierto(true)} aria-label="Buscar"
-        className="fa-press hidden w-80 items-center gap-2 rounded-lg border bg-field px-3 py-2 text-xs text-muted hover:text-secondary lg:flex">
+        className="fa-press hidden w-80 items-center gap-2 rounded-control bg-field px-3 py-2 text-xs text-muted hover:text-secondary lg:flex">
         <Search size={14} />
         <span className="flex-1 text-left">Buscar en tus datos…</span>
         <kbd className="rounded border px-1.5 py-0.5 text-[11px] text-muted">Ctrl K</kbd>

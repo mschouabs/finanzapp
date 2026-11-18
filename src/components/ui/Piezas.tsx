@@ -7,6 +7,7 @@
 
 import { useState, type ReactNode } from 'react'
 import Link from 'next/link'
+import { LucaAvatar } from '@/components/luca/LucaAvatar'
 
 export const tooltipStyle = {
   background: 'var(--bg-card)', border: '1px solid var(--border-color)',
@@ -252,3 +253,15 @@ export const fmtK = (n: number) =>
   : `$${Math.round(n).toLocaleString('es-AR')}`
 
 export const fmtPesos = (n: number) => '$' + Math.round(n).toLocaleString('es-AR')
+
+/** Pantalla de error de carga, igual en toda la app. */
+export function ErrorCarga({ onReintentar, titulo = 'No pude traer tus datos' }: { onReintentar: () => void; titulo?: string }) {
+  return (
+    <div role="alert" className="fa-page-in mx-auto mt-10 max-w-md rounded-widget bg-alternate p-8 text-center">
+      <LucaAvatar estado="sad" size={56} className="mx-auto" />
+      <p className="mt-4 font-semibold text-primary">{titulo}</p>
+      <p className="mt-1 text-sm text-secondary">Puede ser la conexión. Tus datos están a salvo.</p>
+      <button onClick={onReintentar} className="fa-press mt-5 rounded-control bg-confirm px-4 py-2 text-sm font-semibold text-white hover:bg-confirm-hover">Reintentar</button>
+    </div>
+  )
+}

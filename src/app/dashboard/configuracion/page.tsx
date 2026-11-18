@@ -1,12 +1,14 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import {
   User, Bell, Palette, DollarSign, Shield, Download,
-  LogOut, ChevronRight, Check, Moon, Sun, Monitor,
+  LogOut, ChevronRight, Check, Moon, Sun, Monitor, Upload,
 } from 'lucide-react'
+import { guardarPresupuestos, leerPresupuestosLocal, normalizarPresupuestos } from '@/lib/presupuestos'
+import { exportarTodo, importarTodo, leerRespaldo, type ResumenImportacion } from '@/lib/respaldo'
 import { ThemeSelector } from '@/components/ThemeSelector'
 
 const MONEDAS = ['ARS', 'USD', 'EUR', 'BRL', 'UYU']
@@ -21,6 +23,8 @@ export default function ConfiguracionPage() {
   const [notifResumen, setNotifResumen] = useState(false)
   const [guardado, setGuardado] = useState(false)
   const [seccion, setSeccion] = useState<string | null>(null)
+  const [respaldo, setRespaldo] = useState<{ ocupado: boolean; msg: string | null; error: boolean }>({ ocupado: false, msg: null, error: false })
+  const archivoRef = useRef<HTMLInputElement>(null)
 
   const supabase = createClient()
 
@@ -55,18 +59,49 @@ export default function ConfiguracionPage() {
     router.refresh()
   }
 
-  const exportarDatos = () => {
-    const datos = {
-      exportadoEn: new Date().toISOString(),
-      preferencias: { moneda, notifGastos, notifMetas, notifResumen },
+  const exportarDatos = async () => {
+    setRespaldo({ ocupado: true, msg: 'Preparando tu respaldo…', error: false })
+    try {
+      const datos = await exportarTodo(supabase, { moneda, notifGastos, notifMetas, notifResumen, presupuestos: leerPresupuestosLocal() })
+      const blob = new Blob([JSON.stringify(datos, null, 2)], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `finanzapp-respaldo-${new Date().toISOString().split('T')[0]}.json`
+      a.click()
+      URL.revokeObjectURL(url)
+      const n = Object.values(datos.tablas ?? {}).reduce((t, f) => t + f.length, 0)
+      setRespaldo({ ocupado: false, msg: `Listo: exportaste ${n} registros.`, error: false })
+    } catch {
+      setRespaldo({ ocupado: false, msg: 'No se pudo exportar. Probá de nuevo.', error: true })
     }
-    const blob = new Blob([JSON.stringify(datos, null, 2)], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `finanzapp-config-${new Date().toISOString().split('T')[0]}.json`
-    a.click()
-    URL.revokeObjectURL(url)
+  }
+
+  const importarDatos = async (archivo: File) => {
+    setRespaldo({ ocupado: true, msg: 'Importando…', error: false })
+    try {
+      const r = leerRespaldo(await archivo.text())
+      const p = r.preferencias ?? {}
+      if (typeof p.moneda === 'string') setMoneda(p.moneda)
+      if (typeof p.notifGastos === 'boolean') setNotifGastos(p.notifGastos)
+      if (typeof p.notifMetas === 'boolean') setNotifMetas(p.notifMetas)
+      if (typeof p.notifResumen === 'boolean') setNotifResumen(p.notifResumen)
+      if (r.preferencias) { try { localStorage.setItem('fa_prefs', JSON.stringify({ ...JSON.parse(localStorage.getItem('fa_prefs') || '{}'), ...r.preferencias })) } catch { /* ignore */ } }
+      const pres = normalizarPresupuestos(p.presupuestos)
+      if (Object.keys(pres).length) await guardarPresupuestos(supabase, { ...leerPresupuestosLocal(), ...pres })
+      let res: ResumenImportacion[] = []
+      if (Object.keys(r.tablas ?? {}).length) {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) throw new Error('Tenés que iniciar sesión.')
+        res = await importarTodo(supabase, user.id, r)
+      }
+      const nuevas = res.reduce((t, x) => t + x.nuevas, 0)
+      const errores = res.filter(x => x.error)
+      const base = res.length ? `Se agregaron ${nuevas} registros nuevos; los que ya tenías quedaron igual.` : 'Se restauraron tus preferencias.'
+      setRespaldo({ ocupado: false, msg: errores.length ? `${base} No se pudo importar: ${errores.map(e => e.tabla).join(', ')}.` : base, error: errores.length > 0 })
+    } catch (e) {
+      setRespaldo({ ocupado: false, msg: e instanceof Error ? e.message : 'No se pudo importar el archivo.', error: true })
+    }
   }
 
   return (
@@ -242,13 +277,20 @@ export default function ConfiguracionPage() {
             <p>Tus datos financieros están encriptados y almacenados de forma segura.</p>
             <p>No compartimos tu información con terceros.</p>
             <p>Podés solicitar la eliminación de tu cuenta y todos tus datos en cualquier momento.</p>
-            <button
-              onClick={exportarDatos}
-              className="mt-2 flex items-center gap-2 text-xs font-semibold text-confirm hover:underline"
-            >
-              <Download size={14} />
-              Exportar mis datos
-            </button>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <button onClick={exportarDatos} disabled={respaldo.ocupado}
+                className="fa-press flex items-center gap-2 rounded-control bg-alternate px-3 py-2 text-xs font-semibold text-primary disabled:opacity-50">
+                <Download size={14} /> Exportar todos mis datos
+              </button>
+              <button onClick={() => archivoRef.current?.click()} disabled={respaldo.ocupado}
+                className="fa-press flex items-center gap-2 rounded-control bg-alternate px-3 py-2 text-xs font-semibold text-primary disabled:opacity-50">
+                <Upload size={14} /> Importar respaldo
+              </button>
+              <input ref={archivoRef} type="file" accept="application/json,.json" className="hidden"
+                onChange={e => { const f = e.target.files?.[0]; e.target.value = ''; if (f) importarDatos(f) }} />
+            </div>
+            <p className="text-xs text-muted">Importar no borra ni cambia nada: solo agrega lo que falta. Sirven también los archivos exportados antes.</p>
+            {respaldo.msg && <p role="status" className={`text-xs ${respaldo.error ? 'text-negative' : 'text-secondary'}`}>{respaldo.msg}</p>}
           </div>
         )}
       </div>

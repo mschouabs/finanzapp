@@ -514,7 +514,7 @@ export default function LucaChatPage() {
                           {guardando === msg.id ? 'Haciendo…' : errores[msg.id] ? 'Reintentar' : 'Confirmar'}
                         </button>
                         <button onClick={() => cancelarAccion(msg)} disabled={guardando === msg.id}
-                          className="rounded-lg border px-3 py-2 text-xs font-semibold text-secondary hover:bg-alternate disabled:opacity-50">
+                          className="rounded-control px-3 py-2 text-xs font-semibold text-secondary disabled:opacity-50 bg-alternate hover:text-primary">
                           Cancelar
                         </button>
                       </div>

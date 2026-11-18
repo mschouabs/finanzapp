@@ -6,7 +6,7 @@ import { Calendar, ChevronLeft, ChevronRight, GripVertical, MapPin, Plus } from 
 import { createClient } from '@/lib/supabase'
 import { ViajeModal } from '@/components/ViajeModal'
 import { GrillaOrdenable, type HandleProps } from '@/components/GrillaOrdenable'
-import { PALETA, SkeletonPagina } from '@/components/ui/Piezas'
+import { PALETA, SkeletonPagina, ErrorCarga } from '@/components/ui/Piezas'
 import { LucaAvatar } from '@/components/luca/LucaAvatar'
 import { Encabezado, NumeroAnimado, Pestanas } from '@/components/resumen/base'
 import { useAlCambiarDatos } from '@/lib/eventos'
@@ -43,22 +43,23 @@ export default function ViajesPage() {
   const [vistaGrafico, setVistaGrafico] = useState<'total' | 'dia'>('total')
   const [anio, setAnio] = useState(new Date().getFullYear())
 
+  const [fallo, setFallo] = useState(false)
   const cargar = useCallback(async () => {
     try {
       const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
-      const [{ data: vs }, { data: gs }] = await Promise.all([
+      const [{ data: vs, error: e1 }, { data: gs, error: e2 }] = await Promise.all([
         supabase.from('viajes').select('*')
           .order('fecha_inicio', { ascending: false, nullsFirst: false })
           .order('created_at', { ascending: false }),
         supabase.from('viaje_gastos').select('viaje_id, monto_ars, fecha, categoria'),
       ])
+      setFallo(!!(e1 || e2))
       setViajes((vs ?? []) as ViajeOrd[])
       setGastos((gs ?? []) as GastoMin[])
     } catch {
-      setViajes([])
-      setGastos([])
+      setFallo(true)
     } finally {
       setLoading(false)
     }
@@ -130,6 +131,7 @@ export default function ViajesPage() {
     await Promise.all(ids.map((id, i) => supabase.from('viajes').update({ orden: i }).eq('id', id)))
   }, [])
 
+  if (fallo) return <ErrorCarga onReintentar={() => { setFallo(false); setLoading(true); cargar() }} />
   if (loading) return <SkeletonPagina kpis={2} />
 
   const arrastrable = filtro === 'todos' && visibles.length > 1
@@ -311,7 +313,7 @@ function TarjetaViaje({ v, total, handle, arrastrando }: { v: Viaje; total: numb
     >
       {/* franja superior con el color del viaje */}
       <div className="relative px-4 pb-3 pt-4 text-white"
-        style={{ background: `linear-gradient(135deg, ${color} 0%, color-mix(in srgb, ${color} 55%, #000) 100%)` }}>
+        style={{ background: `color-mix(in srgb, ${color} 88%, #000)` }}>
         <span aria-hidden="true" className="pointer-events-none absolute -right-4 -top-6 opacity-15"><Icono nombre={v.emoji} size={96} strokeWidth={1} /></span>
         <div className="relative flex items-start gap-2">
           {handle && (
@@ -403,7 +405,7 @@ function BannerViaje({ v, gastado }: { v: Viaje; gastado: number }) {
   return (
     <Link href={`/dashboard/viajes/${v.id}`}
       className="fa-lift fa-aparecer relative flex flex-wrap items-center gap-4 overflow-hidden rounded-2xl p-5 text-white"
-      style={{ background: `linear-gradient(120deg, ${color} 0%, color-mix(in srgb, ${color} 45%, #000) 100%)`, boxShadow: '0 12px 30px rgba(0,0,0,.25)' }}>
+      style={{ background: `color-mix(in srgb, ${color} 88%, #000)`, boxShadow: 'var(--shadow-widget)' }}>
       <span aria-hidden="true" className="pointer-events-none absolute -right-4 -top-6 opacity-15"><Icono nombre={v.emoji} size={130} strokeWidth={1} /></span>
       <span className="grid h-12 w-12 shrink-0 place-items-center rounded-control bg-white/15"><Icono nombre={v.emoji} size={24} /></span>
       <div className="relative min-w-0 flex-1">
