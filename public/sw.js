@@ -18,3 +18,14 @@ self.addEventListener('fetch', e => {
     e.respondWith(fetch(e.request).catch(() => new Response(SIN_CONEXION, { headers: { 'Content-Type': 'text/html; charset=utf-8' } })))
   }
 })
+
+/* Al tocar una notificación: abrir la app en la pantalla que corresponde. */
+self.addEventListener('notificationclick', e => {
+  e.notification.close()
+  const href = (e.notification.data && e.notification.data.href) || '/dashboard'
+  e.waitUntil((async () => {
+    const abiertas = await self.clients.matchAll({ type: 'window', includeUncontrolled: true })
+    for (const c of abiertas) { if ('focus' in c) { await c.focus(); if ('navigate' in c) await c.navigate(href); return } }
+    await self.clients.openWindow(href)
+  })())
+})

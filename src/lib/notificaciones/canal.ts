@@ -83,10 +83,16 @@ export async function mostrarYa(a: Aviso, sonido: boolean) {
     return
   }
   if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+    const opciones = { body: a.cuerpo, icon: '/icon-192.png', badge: '/icon-192.png', tag: a.clave, data: { href: a.href } }
+    /* en Chrome del celular (y en la app instalada desde Chrome) solo funciona desde el service worker */
     try {
-      const n = new Notification(a.titulo, { body: a.cuerpo, icon: '/icon-192.png', tag: a.clave })
+      const reg = 'serviceWorker' in navigator ? await navigator.serviceWorker.getRegistration() : undefined
+      if (reg) { await reg.showNotification(a.titulo, opciones); return }
+    } catch { /* sigue con el método común */ }
+    try {
+      const n = new Notification(a.titulo, opciones)
       n.onclick = () => { window.focus(); window.location.href = a.href }
-    } catch { /* algunos navegadores móviles solo permiten desde el service worker */ }
+    } catch { /* este navegador no permite notificaciones */ }
   }
 }
 
