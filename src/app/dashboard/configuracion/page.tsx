@@ -10,6 +10,8 @@ import {
 import { guardarPresupuestos, leerPresupuestosLocal, normalizarPresupuestos } from '@/lib/presupuestos'
 import { exportarTodo, importarTodo, leerRespaldo, type ResumenImportacion } from '@/lib/respaldo'
 import { ThemeSelector } from '@/components/ThemeSelector'
+import { PanelAvisos } from '@/components/PanelAvisos'
+import { guardarPrefs, guardarRecordatorios, leerPrefsLocal, leerRecordatoriosLocal, normalizarPrefs, normalizarRecordatorios } from '@/lib/notificaciones/almacen'
 
 const MONEDAS = ['ARS', 'USD', 'EUR', 'BRL', 'UYU']
 
@@ -62,7 +64,7 @@ export default function ConfiguracionPage() {
   const exportarDatos = async () => {
     setRespaldo({ ocupado: true, msg: 'Preparando tu respaldo…', error: false })
     try {
-      const datos = await exportarTodo(supabase, { moneda, notifGastos, notifMetas, notifResumen, presupuestos: leerPresupuestosLocal() })
+      const datos = await exportarTodo(supabase, { moneda, notifGastos, notifMetas, notifResumen, presupuestos: leerPresupuestosLocal(), avisos: leerPrefsLocal(), recordatorios: leerRecordatoriosLocal() })
       const blob = new Blob([JSON.stringify(datos, null, 2)], { type: 'application/json' })
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
@@ -89,6 +91,12 @@ export default function ConfiguracionPage() {
       if (r.preferencias) { try { localStorage.setItem('fa_prefs', JSON.stringify({ ...JSON.parse(localStorage.getItem('fa_prefs') || '{}'), ...r.preferencias })) } catch { /* ignore */ } }
       const pres = normalizarPresupuestos(p.presupuestos)
       if (Object.keys(pres).length) await guardarPresupuestos(supabase, { ...leerPresupuestosLocal(), ...pres })
+      if (p.avisos) await guardarPrefs(supabase, normalizarPrefs(p.avisos))
+      const recs = normalizarRecordatorios(p.recordatorios)
+      if (recs.length) {
+        const actuales = leerRecordatoriosLocal()
+        await guardarRecordatorios(supabase, [...actuales, ...recs.filter(r => !actuales.some(a => a.id === r.id))])
+      }
       let res: ResumenImportacion[] = []
       if (Object.keys(r.tablas ?? {}).length) {
         const { data: { user } } = await supabase.auth.getUser()
@@ -226,33 +234,12 @@ export default function ConfiguracionPage() {
             </div>
             <div className="text-left">
               <p className="text-sm font-semibold text-primary">Notificaciones</p>
-              <p className="text-xs text-secondary">Alertas y recordatorios</p>
+              <p className="text-xs text-secondary">Vencimientos, presupuesto y recordatorios</p>
             </div>
           </div>
           <ChevronRight size={16} className={`text-secondary transition-transform ${seccion === 'notif' ? 'rotate-90' : ''}`} />
         </button>
-        {seccion === 'notif' && (
-          <div className="mt-4 pt-4 border-t space-y-4">
-            {[
-              { label: 'Alertas de gastos', sub: 'Cuando registrás un gasto nuevo', val: notifGastos, set: setNotifGastos },
-              { label: 'Progreso de metas', sub: 'Cuando avanzás hacia una meta', val: notifMetas, set: setNotifMetas },
-              { label: 'Resumen mensual', sub: 'Resumen de tus finanzas al final del mes', val: notifResumen, set: setNotifResumen },
-            ].map(({ label, sub, val, set }) => (
-              <div key={label} className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-semibold text-primary">{label}</p>
-                  <p className="text-xs text-secondary">{sub}</p>
-                </div>
-                <button
-                  onClick={() => set(!val)}
-                  className={`relative w-11 h-6 rounded-full transition-colors ${val ? 'bg-confirm' : 'bg-border'}`}
-                >
-                  <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${val ? 'translate-x-5' : 'translate-x-0'}`} />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
+        {seccion === 'notif' && <PanelAvisos />}
       </div>
 
       {/* Privacidad */}

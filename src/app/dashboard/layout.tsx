@@ -4,6 +4,7 @@ import { cookies } from 'next/headers'
 import Sidebar from '@/components/ui/Sidebar'
 import { Header } from '@/components/ui/Header'
 import { Experiencia } from '@/components/ui/Experiencia'
+import { Notificador } from '@/components/Notificador'
 import { DEMO, USUARIO_DEMO } from '@/lib/demo'
 
 async function obtenerUsuario() {
@@ -58,6 +59,7 @@ export default async function DashboardLayout({
       <main id="contenido" className="lg:ml-64">
         <Header />
         <Experiencia />
+        <Notificador />
         <div className="fa-container px-4 pt-4 sm:pt-6 sm:px-6 lg:px-10 pb-bottom-nav">
           {children}
         </div>
