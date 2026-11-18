@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { lucaPermitido } from '@/lib/servidor/permisos'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { hoyArgentina } from '@/lib/fechas'
 
@@ -364,6 +365,7 @@ export async function POST(req: NextRequest) {
   const supabase = createClient(url, anon, { global: { headers: { Authorization: `Bearer ${token}` } }, auth: { persistSession: false } })
   const { data: { user } } = await supabase.auth.getUser(token)
   if (!user) return NextResponse.json({ error: 'sin_sesion' }, { status: 401 })
+  if (!lucaPermitido(user.email)) return NextResponse.json({ error: 'sin_permiso' }, { status: 403 })
 
   let body: { messages?: Msg[]; contexto?: string }
   try { body = await req.json() } catch { return NextResponse.json({ error: 'json' }, { status: 400 }) }

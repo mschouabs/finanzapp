@@ -206,6 +206,7 @@ export function CapturaLuca({ onGuardar = guardarGastoPorDefecto, autoFoco = fal
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
         body: JSON.stringify({ messages: [{ role: 'user', content: texto.trim() }], contexto: construirContexto(s) }),
       })
+      if (res.status === 403) throw new Error('permiso')
       if (!res.ok) throw new Error('ia')
       const data = await res.json() as { mensaje?: string; acciones?: AccionPropuesta[] }
       const acciones = data.acciones ?? []
@@ -226,8 +227,10 @@ export function CapturaLuca({ onGuardar = guardarGastoPorDefecto, autoFoco = fal
       }
       setRespuesta({ texto: data.mensaje || 'Listo.', propuestas })
       setPaso('respuesta')
-    } catch {
-      setError('Luca no pudo responder ahora. Probá de nuevo en un rato.')
+    } catch (e) {
+      setError(e instanceof Error && e.message === 'permiso'
+        ? 'Luca no está habilitado para esta cuenta. Podés cargar los movimientos a mano.'
+        : 'Luca no pudo responder ahora. Probá de nuevo en un rato.')
       setPaso('error')
     }
   }

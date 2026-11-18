@@ -172,6 +172,7 @@ export default function LucaChatPage() {
           contexto: construirContexto(s),
         }),
       })
+      if (res.status === 403) return [{ id: getId(), rol: 'luca', texto: 'Luca no está habilitado para esta cuenta. Podés cargar los movimientos a mano desde Movimientos.', timestamp: Date.now() }]
       if (!res.ok) return null
       const data = await res.json() as { mensaje?: string; acciones?: AccionPropuesta[] }
       const salida: Mensaje[] = [{ id: getId(), rol: 'luca', texto: data.mensaje || 'Listo.', timestamp: Date.now() }]

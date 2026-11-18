@@ -6,8 +6,11 @@
 import crypto from 'crypto'
 import type { NextRequest } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
+import { lucaPermitido } from './permisos'
+export { lucaPermitido }
 
 export const CABECERA_INTERNA = 'x-finanzapp-interno'
+
 
 export function huellaInterna(): string | null {
   const clave = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -34,7 +37,7 @@ export async function pedidoAutorizado(req: NextRequest): Promise<boolean> {
     })
     const token = (req.headers.get('authorization') ?? '').replace(/^Bearer\s+/i, '')
     const { data: { user } } = token ? await supabase.auth.getUser(token) : await supabase.auth.getUser()
-    return !!user
+    return !!user && lucaPermitido(user.email)
   } catch {
     return false
   }
