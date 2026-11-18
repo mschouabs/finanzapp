@@ -5,14 +5,14 @@ import { BellRing, Plus, Repeat, Trash2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import type { PrefsAvisos, Recordatorio } from '@/lib/notificaciones/plan'
 import { guardarPrefs, guardarRecordatorios, leerDeCuenta, leerPrefsLocal, leerRecordatoriosLocal } from '@/lib/notificaciones/almacen'
-import { esAppNativa, estadoPermiso, mostrarYa, pedirPermiso, type Permiso } from '@/lib/notificaciones/canal'
+import { activarPush, esAppNativa, estadoPermiso, mostrarYa, pedirPermiso, pushActivo, pushDisponible, type Permiso } from '@/lib/notificaciones/canal'
 import { reprogramarAvisos } from '@/components/Notificador'
 
 const OPCIONES: { k: keyof PrefsAvisos; label: string; sub: string }[] = [
   { k: 'vencimientos', label: 'Vencimientos', sub: 'Resúmenes de tarjeta: 3 días antes, 1 día antes y el mismo día' },
   { k: 'presupuesto', label: 'Presupuesto', sub: 'Al llegar al 80% de una categoría y si te pasás del tope' },
   { k: 'recordatorios', label: 'Recordatorios', sub: 'Los que creás vos, abajo' },
-  { k: 'semanal', label: 'Resumen semanal', sub: 'Los domingos a las 20' },
+  { k: 'semanal', label: 'Resumen semanal', sub: 'Los domingos, con cuánto gastaste en la semana' },
   { k: 'sonido', label: 'Sonido', sub: 'Un sonido corto cuando aparece un aviso con la app abierta' },
 ]
 
@@ -37,9 +37,11 @@ export function PanelAvisos() {
   const [permiso, setPermiso] = useState<Permiso>('preguntar')
   const [nuevo, setNuevo] = useState({ texto: '', fecha: hoyISO(), hora: '09:00', mensual: false })
   const [msg, setMsg] = useState<string | null>(null)
+  const [push, setPush] = useState<boolean | null>(null)
 
   useEffect(() => {
     estadoPermiso().then(setPermiso)
+    if (pushDisponible()) pushActivo().then(setPush)
     leerDeCuenta(createClient()).then(r => { if (r) { setPrefs(r.prefs); setRecs(r.recordatorios) } })
   }, [])
 
@@ -53,7 +55,10 @@ export function PanelAvisos() {
   const activar = async () => {
     const r = await pedirPermiso()
     setPermiso(r)
-    if (r === 'concedido') reprogramarAvisos()
+    if (r === 'concedido') {
+      reprogramarAvisos()
+      if (pushDisponible()) setPush(await activarPush(createClient()))
+    }
   }
 
   const probar = async () => {
@@ -94,12 +99,25 @@ export function PanelAvisos() {
               ? (esAppNativa() ? 'Habilitalas desde los ajustes del teléfono (Apps → FinanzApp → Notificaciones).' : 'Habilitalas desde el candado que está al lado de la dirección, en el navegador.')
               : permiso === 'no-disponible'
                 ? 'Probá desde la app instalada en el celular.'
-                : esAppNativa() ? 'Te llegan aunque la app esté cerrada.' : 'En el navegador solo te llegan con la app abierta. En la app del celular llegan siempre.'}
+                : esAppNativa() ? 'Te llegan aunque la app esté cerrada.' : 'Te llegan con la app abierta y, una vez por día a las 9, aunque esté cerrada.'}
           </p>
           {permiso === 'preguntar' && (
             <button onClick={activar} className="fa-press mt-3 flex items-center gap-2 rounded-control bg-confirm px-3 py-2 text-xs font-semibold text-white hover:bg-confirm-hover">
               <BellRing size={14} /> Activar notificaciones
             </button>
+          )}
+        </div>
+      )}
+
+      {permiso === 'concedido' && pushDisponible() && (
+        <div className="flex items-center justify-between gap-4 rounded-control bg-alternate px-4 py-3">
+          <span>
+            <span className="block text-sm font-semibold text-primary">Con la app cerrada</span>
+            <span className="block text-xs text-secondary">{push ? 'Activado: te llegan los avisos del día todas las mañanas a las 9.' : 'Recibí los avisos aunque no tengas la app abierta.'}</span>
+          </span>
+          {!push && (
+            <button onClick={async () => { const ok = await activarPush(createClient()); setPush(ok); if (!ok) setMsg('No se pudo activar en este navegador. Probá desde Chrome en el celular.') }}
+              className="fa-press shrink-0 rounded-control bg-confirm px-3 py-2 text-xs font-semibold text-white hover:bg-confirm-hover">Activar</button>
           )}
         </div>
       )}

@@ -29,3 +29,12 @@ self.addEventListener('notificationclick', e => {
     await self.clients.openWindow(href)
   })())
 })
+
+/* Avisos que manda el servidor con la app cerrada (Web Push). */
+self.addEventListener('push', e => {
+  let d = {}
+  try { d = e.data ? e.data.json() : {} } catch { d = { titulo: 'FinanzApp', cuerpo: e.data ? e.data.text() : '' } }
+  e.waitUntil(self.registration.showNotification(d.titulo || 'FinanzApp', {
+    body: d.cuerpo || '', icon: '/icon-192.png', badge: '/icon-192.png', tag: d.clave, data: { href: d.href || '/dashboard' },
+  }))
+})

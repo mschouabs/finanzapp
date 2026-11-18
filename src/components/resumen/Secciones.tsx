@@ -185,8 +185,8 @@ export function Categorias({ cats, mes, esActual, seleccion, onSeleccion, max = 
             const on = seleccion === c.clave
             const delta = c.anterior > 0 ? ((c.monto - c.anterior) / c.anterior) * 100 : null
             const apagada = (foco && foco !== c.clave) || (seleccion && !on)
-            const tope = presupuestos?.[c.clave]
-            const pres = tope ? estadoPresupuesto(c.monto, tope, avance, fmt) : null
+            const topeMes = presupuestos?.[c.clave]
+            const pres = topeMes ? estadoPresupuesto(c.monto, topeMes, avance, fmt) : null
             return (
               <li key={c.clave}>
                 <button type="button" aria-pressed={on}

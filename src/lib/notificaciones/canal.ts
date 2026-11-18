@@ -127,3 +127,39 @@ export function sonar() {
     }
   } catch { /* sin audio */ }
 }
+
+/* ── Avisos con la app cerrada en el navegador (Web Push) ─────────────
+   El celular se anota una vez; después el servidor manda los avisos del
+   día todas las mañanas, aunque la app esté cerrada.                  */
+const CLAVE_PUBLICA = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? ''
+
+export const pushDisponible = () =>
+  typeof window !== 'undefined' && !esAppNativa() && !!CLAVE_PUBLICA && 'serviceWorker' in navigator && 'PushManager' in window
+
+function aBytes(b64: string) {
+  const s = atob((b64 + '='.repeat((4 - (b64.length % 4)) % 4)).replace(/-/g, '+').replace(/_/g, '/'))
+  return Uint8Array.from(s, c => c.charCodeAt(0))
+}
+
+/** Anota este dispositivo para recibir avisos con la app cerrada. Devuelve true si quedó anotado. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function activarPush(supabase: { from: (t: string) => any }): Promise<boolean> {
+  if (!pushDisponible() || Notification.permission !== 'granted') return false
+  try {
+    const reg = (await navigator.serviceWorker.getRegistration()) ?? (await navigator.serviceWorker.register('/sw.js'))
+    await navigator.serviceWorker.ready
+    const sus = (await reg.pushManager.getSubscription())
+      ?? (await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: aBytes(CLAVE_PUBLICA) }))
+    const j = sus.toJSON() as { endpoint?: string; keys?: { p256dh?: string; auth?: string } }
+    if (!j.endpoint || !j.keys?.p256dh || !j.keys?.auth) return false
+    const { error } = await supabase.from('push_suscripciones')
+      .upsert({ endpoint: j.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth }, { onConflict: 'endpoint' })
+    return !error
+  } catch { return false }
+}
+
+/** ¿Este dispositivo ya está anotado? */
+export async function pushActivo(): Promise<boolean> {
+  if (!pushDisponible()) return false
+  try { return !!(await (await navigator.serviceWorker.getRegistration())?.pushManager.getSubscription()) } catch { return false }
+}

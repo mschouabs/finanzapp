@@ -11,7 +11,7 @@ import { getCat } from '@/lib/categorias'
 import { leerPresupuestosCuenta, leerPresupuestosLocal } from '@/lib/presupuestos'
 import { avisosPresupuesto, planificar, type Aviso } from '@/lib/notificaciones/plan'
 import { leerAvisados, leerDeCuenta, leerPrefsLocal, leerRecordatoriosLocal, marcarAvisados } from '@/lib/notificaciones/almacen'
-import { alTocar, esAppNativa, estadoPermiso, mostrarYa, programar } from '@/lib/notificaciones/canal'
+import { activarPush, alTocar, esAppNativa, estadoPermiso, mostrarYa, programar, pushDisponible } from '@/lib/notificaciones/canal'
 
 export const EVENTO_AVISOS = 'finanzapp:avisos-cambiaron'
 export const reprogramarAvisos = () => { if (typeof window !== 'undefined') window.dispatchEvent(new Event(EVENTO_AVISOS)) }
@@ -22,6 +22,7 @@ export function Notificador() {
   const router = useRouter()
   const timers = useRef<ReturnType<typeof setTimeout>[]>([])
   const cuentaLeida = useRef(false)
+  const pushRevisado = useRef(false)
 
   const correr = useCallback(async () => {
     try {
@@ -42,6 +43,8 @@ export function Notificador() {
         /* en el navegador solo se puede avisar con la app abierta: lo que cae en las próximas horas */
         timers.current.forEach(clearTimeout); timers.current = []
         if (permiso === 'concedido') {
+          /* mantiene anotado este dispositivo para los avisos con la app cerrada */
+          if (pushDisponible() && !pushRevisado.current) { pushRevisado.current = true; activarPush(supabase) }
           for (const a of plan) {
             const ms = a.cuando.getTime() - Date.now()
             if (ms > 0 && ms < 12 * 3600_000) timers.current.push(setTimeout(() => mostrarYa(a, prefs.sonido), ms))
